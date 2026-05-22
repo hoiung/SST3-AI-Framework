@@ -59,11 +59,13 @@ else
     GLOBS=("$@")
 fi
 
-# markdownlint-cli2 emits text in two forms:
-#   <file>:<line> error <rule> <description> [Context: "..."]
-#   <file>:<line>:<col> error <rule> <description>
-# We reshape to NDJSON. Both forms are handled by stripping line+col prefix and
-# parsing the remainder for the MD### rule code and description.
+# markdownlint-cli2 output varies by version:
+#   0.17.x emits:  <file>:<line>:<col> MD013/line-length <description>
+#   0.17.x emits:  <file>:<line> MD041/first-line-heading/first-line-h1 <description>
+#   legacy emits:  <file>:<line>:<col> error MD013 <description>
+# The grep + sed below match all three: error/warning keyword is OPTIONAL, and
+# multi-component rule paths like MD041/first-line-heading/first-line-h1 are
+# captured verbatim into the NDJSON `rule` field. (#499 format tolerance.)
 #
 # #484 Stage-5 reliability fix: capture markdownlint's exit code OUT of the
 # pipe so a crashed engine is NOT silently swallowed by `| while ... done
@@ -83,11 +85,24 @@ if [[ $MDL_EXIT -ne 0 && $MDL_EXIT -ne 1 ]]; then
     exit 2
 fi
 
-OUT=$(printf '%s\n' "$RAW" | { grep -E '^[^[:space:]]+:[0-9]+(:[0-9]+)? (error|warning) MD' || true; } | while IFS= read -r LINE; do
+# #499 engine-crash detection (silent_zero closure): Node-level SyntaxError /
+# TypeError / module-load failures cause markdownlint-cli2 to exit 1 with a JS
+# stack trace, which the exit-code-only check above treats as "findings found
+# NORMAL". The crash output never matches the MD-finding grep pattern, so the
+# parser emits 0 records and the wrapper falsely declares "0 findings" with
+# exit 0. A single regex sweep on RAW catches the Node crash class before the
+# parser runs. Trigger: Node 18 + markdownlint-cli2@0.18+ (engines.node>=20).
+if printf '%s' "$RAW" | grep -qE '^(SyntaxError|TypeError|ReferenceError|RangeError):|^Cannot find module|^node:internal/modules'; then
+    echo "ERROR: markdownlint-cli2 engine crashed (Node-level error in output) — NOT a clean run" >&2
+    echo "sst3-doc-lint: ENGINE CRASHED (Node-level error) — do NOT treat as clean" >&2
+    exit 2
+fi
+
+OUT=$(printf '%s\n' "$RAW" | { grep -E '^[^[:space:]]+:[0-9]+(:[0-9]+)?( (error|warning))? MD[0-9]+' || true; } | while IFS= read -r LINE; do
     FILE=$(echo "$LINE" | sed -E 's/^([^:]+):.*$/\1/')
     LN=$(echo "$LINE" | sed -E 's/^[^:]+:([0-9]+).*$/\1/')
-    RULE=$(echo "$LINE" | grep -oE 'MD[0-9]+(/[a-z-]+)?' | head -1)
-    DESC=$(echo "$LINE" | sed -E "s|^[^:]+:[0-9]+(:[0-9]+)? (error\|warning) MD[0-9]+(/[a-z-]+)? ||; s| \[Context: .*\]$||")
+    RULE=$(echo "$LINE" | grep -oE 'MD[0-9]+(/[a-z0-9-]+)*' | head -1)
+    DESC=$(echo "$LINE" | sed -E "s|^[^:]+:[0-9]+(:[0-9]+)?( (error\|warning))? MD[0-9]+(/[a-z0-9-]+)* ||; s| \[Context: .*\]$||")
     jq -nc --arg f "$FILE" --argjson l "${LN:-0}" --arg r "${RULE:-unknown}" --arg d "$DESC" \
         '{file: $f, line: $l, rule: $r, description: $d}'
 done)
