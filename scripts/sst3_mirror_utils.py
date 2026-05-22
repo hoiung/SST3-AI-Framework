@@ -73,7 +73,7 @@ _PRIVATE_PATH_RE = re.compile(r"logs/sample_\d+_validation\.log")
 # handles the bare name elsewhere; URL forms still block via .secret-blocklist).
 # Includes `apbst` (legacy private slug for auto_pb_swing_trader internal Issues).
 _PRIVATE_REPO_ISSUE_RE = re.compile(
-    r"\b(ebay-ops|job-hunter|brainstorm|blog-priv|lab-ops|consulting-ops|apbst)#(\d+)\b"
+    r"\b(ebay-ops|job-hunter|brainstorm|blog-priv|lab-ops|consulting-ops|apbst|harness-management-system-demo1|dating-platform-demo1)#(\d+)\b"
 )
 # Strict start-of-line match — only lines of the form `# [identifier]` (optional trailing whitespace).
 # Data lines containing `[` (e.g. `ERROR_[42]`) do NOT match and are preserved as data. (#441 Phase 2 defensive regex.)
@@ -169,6 +169,8 @@ _PRIVATE_TERM_PAIRS: list[tuple[str, str]] = [
     ("consulting-ops", "consultancy-ops"),
     ("bakeoff-priv", "private-bake-off"),
     ("apbst", "project-x"),
+    ("harness-management-system-demo1", "consumer-private-B"),
+    ("dating-platform-demo1", "consumer-private-C"),
     # Personal cloud-drive paths + private hostnames + leak-tracking memory
     # filenames — same substring-replacement semantics as filter-repo. Order is
     # longest-first so `HU-<MODEL>` precedes any potential `NUC` collision.

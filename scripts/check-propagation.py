@@ -151,7 +151,16 @@ def validate_sst3_sections():
     """
     script_dir = Path(__file__).parent.resolve()
     dotfiles_root = script_dir.parent.parent  # SST3/scripts -> SST3 -> dotfiles
-    parent_dir = dotfiles_root.parent  # dotfiles -> DevProjects
+    # #500 Stage 5 worktree-CWD fix: when invoked from .claude/worktrees/<wt>/,
+    # dotfiles_root.parent resolves to .claude/worktrees/ (not ~/DevProjects/),
+    # causing every cross-repo CLAUDE.md lookup to silently miss. Use
+    # sst3_mirror_utils.resolve_main_clone_root (the env-immune /.claude/worktrees/
+    # strip propagate-template.py uses post-#488) so parent_dir is always
+    # the canonical DevProjects regardless of worktree state.
+    sys.path.insert(0, str(script_dir))
+    import sst3_mirror_utils as _smu  # noqa: E402
+    manifest_path = dotfiles_root / 'SST3' / _smu.MANIFEST_FILENAME
+    parent_dir = _smu.resolve_main_clone_root(manifest_path).parent
 
     template_path = dotfiles_root / 'SST3' / 'templates' / 'CLAUDE_TEMPLATE.md'
 
