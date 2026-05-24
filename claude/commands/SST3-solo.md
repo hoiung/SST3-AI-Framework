@@ -2,10 +2,10 @@
 
 ## Mandatory Reading
 
-**Post-#498 Phase 4 — per-stage loader**: prefer `bash scripts/load-stage-rules.sh always` at session start over reading STANDARDS.md in full. The loader emits the always-load carve-out subset (privacy / voice / destructive-op / MCP-Tool-Schema-Loading) at ~16K bytes vs the full ~50K canonical. Per-stage subsets (`load-stage-rules.sh <N>`) load when entering Stage N. AC 4.9 invariant: `grep -F 'load-stage-rules.sh always' .claude/commands/SST3-solo.md` returns ≥1.
+**Post-#498 Phase 4 — per-stage loader**: prefer `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md always-tagged sections directly via `<!-- stages: always -->` markers]` at session start over reading STANDARDS.md in full. The loader emits the always-load carve-out subset (privacy / voice / destructive-op / MCP-Tool-Schema-Loading) at ~16K bytes vs the full ~50K canonical. Per-stage subsets (`load-stage-rules.sh <N>`) load when entering Stage N. AC 4.9 invariant: `grep -F 'load-stage-rules.sh always' .claude/commands/SST3-solo.md` returns ≥1.
 
 Default per-session reading set:
-1. `bash scripts/load-stage-rules.sh always` — always-load canonical subset.
+1. `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md always-tagged sections directly via `<!-- stages: always -->` markers]` — always-load canonical subset.
 2. Current repository's `CLAUDE.md` (entire file).
 3. `../workflow/WORKFLOW.md` (entire file — defines the 5-stage workflow).
 

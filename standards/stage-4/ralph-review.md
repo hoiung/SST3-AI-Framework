@@ -35,4 +35,4 @@ When ANY Tier-3 finding depends on `sst3-code-*.sh` wrapper output, Opus MUST di
 
 - `.claude/commands/Leader.md` Stage 4 step 7 — the operator-facing Ralph trigger.
 - `../../ralph/{haiku,sonnet,opus}-review.md` — per-tier canonical checklists.
-- `../dotfiles/docs/research/model-selection-haiku-4-5.md` — model-selection rationale.
+- `../docs/research/model-selection-haiku-4-5.md` — model-selection rationale.

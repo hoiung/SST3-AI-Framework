@@ -47,7 +47,7 @@ Which stage? (1-5)
 
 ## Stage 1 — Research (Subagent Swarm -> /tmp)
 
-**Stage 1 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 1` to load the Stage-1-tagged canonical subset (research / subagent-swarm / pre-swarm SEED rules). The loader replaces the prior "read STANDARDS.md in full" directive; per-stage tagging emits ~28K bytes vs the full ~50K canonical. Always-load carve-out (privacy / voice / destructive-op) is included automatically.
+**Stage 1 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 1-tagged sections directly via `<!-- stages: 1 -->` markers]` to load the Stage-1-tagged canonical subset (research / subagent-swarm / pre-swarm SEED rules). The loader replaces the prior "read STANDARDS.md in full" directive; per-stage tagging emits ~28K bytes vs the full ~50K canonical. Always-load carve-out (privacy / voice / destructive-op) is included automatically.
 
 Scale subagent count to match scope. No maximum. No minimum of 2-3. If 12 directories to check, dispatch 12+ subagents. Every subagent covers a different angle, directory, file set, or data source. No two subagents share the same prompt.
 
@@ -83,7 +83,7 @@ Scale subagent count to match scope. No maximum. No minimum of 2-3. If 12 direct
 
 ## Stage 2 — Issue Draft (/tmp, NOT GitHub)
 
-**Stage 2 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 2` to load the Stage-2-tagged subset (issue-template / acceptance-criteria / quality-mantras / AC-verifiability rules). Replaces full-canon read at Stage 2 entry.
+**Stage 2 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 2-tagged sections directly via `<!-- stages: 2 -->` markers]` to load the Stage-2-tagged subset (issue-template / acceptance-criteria / quality-mantras / AC-verifiability rules). Replaces full-canon read at Stage 2 entry.
 
 
 Create `/tmp/issue_draft_<topic>_<date>.md` FIRST. Do NOT create the GitHub issue yet.
@@ -133,7 +133,7 @@ Create `/tmp/issue_draft_<topic>_<date>.md` FIRST. Do NOT create the GitHub issu
 
 ## Stage 3 — Sanity Check + GitHub Issue Creation
 
-**Stage 3 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 3` to load the Stage-3-tagged subset (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Replaces full-canon read at Stage 3 entry.
+**Stage 3 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 3-tagged sections directly via `<!-- stages: 3 -->` markers]` to load the Stage-3-tagged subset (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Replaces full-canon read at Stage 3 entry.
 
 
 The draft exists. Now verify it is correct before it becomes the contract.
@@ -167,7 +167,7 @@ The draft exists. Now verify it is correct before it becomes the contract.
 
 ## Stage 4 — Implement (includes Verification Loop + Merge + User-Review-Checklist)
 
-**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 4` to load the Stage-4-tagged subset PLUS the 9 stage-4/*.md extract files (verification-loop / ralph-review / gate-2-merge / gate-3-user-review / three-tier-testing / contract-verification / observability-fail-fast / cohabitation-protocol / file-housekeeping). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
+**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 4-tagged sections directly via `<!-- stages: 4 -->` markers]` to load the Stage-4-tagged subset PLUS the 9 stage-4/*.md extract files (verification-loop / ralph-review / gate-2-merge / gate-3-user-review / three-tier-testing / contract-verification / observability-fail-fast / cohabitation-protocol / file-housekeeping). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
 
 
 The issue is created and verified. Now implement it. Do NOT stop. Do NOT pause for compact breaks — you have a 1M context window, use it. The only reason to stop is if you hit 90% context usage, in which case create a handover.
@@ -245,7 +245,7 @@ The pre-#488 block performed a shared-tree branch-switch + pull + local-merge + 
 
 ## Stage 5 — Post-Implementation Review (Subagent Swarm)
 
-**Stage 5 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 5` to load the Stage-5-tagged subset (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Replaces full-canon read at Stage 5 entry.
+**Stage 5 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 5-tagged sections directly via `<!-- stages: 5 -->` markers]` to load the Stage-5-tagged subset (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Replaces full-canon read at Stage 5 entry.
 
 
 Subagents audit everything the main agent produced. Main agent produced the work; subagents verify it. Stage 5 is a POST-IMPLEMENTATION ADVERSARIAL AUDIT — what did the main agent miss? 100% mandatory — every `/Leader` invocation terminates here. It is DISTINCT from Ralph Review (which ran at Stage 4 and verified delivery). Ralph PASS does NOT mean Stage 5 is satisfied — different lens, different class of findings (TB-3 N36).

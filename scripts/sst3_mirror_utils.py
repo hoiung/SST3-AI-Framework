@@ -153,7 +153,9 @@ def private_repo_issue_scrub(text: str, ctx: dict) -> str:
     """Replace `<private-repo>#<num>` shorthand with `Issue #<num>` (#497 A.5.1).
 
     Mirrors should not enumerate private consumer repo names via cross-repo
-    issue references like `ebay-ops#12` / `lab-ops#7` / `apbst#1346`. The
+    issue references like `<private-repo>#<N>` (concrete examples elided to
+    avoid leaking the literal names through this byte-identical-mirrored
+    scrubber file). The
     operator-acknowledged-public project names (`auto_pb_swing_trader`,
     `tradebook_GAS`) are NOT scrubbed by this transform — `project_name_scrub`
     handles bare name occurrences, and URL-form references still block via
@@ -259,9 +261,12 @@ _MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
 # #501 AC 3.1 — rewrite canonical-only `load-stage-rules.sh <N>` invocations in
 # mirrored Leader.md / SST3-solo.md to adopter-facing inline notes. The script
 # itself lives in `unmirrored_canonical_files`; adopters following the unmodified
-# directive hit ENOENT.
+# directive hit ENOENT. The regex matches the POST-path_scrub form (path_scrub
+# strips the `SST3/` prefix before this transform fires), so the live mirror
+# content is `bash scripts/load-stage-rules.sh <N>` not the canonical
+# `bash SST3/scripts/load-stage-rules.sh <N>`.
 _LOAD_STAGE_RULES_RE = re.compile(
-    r"`bash SST3/scripts/load-stage-rules\.sh ([a-z0-9]+)`"
+    r"`bash scripts/load-stage-rules\.sh ([a-z0-9]+)`"
 )
 # Drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN` block in
 # WORKFLOW.md (operator GitHub-secret rotation procedure not applicable to

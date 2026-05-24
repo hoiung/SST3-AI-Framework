@@ -441,7 +441,7 @@ When SST3 docs reference other SST3 files using repo-relative paths (e.g., `` `S
 
 ## check-retrospective-location.py
 
-**Purpose**: Validate that retrospectives are saved to the correct location (dotfiles/SST3-metrics/retrospectives/) and not scattered in wrong directories.
+**Purpose**: Validate that retrospectives are saved to the correct location (SST3-metrics/retrospectives/) and not scattered in wrong directories.
 
 **Usage**:
 ```bash
@@ -453,11 +453,11 @@ python SST3/scripts/check-retrospective-location.py --verbose
 ```
 
 **Problem Solved**:
-When retrospectives are saved with relative paths from wrong working directories, they end up scattered across DevProjects root or other repos instead of centralized in dotfiles/SST3-metrics/retrospectives/. This breaks cross-repo historical analysis.
+When retrospectives are saved with relative paths from wrong working directories, they end up scattered across DevProjects root or other repos instead of centralized in SST3-metrics/retrospectives/. This breaks cross-repo historical analysis.
 
 **What It Checks**:
 - Scans for retrospective files across all known locations
-- Verifies files are in `dotfiles/SST3-metrics/retrospectives/` directory
+- Verifies files are in `SST3-metrics/retrospectives/` directory
 - Detects misplaced retrospectives in DevProjects root or other repos
 - Reports correct vs incorrect locations
 

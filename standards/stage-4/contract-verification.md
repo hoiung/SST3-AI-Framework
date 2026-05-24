@@ -1,7 +1,7 @@
 <!-- stages: 4 -->
 # Contract Verification — Stage-4 Canonical (#498 AC 4.1)
 
-Three contracts every component MUST honour. Originated in apbst#1407 post-mortem.
+Three contracts every component MUST honour. Originated in Issue #1407 post-mortem.
 
 ## The three contracts
 
