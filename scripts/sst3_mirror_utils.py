@@ -256,6 +256,13 @@ _DOTFILES_MCP_RE = re.compile(r"\.\.?/dotfiles/mcp-servers/")
 _DOTFILES_SST3_METRICS_RE = re.compile(r"\bdotfiles/SST3-metrics/")
 _DOTFILES_GH_RE = re.compile(r"\.\.?/dotfiles/\.github/")
 _MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
+# #501 AC 3.1 — rewrite canonical-only `load-stage-rules.sh <N>` invocations in
+# mirrored Leader.md / SST3-solo.md to adopter-facing inline notes. The script
+# itself lives in `unmirrored_canonical_files`; adopters following the unmodified
+# directive hit ENOENT.
+_LOAD_STAGE_RULES_RE = re.compile(
+    r"`bash SST3/scripts/load-stage-rules\.sh ([a-z0-9]+)`"
+)
 # Drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN` block in
 # WORKFLOW.md (operator GitHub-secret rotation procedure not applicable to
 # public consumers). DOTALL so `.` spans newlines. Lazy `.*?` stops at the next
@@ -298,6 +305,15 @@ def dotfiles_reference_scrub(text: str, ctx: dict) -> str:
     out = _DOTFILES_MCP_RE.sub("<MCP servers — operator-only>/", out)
     out = _DOTFILES_SST3_METRICS_RE.sub("SST3-metrics/", out)
     out = _MEMORY_REF_RE.sub("`<auto-memory ref>`", out)
+    out = _LOAD_STAGE_RULES_RE.sub(
+        lambda mt: (
+            "`[canonical-only — read standards/STANDARDS.md + "
+            "standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md "
+            f"{mt.group(1)}-tagged sections directly via "
+            f"`<!-- stages: {mt.group(1)} -->` markers]`"
+        ),
+        out,
+    )
     return out
 
 
@@ -461,6 +477,40 @@ def validate_manifest(data: Any) -> None:
     seen_canonical_blocks: set[str] = set()
     for i, entry in enumerate(managed_blocks):
         _validate_managed_block_entry(entry, i, seen_canonical_blocks)
+
+    # #501 AC 3.3 Half A — harness_only_files: declares files that exist ONLY
+    # in the SST3-AI-Harness public mirror with no canonical sibling (community-
+    # authored adopter content). Optional top-level array, audit-trail metadata.
+    harness_only = data.get("harness_only_files", [])
+    if not isinstance(harness_only, list):
+        raise ManifestError("harness_only_files must be list")
+    seen_harness_paths: set[str] = set()
+    for i, entry in enumerate(harness_only):
+        _validate_harness_only_entry(entry, i, seen_harness_paths)
+
+
+def _validate_harness_only_entry(entry: Any, index: int, seen: set[str]) -> None:
+    """Enforce `harness_only_files` entry schema (#501 AC 3.3 Half A).
+
+    Each entry must be a `{path: non-empty str, reason: non-empty str}` object
+    documenting an intentional harness-only file (no canonical sibling).
+    Duplicate paths within `harness_only_files` are an error.
+    """
+    prefix = f"harness_only_files[{index}]"
+    if not isinstance(entry, dict):
+        raise ManifestError(
+            f"{prefix} must be object with 'path' + 'reason' keys; "
+            f"got {type(entry).__name__}"
+        )
+    path = entry.get("path")
+    if not isinstance(path, str) or not path:
+        raise ManifestError(f"{prefix}.path must be non-empty string")
+    if path in seen:
+        raise ManifestError(f"{prefix}.path duplicate: {path}")
+    seen.add(path)
+    reason = entry.get("reason")
+    if not isinstance(reason, str) or not reason:
+        raise ManifestError(f"{prefix}.reason must be non-empty string")
 
 
 def _validate_managed_block_entry(

@@ -373,7 +373,7 @@ gh api repos/hoiung/dotfiles/issues/365/dependencies/blocked_by \
 
 ## Decision Tree: Code-Understanding Queries
 
-> **See also**: `../dotfiles/SST3/reference/lane-selection.md` (#447 Phase 5) for the win-condition heuristic — when to default to wrapper-lane vs drop to raw tools, the 4 cross-validation REQUIRED moments, the 20% recall delta gate, and the empirical validation experiment design pattern.
+> **See also**: `lane-selection.md` (#447 Phase 5) for the win-condition heuristic — when to default to wrapper-lane vs drop to raw tools, the 4 cross-validation REQUIRED moments, the 20% recall delta gate, and the empirical validation experiment design pattern.
 
 For structural code questions (callers, callees, imports, inheritance, blast radius, dead code, large functions, test coverage) the SST3 workflow provides **three layered tools**:
 
