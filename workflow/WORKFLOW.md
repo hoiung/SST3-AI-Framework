@@ -92,27 +92,6 @@
 - [ ] Per-stage feedback per STANDARDS.md §Per-Stage Feedback Capture — write the Stage 5 block before declaring complete
 
 <!-- stages: 5 -->
-### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN (closes #473 via #477 Phase 8)
-
-**Why it exists**: Layer-B failsafe `.github/workflows/stage5-completeness.yml` checks out canonical `dotfiles` (private) on every Stage 5 sign-off via `actions/checkout`. The default `secrets.GITHUB_TOKEN` is repo-scoped; cross-repo private-repo checkout returns `Repository not found` and the workflow silently FAILs across all 7 consumer repos. **Path A choice rationale**: a fine-grained PAT (`DOTFILES_READ_TOKEN`) scoped to `Contents:Read` on `dotfiles` ONLY is the minimum-scope fix — no `repo` write, no other-repo access, no organization-wide GitHub App overhead.
-
-**Rotation cadence**: PAT expires 1 year from creation. Calendar reminder set 11 months out. When the PAT expires, Layer-B will resume failing silently — re-issue PAT in GitHub UI, re-run `setup-dotfiles-read-token.sh` against all 7 consumers (no canonical workflow change needed since the secret name `DOTFILES_READ_TOKEN` is unchanged). The `--validate` mode of any future iteration of `setup-dotfiles-read-token.sh` should grep `gh secret list` for `DOTFILES_READ_TOKEN` presence on every consumer; absence = re-run helper.
-
-**Recovery procedure (Layer-B failures post-rotation)**:
-1. **Symptom**: GHA workflow `stage5-completeness.yml` fails on a consumer-repo Stage 5 sign-off with `Repository not found` or `Bad credentials`. Verify via `gh run view <run-id> --repo hoiung/<consumer>` log output.
-2. **Diagnose**: `gh secret list --repo hoiung/<consumer> | grep DOTFILES_READ_TOKEN` — empty = secret absent or expired.
-3. **Re-issue PAT**: GitHub UI → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Regenerate `DOTFILES_READ_TOKEN`. Same scope: `Contents → Read-only` on `dotfiles` only. New 1-year expiration.
-4. **Redistribute**: paste new PAT into `/tmp/.dotfiles-pat`, `chmod 600 /tmp/.dotfiles-pat`, run `bash scripts/setup-dotfiles-read-token.sh --token-file /tmp/.dotfiles-pat`, verify all 7 consumers via `gh secret list --repo hoiung/<consumer> | grep DOTFILES_READ_TOKEN`. Delete `/tmp/.dotfiles-pat`.
-5. **Re-trigger failed workflow**: `gh workflow run stage5-completeness.yml --repo hoiung/<consumer> -f issue=<closed-issue#>` and confirm receipt comment posts with PASS verdict.
-
-**Security note**: `DOTFILES_READ_TOKEN` carries `Contents:Read` permission on `dotfiles` ONLY. It cannot:
-- Perform write operations on `dotfiles` (cannot push, cannot create issues, cannot edit issue bodies — the workflow's `gh api PATCH` calls use the consumer-side `secrets.GITHUB_TOKEN` for that, which is repo-scoped to the consumer).
-- Access any other repository under `hoiung/` or any organization.
-- Read GitHub Actions secrets (cannot exfiltrate sibling secrets via the same token).
-
-The token's blast radius is bounded to "read public + private file contents of `dotfiles` master branch" — equivalent to the read access an authorized collaborator would have on the canonical repo. Compromise impact: same as a clone of the dotfiles repo at the moment the token was leaked. Compromise response: regenerate per the Recovery procedure above.
-
-<!-- stages: 4 -->
 ## Verification Loop
 
 - [ ] **Scope completeness gate**: Enumerate every Acceptance Criteria checkbox from issue body. For EACH one: state file:line that implements it. Any checkbox without file:line = NOT DONE. Do NOT proceed until all checkboxes have evidence.

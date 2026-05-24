@@ -199,7 +199,7 @@ python scripts/check-fallbacks.py --severity warning .
 
 **Enforcement**: STANDARDS.md "Use Existing Before Building" + "Research Must Be Applied Collectively". Ralph Tier 2 duplicate-rule check.
 
-**Documented Exception**: The `../dotfiles/SST3/` → `SST3-AI-Harness/` parallel mirror is INTENTIONAL architectural design (scrubbed public mirror, see `memory/project_sst3_dotfiles_vs_harness.md`). Edit BOTH on every SST3 file change. Drift between them is sanitisation, not duplication. Do NOT flag this pair as an AP #10 violation.
+**Documented Exception**: The `../dotfiles/SST3/` → `SST3-AI-Harness/` parallel mirror is INTENTIONAL architectural design (scrubbed public mirror, see `<auto-memory ref>`). Edit BOTH on every SST3 file change. Drift between them is sanitisation, not duplication. Do NOT flag this pair as an AP #10 violation.
 
 ---
 
@@ -436,7 +436,7 @@ For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CL
 11. Markdown voice-prose AI-tells — STANDARDS.md "Voice Content Protection (Marker-Driven)", AP #15
 12. AC prose → code file:line evidence mapping — WORKFLOW.md Stage 4, `user-review-checklist.md` §1
 
-**How to apply, dynamic-dispatch 5 subtypes, Ralph tier-split enforcement, RESULT-block discipline, fallback recipes, `mcp_graph_available` field rule, "wrapper-lane available" precise definition**: canonical procedure lives in STANDARDS.md "Structural Code Queries" (pre-query gate + three-signal contract + raw-tool cross-validation moments + AI-agent fallback heuristic + RESULT-block first-line rule + Issue #456 exit-127 semantics); `../reference/tool-selection-guide.md` "Decision Tree: Code-Understanding Queries" (4-quadrant matrix); `../dotfiles/docs/guides/code-query-playbook.md` (dynamic-dispatch 5-subtype belt-and-braces at L454, fallback recipes, synonym sweeps, cadence). Ralph haiku/sonnet/opus review files contain per-tier under-use + over-trust enforcement criteria (haiku=under-use evidence gate, sonnet=under-use+over-trust logic check, opus=full compliance).
+**How to apply, dynamic-dispatch 5 subtypes, Ralph tier-split enforcement, RESULT-block discipline, fallback recipes, `mcp_graph_available` field rule, "wrapper-lane available" precise definition**: canonical procedure lives in STANDARDS.md "Structural Code Queries" (pre-query gate + three-signal contract + raw-tool cross-validation moments + AI-agent fallback heuristic + RESULT-block first-line rule + Issue #456 exit-127 semantics); `../reference/tool-selection-guide.md` "Decision Tree: Code-Understanding Queries" (4-quadrant matrix); `../docs/guides/code-query-playbook.md` (dynamic-dispatch 5-subtype belt-and-braces at L454, fallback recipes, synonym sweeps, cadence). Ralph haiku/sonnet/opus review files contain per-tier under-use + over-trust enforcement criteria (haiku=under-use evidence gate, sonnet=under-use+over-trust logic check, opus=full compliance).
 
 **Self-Healing**: caught reaching for `Agent(Explore)` on a who-calls question in a supported language with the wrapper-lane available → stop, run `bash dotfiles/scripts/sst3-code-callers.sh` first, narrow the subagent prompt with the result. Caught trusting a "no results" without spot-checking → read one matching file from the area and confirm, then proceed.
 
@@ -488,7 +488,7 @@ The manual `mcp__github-checkbox__update_issue_checkbox` invocation is the canon
 - Box-text matching is anchored on the `**(<ac_id>)**` prefix for resilience against text drift in box body wording. AC text drift requires manual MCP override.
 - Automation fires only on Stage 4 (Leader stage) commits (`Phase: 4` trailer). Other stages' commits are no-op.
 
-**Canonical invocation points**: `../dotfiles/.claude/commands/Leader.md` Guardrails block + `../dotfiles/.claude/commands/SST3-solo.md` "Governance Enforcement" section. Rule lives there; this AP documents the failure mode.
+**Canonical invocation points**: `../claude/commands/Leader.md` Guardrails block + `../claude/commands/SST3-solo.md` "Governance Enforcement" section. Rule lives there; this AP documents the failure mode.
 
 **Cadence — two-tier rule (#429 Phase 9 refinement)**:
 - **Tier A — Phase-deliverable checkboxes** (concrete file edit / commit / function / section / example named in Acceptance Criteria Phase 1..N): **STRICT interleaving required**. Close each with `update_issue_checkbox` + evidence within the same phase's commit window. Cluster-at-end violates AP #20.
@@ -539,7 +539,7 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 
 **Problem**: Skill-canonical audit subagents given a curated rule list ("verify A, B, C") miss rules outside the curator's enumeration. The audit's recall is bounded by the curator's memory — and the curator IS the Leader agent, which is precisely the entity the audit is delegated AWAY from.
 
-**Evidence**: Issue #4 Phase 6.4 forensic — `consumer-private-A/.claude/skills/ebay-seller-tool/SKILL.md` L651 ("HPE P/N, HPE GPN, HPE spare number") missed at Stage 2 Layer-1 audit because the curated rule list did not include item-specifics field guidance. Caught only at Stage 2 Layer-2 by a different angle. See `dotfiles/SST3-metrics/leader-feedback/feedback-consumer-private-A-4.md` L35-37 for the authoritative trail. Filed as dotfiles#458; resolved by this Issue.
+**Evidence**: Issue #4 Phase 6.4 forensic — `consumer-private-A/.claude/skills/ebay-seller-tool/SKILL.md` L651 ("HPE P/N, HPE GPN, HPE spare number") missed at Stage 2 Layer-1 audit because the curated rule list did not include item-specifics field guidance. Caught only at Stage 2 Layer-2 by a different angle. See `SST3-metrics/leader-feedback/feedback-consumer-private-A-4.md` L35-37 for the authoritative trail. Filed as dotfiles#458; resolved by this Issue.
 
 **Root Cause**: Subagent prompt phrasing of the form "verify A, B, C; Examples: X, Y, Z" anchors the subagent's audit scope to the enumerated examples. Rules in the canonical that aren't in the example list are silently skipped because the subagent treats the examples as the scope, not as illustrations.
 
@@ -574,7 +574,7 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 
 **doc-emit-site extension (#498 F-17 — dotfiles#468 evidence)**: marker substring changes apply to BOTH code emit sites AND documentation emit sites. dotfiles#468 evidence: a `13/13` invariant count appeared in 5 different documentation locations (CLAUDE.md homelab section, phase5-gate.ps1 banner, two runbook references, and one Issue-body example block); a phase-count update changed the *.ps1 emitter but missed the 5 doc references, leaving stale `13/13` quotes scattered across the canon. Stage 1 enumeration MUST grep `--include='*.md'` `--include='*.txt'` alongside the code globs (the doc-emit class is in scope, not an afterthought); Stage 4 Gate 1 count-drift check MUST cover doc references too. doc-emit-sites fail the same way code-emit-sites fail: silent inconsistency, surfaced only at the next audit.
 
-**Evidence**: project-a#1450 + #1451 — error-marker partition introduction. Implementer changed the emission site without running `grep -rn -F` over the codebase, missing 2-3 downstream references per feature. Stage 4 sample passed locally because the sample exercised the changed emission path; downstream aggregation logic that referenced the OLD marker silently dropped the new emissions. Surfaced only at production observation. Issue #1448 follow-up: same class of bug, different feature (status enum partition). See `dotfiles/SST3-metrics/leader-feedback/feedback-project-a-1450.md` + `feedback-project-a-1451.md` for the authoritative trail. Filed as #477 Theme 2 (this Issue, Phase 4).
+**Evidence**: project-a#1450 + #1451 — error-marker partition introduction. Implementer changed the emission site without running `grep -rn -F` over the codebase, missing 2-3 downstream references per feature. Stage 4 sample passed locally because the sample exercised the changed emission path; downstream aggregation logic that referenced the OLD marker silently dropped the new emissions. Surfaced only at production observation. Issue #1448 follow-up: same class of bug, different feature (status enum partition). See `SST3-metrics/leader-feedback/feedback-project-a-1450.md` + `feedback-project-a-1451.md` for the authoritative trail. Filed as #477 Theme 2 (this Issue, Phase 4).
 
 **Root Cause**: Marker substrings are conceptually atomic but mechanically scattered across emission sites, test fixtures, mocks, downstream consumers, and assertion clauses. The implementer's mental model treats the marker as "one thing to change" because its semantic role IS one thing — but the codebase reality is N places that all need to move together. Without an enumeration pass at Stage 1, the scope is implicitly bounded by the implementer's recall of where the marker lives.
 

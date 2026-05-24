@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -66,15 +67,48 @@ _TRADING_TERM_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bbacktest\s*/\s*SL1\s*/\s*SL2\b"), "data-processing"),
 ]
 _PRIVATE_PATH_RE = re.compile(r"logs/sample_\d+_validation\.log")
-# #497 A.5: replace cross-repo `<private-repo>#<num>` references with `Issue #<num>`
-# so the mirror does not enumerate private consumer repos via issue-shorthand.
-# `auto_pb_swing_trader` + `tradebook_GAS` are operator-acknowledged-public
-# project names per Stage 1 §3.10 — kept out of this transform (project_name_scrub
-# handles the bare name elsewhere; URL forms still block via .secret-blocklist).
-# Includes `apbst` (legacy private slug for auto_pb_swing_trader internal Issues).
-_PRIVATE_REPO_ISSUE_RE = re.compile(
-    r"\b(ebay-ops|job-hunter|brainstorm|blog-priv|lab-ops|consulting-ops|apbst|harness-management-system-demo1|dating-platform-demo1)#(\d+)\b"
+# #501 AC 1.1: private term mapping table extracted to canonical-only module so
+# the literal regex + pair table no longer ship in vendored mirrors. On mirror
+# clones the import fails and the scrubber falls through to identity (never-match
+# regex + empty pairs) — mirrors don't need the table because their content has
+# already been scrubbed at canonical→mirror propagation time. Self-bootstrap the
+# script directory onto sys.path so any caller (pytest, propagate-mirrors, ad-hoc
+# import) reaches the table without needing site-specific sys.path setup.
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+try:
+    from _private_term_table import (  # type: ignore[import-not-found]
+        _PRIVATE_REPO_ISSUE_RE,
+        _PRIVATE_TERM_PAIRS,
+        _WORD_BOUNDED_TERM_PAIRS,
+    )
+except ImportError:
+    _PRIVATE_REPO_ISSUE_RE = re.compile(r"(?!x)x")  # never matches
+    _PRIVATE_TERM_PAIRS = []  # type: ignore[var-annotated]
+    _WORD_BOUNDED_TERM_PAIRS = ()  # type: ignore[var-annotated]
+
+# Defensive runtime assertion: if we're loaded from a canonical-layout path
+# (`<repo>/SST3/scripts/`) but `_private_term_table.py` is missing AND no
+# operator override, refuse to run scrubber with identity table — otherwise the
+# next `propagate-mirrors.py --apply` would ship UNSCRUBBED canonical text to
+# every consumer mirror. Set `SST3_ALLOW_IDENTITY_SCRUB=1` for the rare case of
+# testing a mirror-clone shape against the canonical scrubber.
+_THIS_FILE = Path(__file__).resolve()
+_CANONICAL_MODE = (
+    _THIS_FILE.parent.parent.name == "SST3"
+    and not (_THIS_FILE.parent / "_private_term_table.py").exists()
+    and os.environ.get("SST3_ALLOW_IDENTITY_SCRUB") != "1"
 )
+if _CANONICAL_MODE and not _PRIVATE_TERM_PAIRS:
+    raise RuntimeError(
+        "sst3_mirror_utils.py: canonical-layout import detected but "
+        "_private_term_table.py is missing — refusing to run scrubber with "
+        "identity-fallback table (would ship unscrubbed text to mirrors on "
+        "next propagate-mirrors --apply). Set SST3_ALLOW_IDENTITY_SCRUB=1 if "
+        "this is an intentional mirror-clone shape test."
+    )
+
 # Strict start-of-line match — only lines of the form `# [identifier]` (optional trailing whitespace).
 # Data lines containing `[` (e.g. `ERROR_[42]`) do NOT match and are preserved as data. (#441 Phase 2 defensive regex.)
 _BLOCKLIST_SECTION_HEADER_RE = re.compile(r"^# \[([a-zA-Z0-9_-]+)\]\s*$")
@@ -136,100 +170,6 @@ def repo_ref_scrub(text: str, ctx: dict) -> str:
     return _REPO_REF_RE.sub(r"\1", text)
 
 
-# #497 Phase E — content-level scrubs mirroring `.filter-repo-replacements.txt`
-# (the canonical mapping table used by Phase D's history rewrite). Single source
-# of truth for both lanes: filter-repo rewrites past history; this transform
-# scrubs runtime canonical→mirror propagation, so they produce identical mirror
-# state. Order matters — longer/compound patterns first so substring shadowing
-# does not fire (e.g. `Hoi-supplied` must precede `Hoi's` so the latter does
-# not partially-match the former's residue).
-_PRIVATE_TERM_PAIRS: list[tuple[str, str]] = [
-    # Operator-identity scrubs (case-sensitive; the `iamhoi`/`iamhoiend` marker
-    # names are lowercase + non-overlapping and remain unchanged).
-    ("Hoi-supplied", "operator-supplied"),
-    ("Hoi-voice", "operator-voice"),
-    ("Hoi-flagged", "operator-flagged"),
-    ("Hoi's", "the operator's"),
-    ("Hoi flagged", "operator flagged"),
-    ("Hoi raised", "operator raised"),
-    ("Hoi rule", "operator rule"),
-    ("Hoi 2026", "the operator 2026"),
-    ("Joel Sing", "the operator"),
-    # Private consumer repo names — same substitutions as filter-repo replacements.
-    # `auto_pb_swing_trader` / `tradebook_GAS` are NOT scrubbed here (operator-
-    # acknowledged public per Stage 1 §3.10 — handled by project_name_scrub when
-    # additional anonymisation is desired). Substring replacement is intentional:
-    # filter-repo rewrote history with the same substring rule, so canonical-with-
-    # transform output matches the post-filter-repo mirror tree byte-for-byte.
-    ("ebay-ops", "consumer-private-A"),
-    ("job-hunter", "voice-doc-repo"),
-    ("brainstorm", "idea-repo"),
-    ("blog-priv", "voice-staging"),
-    ("lab-ops", "lab-harness"),
-    ("consulting-ops", "consultancy-ops"),
-    ("bakeoff-priv", "private-bake-off"),
-    ("apbst", "project-x"),
-    ("harness-management-system-demo1", "consumer-private-B"),
-    ("dating-platform-demo1", "consumer-private-C"),
-    # Personal cloud-drive paths + private hostnames + leak-tracking memory
-    # filenames — same substring-replacement semantics as filter-repo. Order is
-    # longest-first so `HU-<MODEL>` precedes any potential `NUC` collision.
-    ("HU-<MODEL>", "node-<MODEL>"),
-    ("My Drive", "UserHome"),
-    ("Google Drive", "UserHome"),
-    ("OneDrive", "UserHome"),
-    ("auto_pb_v1", "generic-pipeline-v1"),
-    ("feedback_public_artefact_leaks_in_issues.md", "internal-leak-pattern-doc"),
-    ("secret_scan_leak_log.md", "internal-leak-log"),
-    # NOTE: `NUC` and bare `Hoi` are intentionally absent from this literal-pair
-    # list — they are 3-char tokens whose substring `replace` produces collateral
-    # damage (`NUClear` → `nodelear`) and the literal table cannot catch bare-Hoi
-    # phrases (`the Hoi quote`). They are handled by `_WORD_BOUNDED_TERM_PAIRS`
-    # below with a word-boundary regex, applied AFTER this literal sweep so any
-    # longer compound (`Hoi-supplied`, `Hoi flagged`, `HU-<MODEL>`) matches the
-    # literal table first and never reaches the word-bounded fall-through.
-    # Stage 5 #497 fix (S6+S7 finding).
-    # #497 E.4.4 — Tier 3 Opus residue sweep follow-up. Bare-word `Hoi` and
-    # capital-S `Hoi-Supplied` forms surfaced in canonical ANTI-PATTERNS.md
-    # AP #25 body + scripts/check-ai-writing-tells.py comment + voice_rules.py
-    # comments. Each pair below was confirmed by a literal grep against the
-    # actual canonical files (not hypothetical patterns). Order: capital-S form
-    # FIRST (otherwise `Hoi-supplied`'s substring `Hoi` would steal the match
-    # at the capital-S site via the bare-word rule below).
-    ("Hoi-Supplied", "operator-supplied"),
-    ("by Hoi", "by the operator"),
-    ("Hoi writes", "the operator writes"),
-    ("Hoi never", "the operator never"),
-    ("Hoi framed", "the operator framed"),
-    ("Hoi did", "the operator did"),
-    ("Hoi stated", "the operator stated"),
-    ("Hoi confirmed", "the operator confirmed"),
-    ("Hoi: ", "Operator: "),
-    ("Hoi vocabulary", "operator vocabulary"),
-    ("non-Hoi", "non-operator"),
-    ("Hoi 50+", "the operator 50+"),
-    ("feedback_hoi_handwrites_notes_no_forget.md", "internal-handwriting-memory"),
-    ("feedback_nad9_is_production_not_lab.md", "internal-production-memory"),
-]
-
-
-# Word-boundary-anchored pairs — applied AFTER `_PRIVATE_TERM_PAIRS` literal
-# sweep. These exist for 3-character tokens whose substring `replace` would
-# create collateral damage. Stage 5 #497 fix (S6+S7 finding):
-#   - `NUC` literal-replace produces `NUClear → nodelear`, `NUCleus → nodeleus`.
-#   - bare `Hoi` cannot live in `_PRIVATE_TERM_PAIRS` as a literal (would hit
-#     `Hoist`, `Hoity-toity`), yet phrases like `the Hoi quote`, `Hoi can
-#     install`, `Hoi 'eyes and ears'` MUST be scrubbed before they propagate
-#     to the public mirror — load-bearing privacy constraint.
-# Ordering: compound forms (`Hoi-supplied`, `Hoi flagged`, `Hoi: `,
-# `HU-<MODEL>`, ...) match the literal table above FIRST; this fall-through
-# only catches genuinely bare uses.
-_WORD_BOUNDED_TERM_PAIRS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bNUC\b"), "node"),
-    (re.compile(r"\bHoi\b"), "operator"),
-)
-
-
 def private_term_scrub(text: str, ctx: dict) -> str:
     """Replace operator-identity + private-repo-name literals (#497 Phase E).
 
@@ -241,17 +181,15 @@ def private_term_scrub(text: str, ctx: dict) -> str:
     Idempotent: each replacement consumes its input substring; second pass is
     a no-op because no replacement output equals any other pair's input key.
 
-    **Known trade-off (operator-authorised, dotfiles#497 checkpoint comment
-    issuecomment-4493556489)**: the `_PRIVATE_TERM_PAIRS` mapping table itself
-    is visible in the vendored mirror copy of this file (mirror's
-    `scripts/sst3_mirror_utils.py` byte-identical to canonical per manifest
-    `transforms: []`). The mapping reveals the OLD→NEW correspondence
-    (`Hoi-supplied → operator-supplied`, `job-hunter → voice-doc-repo`, etc.) —
-    a bounded deanonymization-oracle. Operator-acknowledged trade-off: this
-    bounded one-file exposure is preferred over the alternative of literal
-    identifiers scattered through dozens of rule documents (orders-of-magnitude
-    larger surface). The scrub still strips the literals from rule docs; only
-    the substitution table itself remains visible.
+    **Mapping table location (#501 AC 1.1)**: `_PRIVATE_TERM_PAIRS` and
+    `_WORD_BOUNDED_TERM_PAIRS` live in `_private_term_table.py` — a canonical-
+    only module declared in `drift-manifest.json:unmirrored_canonical_files`.
+    The mirror copy of this file imports the table inside a try/except and
+    falls through to identity-fallback (empty pairs + never-match regex) when
+    the file is absent, which is the expected state on every public mirror
+    clone. The earlier inline-table posture leaked the OLD→NEW mapping into
+    every vendored mirror (a bounded deanonymization oracle); extraction
+    closes that surface.
     """
     out = text
     for old, new in _PRIVATE_TERM_PAIRS:
@@ -308,6 +246,61 @@ def substitute_repo_slug(text: str, ctx: dict) -> str:
     return text.replace("<REPO_SLUG>", target)
 
 
+# #501 AC 1.2 — extended path-namespace scrub for residual dotfiles refs that
+# `path_scrub` doesn't cover (which only handles `../dotfiles/SST3/<subdir>/`).
+# These patterns + the operator-only DOTFILES_READ_TOKEN block target the F5
+# leaks documented at /tmp/research_sst3-harness-sync_2026-05-24.md.
+_DOTFILES_CLAUDE_RE = re.compile(r"\.\.?/dotfiles/\.claude/")
+_DOTFILES_DOCS_RE = re.compile(r"\.\.?/dotfiles/docs/")
+_DOTFILES_MCP_RE = re.compile(r"\.\.?/dotfiles/mcp-servers/")
+_DOTFILES_SST3_METRICS_RE = re.compile(r"\bdotfiles/SST3-metrics/")
+_DOTFILES_GH_RE = re.compile(r"\.\.?/dotfiles/\.github/")
+_MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
+# Drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN` block in
+# WORKFLOW.md (operator GitHub-secret rotation procedure not applicable to
+# public consumers). DOTALL so `.` spans newlines. Lazy `.*?` stops at the next
+# `### ` or `## ` heading. Multi-line MUST come BEFORE per-line patterns.
+_DOTFILES_READ_TOKEN_BLOCK_RE = re.compile(
+    r"### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN.*?(?=^### |^## )",
+    re.DOTALL | re.MULTILINE,
+)
+
+
+def dotfiles_reference_scrub(text: str, ctx: dict) -> str:
+    """Scrub residual `dotfiles/...` namespace refs not covered by path_scrub.
+
+    `path_scrub` rewrites `../dotfiles/SST3/<subdir>/` only. Mirrored canonicals
+    also reference five other namespaces that leak through unchanged:
+
+      - `../dotfiles/.claude/` → `../claude/` (mirror has `claude/` at root).
+      - `../dotfiles/.github/` → `../.github/` (mirror has its own `.github/`).
+      - `../dotfiles/docs/` → `../docs/` (mirror has `docs/`).
+      - `../dotfiles/mcp-servers/` → `<MCP servers — operator-only>` (mirror
+        lacks this dir; replace with inline tag so consumers don't see a
+        broken path. Idempotent because the tag itself does not match the
+        original regex.).
+      - `dotfiles/SST3-metrics/` → `SST3-metrics/` (per-stage feedback dir;
+        adopters write to a relative `SST3-metrics/` path of their own).
+
+    Plus drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN`
+    section from WORKFLOW.md (operator PAT rotation runbook — operator-only).
+
+    Plus drops backtick-wrapped `memory/<file>.md` references (Claude Code
+    auto-memory; not adopter-relevant).
+
+    Idempotent: each replacement consumes its input substring; second pass
+    finds no further matches.
+    """
+    out = _DOTFILES_READ_TOKEN_BLOCK_RE.sub("", text)
+    out = _DOTFILES_CLAUDE_RE.sub("../claude/", out)
+    out = _DOTFILES_GH_RE.sub("../.github/", out)
+    out = _DOTFILES_DOCS_RE.sub("../docs/", out)
+    out = _DOTFILES_MCP_RE.sub("<MCP servers — operator-only>/", out)
+    out = _DOTFILES_SST3_METRICS_RE.sub("SST3-metrics/", out)
+    out = _MEMORY_REF_RE.sub("`<auto-memory ref>`", out)
+    return out
+
+
 def blocklist_subset(text: str, ctx: dict) -> str:
     """Filter canonical blocklist to repo-specific subset via ctx['repo'].
 
@@ -351,6 +344,7 @@ def blocklist_subset(text: str, ctx: dict) -> str:
 
 TRANSFORMS: dict[str, TransformFn] = {
     "blocklist_subset": blocklist_subset,
+    "dotfiles_reference_scrub": dotfiles_reference_scrub,
     "issue_url_scrub": issue_url_scrub,
     "path_scrub": path_scrub,
     "path_scrub_depth2": path_scrub_depth2,
