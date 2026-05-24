@@ -163,7 +163,17 @@ def private_repo_issue_scrub(text: str, ctx: dict) -> str:
 
     Idempotent: applying twice yields the same output (the substitution
     deletes the `<repo>#` prefix, so the second pass finds no further matches).
+
+    On mirror clones where `_private_term_table.py` is absent, the identity
+    fallback regex `(?!x)x` has zero capture groups. Python's `re.sub` validates
+    the replacement template's group references at call time (BEFORE attempting
+    any match), so `r"Issue #\2"` against a zero-group pattern raises
+    `re.error: invalid group reference 2`. Early-return when the pattern has no
+    groups — the identity fallback is by design a no-op on mirror clones (the
+    text has already been scrubbed at canonical→mirror propagation time).
     """
+    if _PRIVATE_REPO_ISSUE_RE.groups == 0:
+        return text
     return _PRIVATE_REPO_ISSUE_RE.sub(r"Issue #\2", text)
 
 

@@ -968,13 +968,13 @@ Continuation lines for multi-line values: bare bullets at column 0, no leading `
 ## Path Portability
 
 **Environment Variables**:
-- `DOTFILES_ROOT`: Path to dotfiles repository (default: `$HOME/DevProjects/dotfiles`)
+- `DOTFILES_ROOT`: Path to dotfiles repository (default: `<your-dotfiles-clone>`)
 - `SST3_TEMP`: Path to temp folder (default: `C:/temp`)
 
 **Usage in scripts**:
 ```bash
 # Use environment variable with fallback
-cd "${DOTFILES_ROOT:-"$HOME/DevProjects/dotfiles"}"
+cd "${DOTFILES_ROOT:-"<your-dotfiles-clone>"}"
 
 # OR use relative paths from known location
 cd ../dotfiles  # from DevProjects/[repo]

@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCANNER=""
 for candidate in \
   "$SCRIPT_DIR/../../scripts/sst3-privacy-scan-issue-body.py" \
-  "$HOME/DevProjects/dotfiles/scripts/sst3-privacy-scan-issue-body.py"; do
+  "${DOTFILES_ROOT:-<your-dotfiles-clone>}/scripts/sst3-privacy-scan-issue-body.py"; do
   if [[ -f "$candidate" ]]; then
     SCANNER="$candidate"
     break
