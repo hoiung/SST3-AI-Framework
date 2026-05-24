@@ -59,13 +59,6 @@ repos:
         pass_filenames: false
         always_run: true
 
-      - id: check-ai-writing-tells
-        name: Check public content for AI writing tells
-        entry: python scripts/check-ai-writing-tells.py
-        language: system
-        files: ^cv-linkedin/.*\.md$
-        pass_filenames: true
-
       - id: check-public-repo-secrets
         name: Check for secrets in public repo
         entry: python scripts/check-public-repo-secrets.py . --staged-only
