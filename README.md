@@ -230,7 +230,7 @@ Every tier scans for these at increasing depth:
 
 ## Enforcement Layer
 
-SST3 does not rely on agents remembering to follow standards. Compliance is enforced through 14 pre-commit hooks that run on every commit:
+SST3 does not rely on agents remembering to follow standards. Compliance is enforced through 16 pre-commit hooks that run on every commit:
 
 | Hook | What It Enforces |
 |------|-----------------|
@@ -326,7 +326,7 @@ pre-commit install
 ### Add Quality Gates
 
 1. Copy [`.pre-commit-config.yaml`](.pre-commit-config.yaml) and the `scripts/` directory
-2. Run `pre-commit install` to activate the 14 enforcement hooks
+2. Run `pre-commit install` to activate the 16 enforcement hooks
 3. Use the [`ralph/`](ralph/) review checklists for post-implementation review
 
 ### Add AI Governance
