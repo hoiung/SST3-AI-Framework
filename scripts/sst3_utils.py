@@ -90,7 +90,7 @@ def collect_source_files(
 
     Consolidates the duplicate `for ext in [...]: rglob(f'*{ext}')` + filter
     pattern from check-debug-code.py, check-fallbacks.py, check-hardcoded-params.py,
-    check-ai-writing-tells.py, and check-discoverability.py (Phase 7 dedup).
+    and check-discoverability.py (Phase 7 dedup).
 
     Args:
         base_path: directory to scan recursively
@@ -127,8 +127,8 @@ def should_ignore_path(
     """Check whether a file path should be skipped by code-scanning hooks.
 
     Consolidates the duplicated should_ignore() logic from check-debug-code.py,
-    check-fallbacks.py, check-hardcoded-params.py, and check-ai-writing-tells.py
-    (Phase 7 dedup, dotfiles#405). Each consumer used the same 4-step matching
+    check-fallbacks.py, and check-hardcoded-params.py (Phase 7 dedup, dotfiles#405).
+    Each consumer used the same 4-step matching
     pattern: glob-match, path-component match, substring match, then explicit
     allow-list short-circuit.
 

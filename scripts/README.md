@@ -22,7 +22,6 @@ Automation scripts for SST3 workflow validation and enforcement.
 | pre-commit-checks.py | Pre-commit orchestrator. Runs size-limits + Python syntax + observability checks concurrently. BLOCKING. |
 | check-devprojects-clean.py | Pre-commit hook. Validates DevProjects/ contains only allowed repos (from `sst3_utils.KNOWN_REPOS`). BLOCKING. |
 | check-hardcoded-params.py | Pre-commit hook. Detects hardcoded magic values (hex colors, URLs, numeric thresholds). BLOCKING. |
-| check-ai-writing-tells.py | Pre-commit hook + CI. Marker-driven voice guard for operator-voice content. BLOCKING. |
 | no-temp-folder (inline bash) | Pre-commit hook. Prevents temp/ and tmp/ folder commits. BLOCKING. |
 
 ## check-public-repo-secrets.py
@@ -80,16 +79,6 @@ python check-hardcoded-params.py --allowlist .hardcoded-allowlist <path>
 **Exit codes**: 0 (clean or below severity threshold), 1 (violations at/above threshold), 3 (script error).
 
 **Evidence**: Issue #383 identified 309 hardcoded values in frontend code. Referenced in STANDARDS.md "No Hardcoded Settings" section.
-
-## check-ai-writing-tells.py
-
-**Purpose**: Marker-driven voice guard for operator-voice content (CV, LinkedIn, cover letters, blog posts). Scans `<!-- iamhoi -->` ... `<!-- iamhoiend -->` marker regions for AI writing patterns (banned words/phrases from `voice_rules.py`). Default = SKIP untagged content. Files matching `PUBLIC_FACING_GLOBS` get whole-file scan (legacy back-compat, currently empty).
-
-**Usage**: Invoked automatically by the `check-ai-writing-tells` pre-commit hook. Also runs in CI (`validate.yml` voice-tells job, `ci.yml` voice-tells step in hoiboy-uk).
-
-**Exit codes**: 0 (clean), 1 (AI writing tells found, commit blocked).
-
-**Evidence**: dotfiles#404, hoiboy-uk#3. Canonical rules in `voice_rules.py`. Referenced in STANDARDS.md "Voice Content Protection" section.
 
 ## no-temp-folder (inline bash hook)
 
