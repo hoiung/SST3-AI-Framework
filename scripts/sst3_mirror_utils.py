@@ -267,6 +267,15 @@ _DOTFILES_DOCS_RE = re.compile(r"\.\.?/dotfiles/docs/")
 _DOTFILES_MCP_RE = re.compile(r"\.\.?/dotfiles/mcp-servers/")
 _DOTFILES_SST3_METRICS_RE = re.compile(r"\bdotfiles/SST3-metrics/")
 _DOTFILES_GH_RE = re.compile(r"\.\.?/dotfiles/\.github/")
+# #501 Stage 5 — operator filesystem-layout leak. `$HOME/DevProjects/dotfiles`
+# is the operator's local clone path; surfaces in STANDARDS.md (DOTFILES_ROOT
+# env-var documentation) + claude/hooks/sst3-issue-body-privacy-gate.sh
+# (operator-side runbook hook). Public mirror should not enumerate operator
+# filesystem layout. Rewrite to a public-friendly placeholder; adopters set
+# DOTFILES_ROOT to their own clone path. Defence-in-depth alongside
+# .secret-blocklist. Matches both `$HOME/DevProjects/dotfiles/...` (subpaths)
+# and bare `$HOME/DevProjects/dotfiles` (env-var default form).
+_DOTFILES_HOME_PATH_RE = re.compile(r"\$HOME/DevProjects/dotfiles\b")
 _MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
 # #501 AC 3.1 — rewrite canonical-only `load-stage-rules.sh <N>` invocations in
 # mirrored Leader.md / SST3-solo.md to adopter-facing inline notes. The script
@@ -285,6 +294,32 @@ _LOAD_STAGE_RULES_RE = re.compile(
 _DOTFILES_READ_TOKEN_BLOCK_RE = re.compile(
     r"### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN.*?(?=^### |^## )",
     re.DOTALL | re.MULTILINE,
+)
+# #501 Stage 5 — canonical-only scripts referenced in vendored prose. After
+# path_scrub strips `SST3/`, the mirror reads `bash scripts/<name>.sh` /
+# `python3 scripts/<name>.py` but these scripts live in
+# `unmirrored_canonical_files` (operator-only). Adopters following the
+# unmodified invocation hit ENOENT. The known canonical-only set is hard-coded
+# here because the manifest does NOT enumerate this category by name; it just
+# lists `unmirrored_canonical_files` (whose entries change as canonical evolves).
+# Hard-coded set matches the names that appear in vendored WORKFLOW.md /
+# Leader.md / STANDARDS.md mirror content. Matches POST-path_scrub form.
+# Each match rewrites to a `<your-dotfiles-clone>/SST3/scripts/<name>` prefix
+# so adopters with a canonical clone can invoke directly; adopters without a
+# canonical clone see the placeholder + know to consult MIRROR-CONTRACT.md.
+_CANONICAL_ONLY_SCRIPT_RE = re.compile(
+    r"\b(bash|python3?)\s+scripts/("
+    r"propagate-mirrors\.py"
+    r"|propagate-template\.py"
+    r"|leader-stage5-completeness-check\.sh"
+    r"|leader-stage5-drain-check\.sh"
+    r"|leader-feedback-aggregate\.sh"
+    r"|sweep-parked-feedback\.sh"
+    r"|sst3-check\.sh"
+    r"|sst3-self-test\.sh"
+    r"|check-stage1-research-fields\.py"
+    r"|feedback_parser\.py"
+    r")\b"
 )
 
 
@@ -319,6 +354,7 @@ def dotfiles_reference_scrub(text: str, ctx: dict) -> str:
     out = _DOTFILES_DOCS_RE.sub("../docs/", out)
     out = _DOTFILES_MCP_RE.sub("<MCP servers — operator-only>/", out)
     out = _DOTFILES_SST3_METRICS_RE.sub("SST3-metrics/", out)
+    out = _DOTFILES_HOME_PATH_RE.sub("<your-dotfiles-clone>", out)
     out = _MEMORY_REF_RE.sub("`<auto-memory ref>`", out)
     out = _LOAD_STAGE_RULES_RE.sub(
         lambda mt: (
@@ -326,6 +362,12 @@ def dotfiles_reference_scrub(text: str, ctx: dict) -> str:
             "standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md "
             f"{mt.group(1)}-tagged sections directly via "
             f"`<!-- stages: {mt.group(1)} -->` markers]`"
+        ),
+        out,
+    )
+    out = _CANONICAL_ONLY_SCRIPT_RE.sub(
+        lambda mt: (
+            f"{mt.group(1)} <your-dotfiles-clone>/SST3/scripts/{mt.group(2)}"
         ),
         out,
     )
