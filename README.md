@@ -12,7 +12,7 @@ SST3 is a **production agent harness** and **AI delivery methodology framework**
 
 - **5-Stage Delivery Lifecycle**: Research → Issue Creation → Triple-Check → Implementation → Post-Implementation Review
 - **3-Tier Automated Review (Ralph)**: Haiku surface checks → Sonnet logic review → Opus architectural audit, with machine-readable pass/fail tokens
-- **14 Pre-Commit Enforcement Hooks**: Token budget monitoring, template drift detection, debug code scanning, fallback reduction, hardcoded parameter detection
+- **16 Pre-Commit Enforcement Hooks**: Token budget monitoring, mirror drift detection, hardcoded parameter detection, public-repo secret scan, plus standard hygiene checks (trailing whitespace, large-file guard, JSON/YAML/TOML validity)
 - **Structured Context Management**: Handover protocols, crash recovery checkpoints, context budget tracking across 1M-token sessions
 - **Self-Healing Operations**: 8 documented failure scenarios with recovery procedures, derived from real production incidents
 
@@ -147,29 +147,32 @@ Automate the repeatable. Spend your edge where humans still win: creativity, int
 
 | Metric | Value |
 |--------|-------|
-| Commits produced | 10,000+ across 3 repositories |
+| Commits produced | 10,000+ across the dotfiles canonical + 12 consumer mirrors |
 | Issues tracked | 1,860+ at 99.4% close rate |
 | Automated tests | 11,100+ including E2E against live broker APIs |
 | Concurrent agents | Dynamically scaled parallel agent swarms (research, review, implementation) |
 | Quality gate pass rate | 3-tier Ralph Review on every merge |
-| Pre-commit hooks | 14 automated checks across 3 repos |
+| Pre-commit hooks | 16 enforcement hooks (mirror drift, secret scan, hardcoded params, etc.) |
 | Methodology generations | 3 (SST1 → SST2 → SST3), each driven by real failures |
-| Framework components | 77 files: standards, templates, scripts, tests, MCP server |
+| Framework components | 234 mirrored files: standards (incl. 9 stage-4 extracts), templates, scripts, tests, hooks, MCP server |
+| Last verified | 2026-05-24 (#501 Phase 4 quantitative refresh) |
 
 ## Architecture
 
 ```
 SST3-AI-Harness/
 ├── workflow/              # 5-stage Solo delivery lifecycle
-├── standards/             # Engineering standards + anti-patterns
+├── standards/             # Engineering standards + anti-patterns + stage-4 extracts
+│   └── stage-4/           # 9 stage-4 procedure extracts (verification-loop, ralph-review, ...)
 ├── templates/             # Issue, review, handover templates
-├── reference/             # Self-healing, tool selection, quality guides
-├── ralph/                 # 3-tier automated review system
-├── scripts/               # 23 enforcement + automation scripts
-├── tests/                 # 14 test files + regression suite
+├── reference/             # Tool selection, lane selection, building-skills, failed-experiments
+├── ralph/                 # 3-tier automated review system (Haiku/Sonnet/Opus)
+├── scripts/               # 73 enforcement + automation scripts (40 are wrapper-lane sst3-*.sh)
+├── tests/                 # 14 test files + regression suite runner
 ├── mcp-servers/           # Custom MCP server (github-checkbox)
-├── claude/                # Custom statusline + config
-├── .pre-commit-config.yaml # 14-hook enforcement config
+├── claude/                # Statusline + commands (Leader/SST3-solo) + 9 PreToolUse/session hooks
+├── MIRROR-CONTRACT.md     # Canonical-mirror governance contract for adopters
+├── .pre-commit-config.yaml # 16-hook enforcement config
 └── .github/workflows/     # CI/CD pipeline
 ```
 
@@ -186,6 +189,22 @@ Each stage has explicit entry/exit criteria. Stages cannot be reordered or skipp
 | **5. Post-Implementation** | Phase-by-phase review against scope, wiring checks, regression tests | Subagent review swarm |
 
 The main orchestrator agent orchestrates the workflow. Subagents handle research, exploration, and review. They read and analyse but never write code. This separation helps the orchestrator keep full context while subagents provide independent verification.
+
+## Stage-4 Extracts
+
+Stage 4 is the implementation stage — it carries the heaviest procedural payload (Verification Loop, Ralph Review, Gate-2 merge, Gate-3 user review, the Three-Tier test gate, contract verification, observability invariants, cross-repo cohabitation protocol, file housekeeping). Rather than inlining all of that procedural content into `standards/STANDARDS.md` (which would push it past its token budget), Stage-4 procedures live as 9 standalone extracts under `standards/stage-4/`:
+
+- **`verification-loop.md`** — the post-implementation iterative gate that runs until every check passes
+- **`ralph-review.md`** — the three-tier code-delivery verification (Haiku surface, Sonnet logic, Opus architectural)
+- **`gate-2-merge.md`** — the recursion-safe remote fast-forward merge procedure
+- **`gate-3-user-review.md`** — the operator-facing review checklist gate
+- **`three-tier-testing.md`** — the Unit / Workflow / E2E tier USE rules
+- **`contract-verification.md`** — cross-boundary contract checks (type / schema / config)
+- **`observability-fail-fast.md`** — runtime observability invariants the loop verifies
+- **`cohabitation-protocol.md`** — multi-agent contended-clone vs cross-repo mutation discipline
+- **`file-housekeeping.md`** — code-hygiene + file-housekeeping cleanup gates
+
+The Stage-4 entry-point skill (`claude/commands/Leader.md` Stage 4 section) loads these extracts at session start via a per-stage rule loader on the canonical side; in the public mirror, adopters read the extracts directly and apply the Verification Loop / Ralph Review / Gate-2 procedures inline. The extracts pattern was introduced in the dotfiles canonical revamp to keep `STANDARDS.md` focused on rules + invariants while procedural details live in scoped files that can be loaded only when their stage is active.
 
 ## Ralph Review: AI Governance
 
@@ -237,9 +256,9 @@ This implements **RAG-based governance**: the server queries live GitHub data be
 
 ### Wrapper-Lane: stateless bash code-awareness
 
-SST3 ships a wrapper-lane of 38+ stateless bash scripts at `scripts/sst3-*.sh` that give the orchestrator AST-level code awareness without a daemon, SQLite graph, or persistent state. Each call re-parses on disk and emits NDJSON. Inner engines: `ast-grep` (Tree-sitter; Python, TypeScript, TSX, JavaScript, Rust), `lychee`, `coverage.py`, `markdownlint-cli2`, `yamllint`, `pip-audit`, `cargo audit`, `shellcheck`, plus `git` / `jq` / `python3`.
+SST3 ships a wrapper-lane of 40 stateless bash scripts at `scripts/sst3-*.sh` that give the orchestrator AST-level code awareness without a daemon, SQLite graph, or persistent state. Each call re-parses on disk and emits NDJSON. Inner engines: `ast-grep` (Tree-sitter; Python, TypeScript, TSX, JavaScript, Rust), `lychee`, `coverage.py`, `markdownlint-cli2`, `yamllint`, `pip-audit`, `cargo audit`, `shellcheck`, plus `git` / `jq` / `python3`.
 
-Tools include `sst3-code-callers.sh`, `sst3-code-callees.sh`, `sst3-code-impact.sh` (blast radius), `sst3-code-large.sh` (refactor candidates), `sst3-code-orphans.sh`, `sst3-code-coverage.sh` (untested-py via `coverage.json`), plus doc / sec / dep / sync families. The `sst3-self-test.sh` orchestrator runs 25 frozen-fixture regressions to validate wrapper integrity.
+Tools include `sst3-code-callers.sh`, `sst3-code-callees.sh`, `sst3-code-impact.sh` (blast radius), `sst3-code-large.sh` (refactor candidates), `sst3-code-orphans.sh`, `sst3-code-coverage.sh` (untested-py via `coverage.json`), plus doc / sec / dep / sync families. The `sst3-self-test.sh` orchestrator runs 32 frozen-fixture regressions to validate wrapper integrity.
 
 Replaces the upstream `better-code-review-graph` MCP server we previously adopted (deprecation tracked in #445 R4). The custom-built wrappers solve recall and correctness gaps in the upstream graph — `callers_of` returning empty results, `large` functions silently truncated, the daemon post-handshake-disconnect class. PATH bootstrap via `scripts/sst3-bash-utils.sh` makes wrappers reachable from non-interactive shells (the `bash --noprofile --norc -c '...'` shape Claude Code's Bash tool spawns; #456 closed that gap and surfaced this exact public-mirror coverage gap during Stage 5 audit). Install inner engines via `dotfiles/scripts/install.sh` (Linux/WSL) or `install.ps1` (Windows).
 
@@ -352,14 +371,15 @@ Want a domain-specific skill (marketing, HR, finance, R&D, etc.) that plugs into
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
 | `workflow/` | WORKFLOW.md | The 5-stage delivery lifecycle specification |
-| `standards/` | STANDARDS.md, ANTI-PATTERNS.md | Engineering principles and documented failure patterns |
+| `standards/` | STANDARDS.md, ANTI-PATTERNS.md, stage-4/ (9 procedure extracts) | Engineering principles + documented failure patterns + per-stage procedure libraries |
 | `templates/` | 6 templates | Issue creation, review, handover, config propagation |
-| `reference/` | 10 reference docs | Self-healing, tool selection, quality validation, research guides |
-| `ralph/` | 5 files | 3-tier review checklists + plugin config |
-| `scripts/` | 23 Python scripts + YAML | Enforcement hooks, automation, quality analysis |
-| `tests/` | 14 test files + suite runner | Regression testing across 8 quality dimensions |
+| `reference/` | tool-selection, lane-selection, building-skills, failed-experiments, quality-metrics + research guides | Self-healing, tool selection, quality validation |
+| `ralph/` | 6 files | 3-tier review checklists (Haiku/Sonnet/Opus) + plugin config |
+| `scripts/` | 73 scripts (31 Python + 42 bash incl. 40 wrapper-lane sst3-*.sh) | Enforcement hooks, automation, code-awareness wrapper-lane |
+| `tests/` | 14 test files + regression suite runner | Regression testing across 8 quality dimensions |
 | `mcp-servers/` | Custom MCP server | Evidence-enforced GitHub checkbox operations |
-| `claude/` | Statusline + config | Claude Code customisation and monitoring |
+| `claude/` | Statusline + commands (Leader, SST3-solo) + 9 PreToolUse/session hooks | Claude Code customisation, runtime safety guards, session bootstrap |
+| `MIRROR-CONTRACT.md` | Mirror governance doc | Canonical-mirror propagation contract for adopters |
 
 ## License
 
