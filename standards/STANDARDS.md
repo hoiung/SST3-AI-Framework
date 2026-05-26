@@ -127,7 +127,7 @@ See: `../workflow/WORKFLOW.md` (Stage 1 — Research) for detailed library resea
 - Duplicate content between CLAUDE.md and `docs/<area>.md` (canonical lives in one place; the other carries the pointer).
 - Use CLAUDE.md as a changelog ("decision: X, after Y") — git history + Issue body are the audit surface; CLAUDE.md is the session-load surface.
 
-**Enforcement**: in-context reminder at top of `## Project-Specific Notes` in `../templates/CLAUDE_TEMPLATE.md` (catches Claude at session start; propagates via Lane A); this rule (catches at Stage 1 / Stage 4 entry via the Leader + SST3-solo mandatory-reading chain). Companion: AP #10 "Failure to Search Before Adding" (this rule is its entry-point-doc instantiation).
+**Enforcement**: in-context reminder immediately above the boundary divider in `../templates/CLAUDE_TEMPLATE.md` `### Append vs Extend` subsection (catches Claude at session start; propagated to every consumer CLAUDE.md by `propagate-template.py`); this rule (catches at Stage 1 / Stage 4 entry via the Leader + SST3-solo mandatory-reading chain). Companion: AP #10 "Failure to Search Before Adding" (this rule is its entry-point-doc instantiation).
 
 <!-- stages: 4 -->
 ### Critical Thinking & Honest Analysis
