@@ -110,6 +110,25 @@ These 9 mantras are the canonical authoring + audit criteria invoked verbatim fr
 
 See: `../workflow/WORKFLOW.md` (Stage 1 — Research) for detailed library research process.
 
+<!-- stages: 1,2,4 -->
+### Append vs Extend Rule
+
+**Principle**: Appending to a `CLAUDE.md` (or any session-loaded entry-point doc) is the **last resort**, not the default. The first move when adding context, rationale, runbook prose, or design notes is to ask: "is there an existing `docs/<area>.md` that is the right home — and can I extend it and leave a one-line pointer here?"
+
+**Why**: session-loaded entry-points (CLAUDE.md, MEMORY.md index, top-of-template prose) live in the model's context window on every turn. Every paragraph appended there costs tokens on every future session AND increases the chance the truly load-bearing content gets skim-scrolled past. Evidence: Issue #1494 trimmed one CLAUDE.md from 58.5k → 28.1k (51.8% reduction) after multiple refactors each appended 1-3k of WHY-prose to `## Project-Specific Notes`. Without this rule, the same drift recurs every 12-18 months.
+
+**Decision procedure** (3 steps, applied when ANY of: drafting a new paragraph for a CLAUDE.md / extending `## Project-Specific Notes` / writing >10 lines of WHY-prose in any entry-point doc):
+1. **Is there a destination doc?** `ls docs/` + `grep -l '<topic>' docs/`. If a doc on the topic exists → extend it; add a one-line pointer in CLAUDE.md only if the topic was not already referenced.
+2. **No destination doc, but topic deserves one?** Create `docs/<area>.md` with the new content; add a single one-line pointer in CLAUDE.md.
+3. **Genuinely belongs in CLAUDE.md?** (per-session reminder, mandatory-reading list addition, boundary marker rule, branch-safety invariant.) Append, but keep it to the minimum that survives compression — link out to `docs/` for detail.
+
+**MUST NOT**:
+- Append 1-3k of WHY-prose to `## Project-Specific Notes` "because it's project context" — that's how the 58k bloat happened.
+- Duplicate content between CLAUDE.md and `docs/<area>.md` (canonical lives in one place; the other carries the pointer).
+- Use CLAUDE.md as a changelog ("decision: X, after Y") — git history + Issue body are the audit surface; CLAUDE.md is the session-load surface.
+
+**Enforcement**: in-context reminder at top of `## Project-Specific Notes` in `../templates/CLAUDE_TEMPLATE.md` (catches Claude at session start; propagates via Lane A); this rule (catches at Stage 1 / Stage 4 entry via the Leader + SST3-solo mandatory-reading chain). Companion: AP #10 "Failure to Search Before Adding" (this rule is its entry-point-doc instantiation).
+
 <!-- stages: 4 -->
 ### Critical Thinking & Honest Analysis
 
