@@ -16,7 +16,7 @@ A handover file with no auto-loaded index pointer is **orphaned** — the post-c
 ## What to do when invoked (in order)
 
 **Step 1 — Write the handover topic file.**
-Write a new file `HANDOVER_<repo-or-topic-slug>_<YYYY-MM-DD>.md` into **your auto-memory directory** — the directory given in this session's auto-memory system reminder (do NOT hardcode an absolute path; use the path the harness provided this session). Give it this frontmatter, matching existing handover topic files:
+Write a new file `HANDOVER_<repo-or-topic-slug>_<YYYY-MM-DD>.md` into **your auto-memory directory** — the directory given in this session's auto-memory system reminder (do NOT hardcode an absolute path; use the path the harness provided this session). For Issue-tied work, put the issue number in the slug (e.g. `<repo>-<issue>-<topic>`) so the Step-2 bullet has a unique target to update in place. Give it this frontmatter, matching existing handover topic files:
 
 ```yaml
 ---

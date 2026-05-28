@@ -134,7 +134,7 @@ Describe the task you need to complete:
 ### During Work (At Each Phase Checkpoint)
 - [ ] Post checkpoint to Issue comment
 - [ ] **Close Tier A checkboxes via MCP** (AP #20 Layer 1 — MANDATORY in execute mode only, before moving to next phase): for every completed Tier A Acceptance Criteria in the just-finished phase, invoke `mcp__github-checkbox__update_issue_checkbox(issue_number, checkbox_text, evidence)` with canonical evidence (file:line / commit hash / command+output / subagent RESULT comment-id per `../reference/tool-selection-guide.md` Example 2). ToolSearch-bootstrap if deferred: `ToolSearch(query="select:mcp__github-checkbox__update_issue_checkbox,mcp__github-checkbox__get_issue_checkboxes")`. No phase boundary may be crossed with a Tier A `[ ]` box behind. See `../claude/commands/Leader.md` Stage 4 step 3a for the full rule.
-- [ ] Check context memory: If 80%+ used, warn user. If 90%+, STOP.
+- [ ] Check context memory: If 70%+ used, warn user. If 80%+, STOP and run `/handover`.
 - [ ] Commit after EACH file change — NEVER use `git add -A`
 
 ### After Compact (Context Recovery)

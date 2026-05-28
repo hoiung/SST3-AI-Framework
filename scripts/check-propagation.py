@@ -174,7 +174,18 @@ def validate_sst3_sections():
 
     # Check each repo
     for repo in REPOS:
-        claude_path = parent_dir / repo / 'CLAUDE.md'
+        # #505: worktree-aware dotfiles self-row. Mirror propagate-template.py's
+        # resolve_self_row_destination so the in-flight WORKTREE CLAUDE.md (which
+        # carries the staged template edit being committed) is compared — not the
+        # main clone's (still on master pre-merge), which would spuriously mismatch
+        # the worktree template. Sibling-fix to the self-row gap propagate-template.py
+        # already closed (dotfiles#495 FRAG-1 / AP #14d sibling-fix discipline).
+        if repo == 'dotfiles':
+            claude_path = _smu.resolve_self_row_destination(
+                manifest_path, 'dotfiles', 'CLAUDE.md'
+            )
+        else:
+            claude_path = parent_dir / repo / 'CLAUDE.md'
 
         if not claude_path.exists():
             print(f"[WARNING] {claude_path} not found, skipping validation")
