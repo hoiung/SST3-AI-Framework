@@ -7,6 +7,7 @@ Optional argument: `/handover <one-line note>` — a free-text hint folded into 
 ## Why this exists
 
 Compaction drops the conversation and keeps only a summary. Anthropic's own compaction schema keeps **state + next-steps + learnings** and preserves the latest user turn **verbatim** — because paraphrasing the goal is where post-compact drift starts. This command writes that, plus evidence anchors, into the two channels the harness actually re-surfaces after a compact:
+
 1. the auto-memory index (its top section is auto-loaded into every new session), and
 2. the `SessionStart` compact hook, which re-injects the verbatim task from `/tmp/sst3-current-task.txt`.
 
@@ -17,7 +18,7 @@ A handover file with no auto-loaded index pointer is **orphaned** — the post-c
 **Step 1 — Write the handover topic file.**
 Write a new file `HANDOVER_<repo-or-topic-slug>_<YYYY-MM-DD>.md` into **your auto-memory directory** — the directory given in this session's auto-memory system reminder (do NOT hardcode an absolute path; use the path the harness provided this session). Give it this frontmatter, matching existing handover topic files:
 
-```
+```yaml
 ---
 name: handover-<slug>-<date>
 description: <one-line what-this-is>
@@ -48,10 +49,12 @@ Only this top section is auto-loaded into the next session (the index is truncat
 
 **Step 3 — Update the compact-hook task file (deterministic re-surface).**
 Write to `/tmp/sst3-current-task.txt` (the file the `SessionStart` compact hook reads and re-injects after a compact) the verbatim current task PLUS an explicit imperative — NOT a bare path — so the post-compact context is commanded to open the handover:
-```
+
+```text
 <verbatim operator goal>
 Post-compact: READ <full path to the HANDOVER_*.md file> IN FULL before resuming — it holds the goal/state/next-action.
 ```
+
 The hook re-surfaces this text and a fixed "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue" directive, but it does NOT itself read the handover body — so the imperative above is what closes the loop.
 
 **Step 4 — Report and confirm.**
