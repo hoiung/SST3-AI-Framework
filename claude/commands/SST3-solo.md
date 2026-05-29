@@ -81,7 +81,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 **Main agent** = collate, write /tmp, create issues, implement, commit, merge
 
 ### Stage 1 — Research (Subagent Swarm → /tmp)
-- Launch MANY parallel subagents (5 files max each)
+- Author + run the research swarm via the Workflow tool (DEFAULT; 5 files max per subtask); Agent/Task = the documented fallback only for a trivial single-angle check
 - Main context = orchestrator only — NEVER read source files directly
 - Research phase <30% of context budget
 - Main agent collates findings → writes /tmp file: **findings + gaps + plan**
@@ -110,6 +110,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Fix gaps — no deferrals, no excuses unless confirmed false positive
 
 ### Stage 5 — Post-Implementation Review (Subagent Swarm)
+- Author + run the post-implementation audit swarm via the Workflow tool (DEFAULT); Agent/Task = the documented fallback only for a trivial single-angle check
 - Phase-by-phase review against issue body scope, goal alignment, design doc
 - Wiring check: everything connected to existing functions?
 - Inefficiencies, dead code, optimisations, dedupe, bottlenecks, memory leaks

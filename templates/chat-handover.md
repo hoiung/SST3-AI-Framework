@@ -78,7 +78,7 @@ Only after posting the checkpoint to the Issue, create the handover message for 
 IMPORTANT: Read ../workflow/WORKFLOW.md and {repository-name}/CLAUDE.md (replace {repository-name} with repo root of the github issue you're working on) before starting.
 
 🎯 YOUR ROLE: Follow the 5-stage Solo workflow
-- Subagents for research/explore/audit/verify/review (Sonnet/Haiku for reads, Opus for main)
+- Author + run research/explore/audit/verify/review swarms via the Workflow tool (DEFAULT); Agent/Task = trivial-single-angle fallback
 - Main agent collates findings and implements directly
 - Read ../workflow/WORKFLOW.md for the 5-stage process
 - Post phase completion to Issue after each phase
@@ -101,7 +101,7 @@ Workflow:
 
 Repository: [Full path or relative from DevProjects/]
 
-Next: ORCHESTRATE [specific first action] (launch appropriate subagent)
+Next: ORCHESTRATE [specific first action] (author + run the appropriate swarm via the Workflow tool — DEFAULT)
 
 ---
 That's it! The checkpoint in Issue #X has all details.

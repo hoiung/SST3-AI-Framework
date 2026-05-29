@@ -240,6 +240,14 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **See ANTI-PATTERNS.md #14** for the no-discipline failure modes.
 
+#### Default Dispatch Mechanism — the Workflow tool (#514)
+
+**Rule**: the dynamic **Workflow tool** is the DEFAULT dispatch mechanism for every `/Leader` parallel swarm (Stage 1 research, Stage 2 draft-check, Stage 3 sanity-check, Stage 5 post-implementation audit). Author the swarm inline and run it via the Workflow tool; do NOT hand-dispatch Agent/Task subagents for these swarms. Plain Agent/Task dispatch is retained ONLY as a documented fallback for a trivial single-angle check (one reader, no cross-check layer). This supersedes #507's optional/`ultracode`-gated framing: "optional" had no reliable trigger — the imperative "Launch parallel subagents" overrode the soft "MAY", so the feature never fired even when explicitly directed. Ralph Review tiers (sequential Haiku→Sonnet→Opus, restart-on-fail) and the AP #20 "Layer 1/2/3" checkbox-MCP enforcement gates are NOT swarms — they stay Agent/Task and are NOT converted.
+
+**Monitoring (AP #16)**: a backgrounded Workflow run is launched-not-done. The orchestrator MUST **monitor** the Workflow end-to-end: launch → await the completion notification (or poll its status) → read the run output → verify every finding against source (AP #14) before acting. A `wf_…` run id is recorded in the stage checkpoint as the audit trail. "Started" is never "complete".
+
+**Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". A kill/timeout seam for a frozen background Workflow (freeze-detection parity with a hung subprocess) is a monitoring follow-up, tracked under AP #16.
+
 #### Stage 1 Layer-2 Adversarial Gap-Finder Discipline (Theme 8, #477)
 
 **Principle**: Layer-1 swarm finds what's in scope; Layer-2 adversarial swarm finds what Layer-1 missed. Different lens = different blind spots = real gap coverage. Mandatory for infrastructure / governance / cross-cutting Stage 1 research.

@@ -599,7 +599,7 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 - ✗ DON'T: Substring-grep without `-F` on markers containing `(`, `)`, `.`, `*`, `?`, `[`, `]`, `|`, `+`, `^`, `$`, `\` — silent regex failure is the worst failure mode.
 
 **How to apply** (procedural):
-- **Stage 1 enumeration angle**: dispatch a dedicated subagent with the prompt "Find every site in the codebase where this exact substring `<literal>` is emitted, referenced, or checked. Use `grep -rn -F '<literal>' src/ tests/ scripts/ --include='*.py'` BEFORE any implementation. List every match with file:line + triage (emission / fixture / mock / stale)." Record count + triage in Issue body as "Known Emit Sites: (N)".
+- **Stage 1 enumeration angle**: include a dedicated marker-enumeration subtask in the authored Workflow (DEFAULT), or dispatch an Agent/Task subagent (trivial-single-angle fallback), with the prompt "Find every site in the codebase where this exact substring `<literal>` is emitted, referenced, or checked. Use `grep -rn -F '<literal>' src/ tests/ scripts/ --include='*.py'` BEFORE any implementation. List every match with file:line + triage (emission / fixture / mock / stale)." Record count + triage in Issue body as "Known Emit Sites: (N)".
 - **Stage 4 count-drift verification gate**: at Verification Loop, re-run the same grep. Compare count to Stage 1 baseline. Mismatch = either (a) implementation added new emission sites that should have been in scope (fix: expand scope to include them) OR (b) implementation removed sites that shouldn't have changed (fix: revert removal). Either way, FAIL the gate until reconciled.
 
 **Self-Healing** (trigger mechanism — explicit per AP #21 no-autonomous-issue-creation):

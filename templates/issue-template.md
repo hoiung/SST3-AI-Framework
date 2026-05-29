@@ -10,7 +10,7 @@
 ### Pre-Issue Research Gate (Stage 1 — MANDATORY)
 
 - [ ] Check `docs/research/` for existing research on this domain
-- [ ] Launch parallel subagents (5 files max each) to explore codebase — main context MUST NOT read source files directly
+- [ ] Author + run the research swarm via the Workflow tool (DEFAULT; 5 files max per subtask) to explore the codebase — main context MUST NOT read source files directly. (Agent/Task = the documented fallback only for a trivial single-angle check.)
 - [ ] Map root cause (not symptom) — why does this need to exist?
 - [ ] Identify hidden dependencies: what other systems does this touch?
 - [ ] Validate config: are all required config values present and valid? (Fail Fast — missing config = error, not default)
@@ -18,8 +18,8 @@
 - [ ] Research phase used <30% of context budget
 - [ ] Confirm: Issue body scope below reflects research findings, not assumptions
 
-> **Subagent dispatch discipline (#406 F5.1 + F5.3)** — when dispatching ≥10 subagents, follow STANDARDS.md "Subagent Orchestration Discipline":
-> - **Scope Snippet Rule** (F5.1): main agent writes a frozen scope snippet (≤2K tokens, scope+acceptance only) to `${SST3_TMP:-/tmp}/sst3-issue-<N>-scope.md` and passes the path to subagents instead of the full issue body. ONE scout subagent reads the full issue.
+> **Subtask dispatch discipline (#406 F5.1 + F5.3)** — when the authored Workflow has ≥10 subtasks (or ≥10 fallback Agent/Task subagents), follow STANDARDS.md "Subagent Orchestration Discipline":
+> - **Scope Snippet Rule** (F5.1): main agent writes a frozen scope snippet (≤2K tokens, scope+acceptance only) to `${SST3_TMP:-/tmp}/sst3-issue-<N>-scope.md` and passes the path to each subtask instead of the full issue body. ONE scout subtask reads the full issue.
 > - **RESULT Block Schema** (F5.2): every swarm subagent ends with the fenced `## RESULT` block (verdict / files_touched / findings / tee_log / scope_gaps). Main agent parses RESULT, ignores prose body.
 > - See `../standards/STANDARDS.md` "Subagent Orchestration Discipline" for the full schema and rules.
 
@@ -142,7 +142,7 @@ Every Acceptance Criteria checkbox MUST have an explicit verification command/me
 - [ ] Does this solve the root cause or a symptom?
 
 ### Scope Verification
-- [ ] Independent subagent verification: scope vs audit doc = 100% captured
+- [ ] Independent Workflow-swarm verification: scope vs audit doc = 100% captured
 - [ ] Check against chat history: nothing discussed and agreed was forgotten
 - [ ] Verify not scoping the opposite of what was agreed
 - [ ] Check for dead/obsolete/legacy code cleanup opportunities

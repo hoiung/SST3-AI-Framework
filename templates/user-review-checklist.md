@@ -259,10 +259,10 @@ grep -rEn "^\s+\w+:" config/*.yaml
 
 ## 9. Post-Implementation Review Gate (Stage 5)
 
-> **MANDATORY**: This section enforces Stage 5 of the 5-stage workflow. Subagent swarm review, not inline main agent review.
+> **MANDATORY**: This section enforces Stage 5 of the 5-stage workflow. Swarm review — authored + run via the Workflow tool by default — not inline main agent review.
 
-### Subagent Swarm Review Confirmation
-- [ ] Post-implementation review done by subagent swarm (NOT inline by main agent)
+### Swarm Review Confirmation
+- [ ] Post-implementation review done by the audit swarm — run via the Workflow tool by default (NOT inline by main agent)
 - [ ] Phase-by-phase review against issue body scope + goal alignment + design doc
 - [ ] **Wiring check**: Every new function/class actually called from correct caller — no orphaned implementations
       TECHNIQUE: For each new `def function_name` or `class ClassName`, run:
