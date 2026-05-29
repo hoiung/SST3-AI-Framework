@@ -1247,6 +1247,23 @@ Three is canonical because it maps to the three real failure surfaces: a part is
 ---
 
 <!-- stages: 4 -->
+## Security & Dependency Audit Gate
+
+Doctrine home for the SEC lane (`sst3-sec-*`, offline ast-grep) and the DEP lane (`sst3-dep-*`, dependency/CVE audit). Pointer: ANTI-PATTERNS.md AP #27 (built-but-unwired = false comfort). An audit lane is not done until it fires automatically in a cadence — building it is necessary but not sufficient.
+
+**Shape-gating (no vacuous PASS).** SEC/DEP run only where they can actually parse the production surface. Applicability is resolved by `sst3_utils.sec_dep_applicable(repo_or_shape) -> {sec, dep}`:
+- **Code-bearing → run**: Service, eBay-MCP, Config-heavy (ast-grep-parseable Python/Rust/JS + a dependency manifest).
+- **Skip-clean → do NOT run**: non-code shapes (Static-blog/Static-site/Voice-doc/Brainstorm/Business-ops), day-1 scaffolds, AND surfaces ast-grep/pip-audit cannot parse — GAS (`.gs`, test-harness Python only) and lab-automation (PowerShell + bash). Running SEC/DEP there would scan nothing meaningful and report a clean PASS that means nothing — the precise false-PASS this gate exists to prevent. The helper fails loud on an unknown repo/shape rather than defaulting to a silent skip.
+
+**Fail-loud contract (three signals).** SEC/DEP use the existing `sst3-check.sh` orchestrator. `--strict` escalates any engine-missing wrapper to **exit 2** (distinct from findings=1 and clean=0); the per-phase stderr-sentinel must be present to confirm a wrapper actually ran. An engine-missing run is NOT a clean run — it must be re-run after `scripts/install.sh`, never waved through. Diff-scope with `--paths-from <ndjson>` (forwarded to the SEC/DEP wrappers).
+
+**dependabot boundary (no duplication).** `.github/dependabot.yml` and the `sst3-dep-cve` lane do NOT overlap: **dependabot** opens *scheduled upgrade PRs* (it bumps versions), while **`sst3-dep-cve`** is an *on-demand / PR-time CVE scan* emitting NDJSON findings (it reports, it does not bump). They are complementary — keep both.
+
+**Which surface wires what.** SEC (offline) wires into the Ralph **Sonnet** tier (diff-triggered, shape-gated, gating) + a pre-commit local hook (Claude's own edits) + a pre-commit-framework **pre-push** hook (operator/non-Claude commits the security-guidance plugin cannot see). DEP-cve (network) wires into a **GHA** security job (`sec-dep-audit.yml`), NOT pre-commit (network calls do not belong in the commit path). All are shape-gated; non-applicable shapes skip-clean.
+
+---
+
+<!-- stages: 4 -->
 ## Testing Priority
 
 Test in this order:

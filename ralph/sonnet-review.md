@@ -91,6 +91,14 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 - [ ] **Sync-lane (diff-triggered)** per [`_doc-only-exemption.md`](_doc-only-exemption.md) — run `sst3-sync-related-code.sh` / `sst3-doc-frontmatter.sh` if `docs/research/*` changed.
 - [ ] **AP #19 under-use + over-trust check**: every subagent RESULT block starts with `mcp_graph_available: yes|no` per [`_wrapper-lane-preconditions.md`](_wrapper-lane-preconditions.md). If wrapper-lane used, one result spot-checked by reading source — record spot-check file:line in RESULT.
 
+### Security Lane (SEC) — diff-triggered, shape-gated (#507 AC 2.3)
+
+> Offline ast-grep SEC scan of the changed code. Canonical doctrine: STANDARDS.md "Security & Dependency Audit Gate"; AP #27. This is a GATE (mirrors the doc-lane FAIL semantics), not a run-record.
+
+- [ ] **SEC scope gate**: does the diff touch code files (`.py`/`.rs`/`.js`/`.ts`) in a SEC-applicable repo? Resolve via `python3 -c "from SST3.scripts.sst3_utils import sec_dep_applicable as f; print(f('<repo>')['sec'])"`. If `False` (non-code shape / GAS / scaffold) OR the diff touches no code file → "N/A — shape-gated skip-clean" and the two FAIL conditions below do not apply. If `True` and code files changed → next two are mandatory.
+- [ ] **SEC ran-clean (FAIL condition a)**: run `bash dotfiles/scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`scripts/install.sh`), not waved through.
+- [ ] **SEC no-net-new-finding (FAIL condition b)**: **any SEC finding on an added/modified line in the diff = FAIL** (fix it; do not defer). Pre-existing findings on unchanged lines of a touched file are out of scope for this diff (they predate it). Record the wrapper exit + finding count in the RESULT block.
+
 ## Pass Criteria
 
 ALL checkboxes above verified with evidence (wrapper-lane + source spot-check, OR documented fallback + subagent RESULT block per `_fallback-clause.md`). Wrapper-lane available + not used for a structural question = FAIL. Doc-only PR exempted per `_doc-only-exemption.md` = PASS. Unavailable / stale / unsupported-language WITH subagent-backed fallback evidence = PASS.

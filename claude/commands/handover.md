@@ -6,30 +6,20 @@ Optional argument: `/handover <one-line note>` — a free-text hint folded into 
 
 ## Why this exists
 
-Compaction drops the conversation and keeps only a summary. Anthropic's own compaction schema keeps **state + next-steps + learnings** and preserves the latest user turn **verbatim** — because paraphrasing the goal is where post-compact drift starts. This command writes that, plus evidence anchors, into the two channels the harness actually re-surfaces after a compact:
+Compaction drops the conversation and keeps only a summary. Anthropic's own compaction schema keeps **state + next-steps + learnings** and preserves the latest user turn **verbatim** — because paraphrasing the goal is where post-compact drift starts. This command writes that, plus evidence anchors, to a file the post-compact context is then commanded to re-read.
 
-1. the auto-memory index (its top section is auto-loaded into every new session), and
-2. the `SessionStart` compact hook, which re-injects the verbatim task from `/tmp/sst3-current-task.txt`.
+**Handovers live in `/tmp`, NOT in auto-memory.** A handover is an ephemeral, single-use resume aid — it is relevant only until the work it describes is resumed, then it is dead. Compaction keeps the **same WSL VM running**, so `/tmp` survives it, and the `SessionStart` compact hook re-injects `/tmp/sst3-current-task.txt`, which points the post-compact context at the handover file. That closes the loop without writing anything to permanent memory.
 
-A handover file with no auto-loaded index pointer is **orphaned** — the post-compact context never learns it exists. So both writes below are mandatory, not optional.
+**Do NOT write the handover to the auto-memory directory or add a `MEMORY.md` index bullet.** That was the old behaviour and it caused unbounded accumulation — every session's handover piling into permanent memory forever, bloating the auto-loaded index for no resume value. Auto-memory is for *durable* facts (user/feedback/project/reference). A per-session resume snapshot is not durable — it belongs in `/tmp`. If this session produced a durable lesson, capture THAT as a normal `feedback_*` / `project_*` memory, separately — not as a handover.
+
+(Caveat: `/tmp` is wiped by a full WSL **VM restart**, not by a compaction. If you genuinely need a piece of state to survive a VM restart, it is a durable fact — write it as a proper memory, not as a handover.)
 
 ## What to do when invoked (in order)
 
-**Step 1 — Write the handover topic file.**
-Write a new file `HANDOVER_<repo-or-topic-slug>_<YYYY-MM-DD>.md` into **your auto-memory directory** — the directory given in this session's auto-memory system reminder (do NOT hardcode an absolute path; use the path the harness provided this session). For Issue-tied work, put the issue number in the slug (e.g. `<repo>-<issue>-<topic>`) so the Step-2 bullet has a unique target to update in place. Give it this frontmatter, matching existing handover topic files:
+**Step 1 — Write the handover file to `/tmp`.**
+Write a new file `/tmp/handover_<repo-or-topic-slug>_<YYYY-MM-DD>.md`. For Issue-tied work, put the issue number in the slug (e.g. `handover_<repo>-<issue>-<topic>_<date>.md`). Optional light frontmatter (`name` / `description`) is fine for readability, but this is a `/tmp` working file, NOT a memory file — do not give it `metadata.node_type: memory`.
 
-```yaml
----
-name: handover-<slug>-<date>
-description: <one-line what-this-is>
-metadata:
-  node_type: memory
-  type: project
-  originSessionId: <this session id if known, else omit>
----
-```
-
-Then the body, using these **8 field labels VERBATIM** (this is the authoring contract — do not rename, do not drop):
+The body uses these **8 field labels VERBATIM** (this is the authoring contract — do not rename, do not drop):
 
 1. `GOAL (verbatim)` — the operator's goal quoted word-for-word. Do NOT paraphrase. This is the single most important field; paraphrasing it is the #1 source of post-compact drift.
 2. `STATE` — what is DONE vs IN-PROGRESS, each line carrying an evidence anchor (commit SHA / test count / file:line). Not "auth is mostly done" — "auth login flow done (commit a1b2c3d, 7/7 tests pass); refresh-token path IN-PROGRESS (src/auth.py:88)".
@@ -40,28 +30,24 @@ Then the body, using these **8 field labels VERBATIM** (this is the authoring co
 7. `OPEN` — open questions / blockers genuinely undecided (so the reader knows what is settled vs not).
 8. `LEARNINGS` — gotchas discovered this session (e.g. "endpoint is side-effecting — use --head", "test harness needs RTH ticks"). Cheap to record, expensive to rediscover.
 
-**Step 2 — Add the auto-loaded index pointer (loop-closure — do NOT skip).**
-Add ONE line under the `## ⭐ Active / in-flight` section at the TOP of `MEMORY.md` (your auto-memory index), of the form:
-`- [<≤180-char summary, lead with ⭐ and the repo/issue + resume verb>](HANDOVER_<slug>_<date>.md)`
-Only this top section is auto-loaded into the next session (the index is truncated at session start, ~line 200) — the topic-file body is NOT auto-loaded. The bullet is what tells post-compact Claude the handover exists and where to read it. If a bullet already exists for this same work, UPDATE it in place rather than adding a duplicate.
-
-**Index hygiene (MEMORY.md is large and the top is the only part that auto-loads).** Keep `## ⭐ Active / in-flight` **lean**. If `MEMORY.md` exceeds ~200 lines, in the SAME edit **demote** the oldest **closed / superseded** handover bullet down to the `## Recent audit-trail (closed work…)` section (or remove it), so adding a live entry never silently pushes another live entry past the ~200-line truncation boundary into the part that never loads.
-
-**Step 3 — Update the compact-hook task file (deterministic re-surface).**
+**Step 2 — Update the compact-hook task file (deterministic re-surface).**
 Write to `/tmp/sst3-current-task.txt` (the file the `SessionStart` compact hook reads and re-injects after a compact) the verbatim current task PLUS an explicit imperative — NOT a bare path — so the post-compact context is commanded to open the handover:
 
 ```text
 <verbatim operator goal>
-Post-compact: READ <full path to the HANDOVER_*.md file> IN FULL before resuming — it holds the goal/state/next-action.
+Post-compact: READ /tmp/handover_<slug>_<date>.md IN FULL before resuming — it holds the goal/state/next-action.
 ```
 
 The hook re-surfaces this text and a fixed "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue" directive, but it does NOT itself read the handover body — so the imperative above is what closes the loop.
 
-**Step 4 — Report and confirm.**
-Tell the operator: the handover file path, the index bullet you added (or updated), the task-file line, and a one-line "safe to compact now". Then stop — let the operator trigger the compact.
+(If another live session may also be compacting, note that `/tmp/sst3-current-task.txt` is a single shared file — overwriting it points the hook at THIS session's handover. That is correct for the session being compacted now; just be aware it is not per-session.)
+
+**Step 3 — Report and confirm.**
+Tell the operator: the `/tmp` handover file path, the task-file line you wrote, and a one-line "safe to compact now". Then stop — let the operator trigger the compact.
 
 ## Anti-patterns — do NOT do these
 
+- **Do NOT write to auto-memory / `MEMORY.md`.** Handovers are ephemeral `/tmp` files. Writing them to memory bloats the auto-loaded index permanently — the exact failure this skill was rewritten to stop.
 - **No prose-narrative summary.** A paragraph retelling the session strips the reasoning chain and is unverifiable. Use the 8 structured fields.
 - **Not a raw-history dump.** Dumping everything adds noise and buries the signal (lost-in-the-middle). Write the high-leverage fields only.
 - **Do not paraphrase the operator goal.** Quote it verbatim in field 1 — paraphrase is where drift begins.
@@ -69,4 +55,4 @@ Tell the operator: the handover file path, the index bullet you added (or update
 
 ## Relationship to the Issue-comment handover
 
-For Issue-tied SST3 work, the canonical session checkpoint still goes to the GitHub Issue comment per `templates/chat-handover.md`. `/handover` complements that — it is the memory-channel handover for any pre-compact moment (Issue or not). Use both when on an active Issue.
+For Issue-tied SST3 work, the canonical session checkpoint still goes to the GitHub Issue comment per `templates/chat-handover.md`. `/handover` complements that — it is the `/tmp` resume snapshot for any pre-compact moment (Issue or not). Use both when on an active Issue; the Issue comment is the durable record, the `/tmp` handover is the same-session resume aid.

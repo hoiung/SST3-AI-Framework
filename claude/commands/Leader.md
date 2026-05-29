@@ -4,7 +4,7 @@ Direct instructions from the human leader. NOT suggestions. Orders. Do not skim.
 
 ## Guardrails (Apply to ALL Stages)
 
-- **Context budget**: Research phase <30% of context. 80%+ = warn user. 90%+ = STOP and create handover.
+- **Context budget**: Research phase <30% of context. 70%+ = warn user. 80%+ = STOP and run `/handover`.
 - **Post-compact recovery**: If context was compacted mid-stage, re-read this skill file + CLAUDE.md + STANDARDS.md + STANDARDS.md §Per-Stage Feedback Capture (in-flight workflow telemetry) + the active Issue before continuing. Do NOT resume from memory.
 - **Branch safety**: NEVER switch branches. Commit and push to the CURRENT branch. Ask the user if you need something from main.
 - **Commit discipline**: Commit per file. NEVER `git add -A` or `git add .`.
@@ -170,7 +170,7 @@ The draft exists. Now verify it is correct before it becomes the contract.
 **Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 4-tagged sections directly via `<!-- stages: 4 -->` markers]` to load the Stage-4-tagged subset PLUS the 9 stage-4/*.md extract files (verification-loop / ralph-review / gate-2-merge / gate-3-user-review / three-tier-testing / contract-verification / observability-fail-fast / cohabitation-protocol / file-housekeeping). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
 
 
-The issue is created and verified. Now implement it. Do NOT stop. Do NOT pause for compact breaks — you have a 1M context window, use it. The only reason to stop is if you hit 90% context usage, in which case create a handover.
+The issue is created and verified. Now implement it. Do NOT stop. Do NOT pause for compact breaks — you have a 1M context window, use it. The only reason to stop is if you hit 80% context usage, in which case run `/handover`.
 
 Stage 4 has three sequential gates after the implementation phases complete: Gate 1 Verification Loop, Gate 2 Merge, Gate 3 User-Review-Checklist. Ralph Review runs inside the implementation loop (step 7) BEFORE Gate 1.
 

@@ -30,8 +30,10 @@ set -euo pipefail
 MODE=all
 QUIET=0
 STRICT=0
-for arg in "$@"; do
-    case "$arg" in
+PATHS_FROM=""
+# while-shift loop (not `for arg`) so --paths-from can consume its value arg.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --code) MODE=code ;;
         --sec) MODE=sec ;;
         --dep) MODE=dep ;;
@@ -40,9 +42,28 @@ for arg in "$@"; do
         --all) MODE=all ;;
         --quiet) QUIET=1 ;;
         --strict) STRICT=1 ;;
-        *) echo "ERROR: unknown arg: $arg" >&2; exit 64 ;;
+        --paths-from)
+            shift
+            [[ $# -gt 0 ]] || { echo "ERROR: --paths-from requires a path argument" >&2; exit 64; }
+            PATHS_FROM="$1"
+            ;;
+        --paths-from=*) PATHS_FROM="${1#*=}" ;;
+        *) echo "ERROR: unknown arg: $1" >&2; exit 64 ;;
     esac
+    shift
 done
+
+# Diff-scoping forward (#507 AC 2.2): only the SEC/DEP wrappers accept --paths-from.
+# Built as an array so it expands to nothing when unset — no spurious empty arg
+# reaches the code/doc/sync wrappers under `set -u`.
+PATHS_FROM_ARGS=()
+if [[ -n "$PATHS_FROM" ]]; then
+    if [[ ! -r "$PATHS_FROM" ]]; then
+        echo "ERROR: --paths-from file not readable: $PATHS_FROM" >&2
+        exit 64
+    fi
+    PATHS_FROM_ARGS=(--paths-from "$PATHS_FROM")
+fi
 
 WRAPPER_DIR="$(dirname "$(realpath "$0")")"
 FINDINGS=0
@@ -193,17 +214,17 @@ fi
 
 # Stage 5 fix (D5) — Phase 8a security wrappers (all no-arg).
 if [[ "$MODE" == "all" || "$MODE" == "sec" ]]; then
-    run_or_skip sec-subprocess "$WRAPPER_DIR/sst3-sec-subprocess.sh"
-    run_or_skip sec-deserialize "$WRAPPER_DIR/sst3-sec-deserialize.sh"
-    run_or_skip sec-secret-touchpoints "$WRAPPER_DIR/sst3-sec-secret-touchpoints.sh"
-    run_or_skip sec-input-sources "$WRAPPER_DIR/sst3-sec-input-sources.sh"
+    run_or_skip sec-subprocess "$WRAPPER_DIR/sst3-sec-subprocess.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
+    run_or_skip sec-deserialize "$WRAPPER_DIR/sst3-sec-deserialize.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
+    run_or_skip sec-secret-touchpoints "$WRAPPER_DIR/sst3-sec-secret-touchpoints.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
+    run_or_skip sec-input-sources "$WRAPPER_DIR/sst3-sec-input-sources.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
 fi
 
 # Stage 5 fix (D5) — Phase 8b dep wrappers (no-arg subset; usage + blast-radius
 # require <package> arg → TARGET_REQUIRED_SKIPPED).
 if [[ "$MODE" == "all" || "$MODE" == "dep" ]]; then
-    run_or_skip dep-list "$WRAPPER_DIR/sst3-dep-list.sh"
-    run_or_skip dep-cve "$WRAPPER_DIR/sst3-dep-cve.sh"
+    run_or_skip dep-list "$WRAPPER_DIR/sst3-dep-list.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
+    run_or_skip dep-cve "$WRAPPER_DIR/sst3-dep-cve.sh" "${PATHS_FROM_ARGS[@]+"${PATHS_FROM_ARGS[@]}"}"
 fi
 
 if [[ "$MODE" == "all" || "$MODE" == "doc" ]]; then

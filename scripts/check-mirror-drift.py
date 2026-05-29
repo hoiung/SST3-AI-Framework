@@ -33,6 +33,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Import the CANONICAL scrubber that carries the real private-term table (#507
+# Stage-5 gap-fix for the #501 mechanism). `_private_term_table.py` is
+# canonical-only by design (#501 — the 48 private-term pairs never ship inside a
+# public mirror), so the vendored `sst3_mirror_utils.py` in a mirror clone loads
+# an EMPTY table and its `transform()` silently SKIPS `private_term_scrub`. That
+# made `transform(canonical)` here diverge from what propagate-mirrors actually
+# wrote (which DID scrub), so every private-term-bearing mirror file was flagged
+# as false "drift" and blocked the commit. This script already requires the
+# sibling `../dotfiles` canonical clone to read canonical content, so sourcing
+# the table from the first scripts dir that actually has it is consistent and
+# reproduces the exact transform the writer applied. Standalone mirror clones
+# with no sibling dotfiles find no table and gracefully SKIP below as before.
+for _cand in (Path(__file__).resolve().parent, Path.cwd() / "../dotfiles/SST3/scripts"):
+    if (_cand / "_private_term_table.py").exists():
+        sys.path.insert(0, str(_cand.resolve()))
+        break
+
 try:
     import sst3_mirror_utils as smu
     from sst3_block_utils import find_boundary_lines, extract_managed_block, strip_marker_lines

@@ -34,7 +34,6 @@ import fnmatch
 import os
 import sys
 
-
 # Patterns that must not leak to remote. Add new ones here; consumer repos
 # pick them up on next propagate-mirrors run.
 PROTECTED_PATTERNS = [
