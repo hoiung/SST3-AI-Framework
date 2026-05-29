@@ -527,7 +527,7 @@ The manual `mcp__github-checkbox__update_issue_checkbox` invocation is the canon
 
 **How to apply**: Two exemption-classes both explicitly permitted:
 - (a) **pure git subcommands**: use `git -C <path> <subcmd>` (no CWD change at all). MANDATORY for any cross-repo git operation. Examples: `git -C ../SST3-AI-Harness status`, `git -C $HOME/DevProjects/voice-staging log --oneline`.
-- (b) **non-git commands** (pre-commit install, bash scripts, custom binaries): use a **subshell-protected** form `(cd <path> && command)` so the CWD change is scoped to the subshell and dies with it. Existing canonical examples explicitly permitted: `../dotfiles/scripts/install.sh:361` `(cd "$repo_dir" && pre-commit install ...)`; `../scripts/sst3-code-at-ref.sh:108`.
+- (b) **non-git commands** (pre-commit install, bash scripts, custom binaries): use a **subshell-protected** form `(cd <path> && command)` so the CWD change is scoped to the subshell and dies with it. Existing canonical examples explicitly permitted: the `(cd "$repo_dir" && pre-commit install ...)` subshell in `../dotfiles/scripts/install.sh`, and the `(cd "$WORKTREE"; bash ...)` worktree subshell in `../scripts/sst3-code-at-ref.sh` — cited by stable code snippet rather than line number, because line citations to these files drift on every edit (this very example drifted 228→361→390 across #507/#509; a brittle line number is itself the AP-#22-adjacent fragility).
 
 Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited** in any script that has commands following the cd. A `cd -` pattern is fragile (skipped on early-exit / set -e); prefer subshell.
 
