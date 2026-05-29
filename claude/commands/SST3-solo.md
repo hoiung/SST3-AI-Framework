@@ -90,7 +90,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 ### Stage 2 — Issue Creation (Main Agent from /tmp)
 - Create issue using `issue-template.md` from /tmp research
 - Add ALL before/after illustrations, compact breaks between phases
-- Subagents for scope-check vs audit
+- Author + run the draft-check swarm via the Workflow tool (DEFAULT) for scope-check vs audit; Agent/Task = the documented fallback only for a trivial single-angle check
 - Quality mantras VERBATIM: no inefficiencies, fix optimisations, reliable/robust, dedupe, no bottlenecks, fast/safe, no memory leaks, follows STANDARDS.md
 - No false positives. No priority levels. All must be fixed.
 

@@ -216,7 +216,7 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **See ANTI-PATTERNS.md #9** for evidence, root cause, worked examples, and self-healing.
 
-<!-- stages: 4 -->
+<!-- stages: 1,2,3,4,5 -->
 ### Subagent Orchestration Discipline
 
 **Principle**: Use MANY subagents in LAYERS, cross-checking from different angles. Verify every finding against source. Document proof method inline.
@@ -246,7 +246,7 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **Monitoring (AP #16)**: a backgrounded Workflow run is launched-not-done. The orchestrator MUST **monitor** the Workflow end-to-end: launch → await the completion notification (or poll its status) → read the run output → verify every finding against source (AP #14) before acting. A `wf_…` run id is recorded in the stage checkpoint as the audit trail. "Started" is never "complete".
 
-**Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". A kill/timeout seam for a frozen background Workflow (freeze-detection parity with a hung subprocess) is a monitoring follow-up, tracked under AP #16.
+**Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". A kill/timeout seam for a frozen background Workflow (freeze-detection parity with a hung subprocess) is an open monitoring follow-up — no tracking artifact exists yet (surfaced for a future Issue); do NOT read "follow-up" as already-tracked.
 
 #### Stage 1 Layer-2 Adversarial Gap-Finder Discipline (Theme 8, #477)
 
