@@ -246,7 +246,7 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **Monitoring (AP #16)**: a backgrounded Workflow run is launched-not-done. The orchestrator MUST **monitor** the Workflow end-to-end: launch → await the completion notification (or poll its status) → read the run output → verify every finding against source (AP #14) before acting. A `wf_…` run id is recorded in the stage checkpoint as the audit trail. "Started" is never "complete".
 
-**Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". A kill/timeout seam for a frozen background Workflow (freeze-detection parity with a hung subprocess) is an open monitoring follow-up — no tracking artifact exists yet (surfaced for a future Issue); do NOT read "follow-up" as already-tracked.
+**Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". **Kill/timeout seam for a frozen background Workflow** (freeze-detection parity with a hung subprocess): a backgrounded Workflow run surfaces a task-id + a `wf_…` run id. Monitor it per AP #16 — await the completion notification (the harness re-invokes you when it finishes) or watch `/workflows` / read the run's task-output file. If a run exceeds its expected wall-clock with NO completion notification AND `/workflows` (or the output file) shows no forward progress, treat it as frozen: stop it with `TaskStop <task-id>`, then re-author with a smaller fan-out (fewer concurrent subtasks) or split the swarm into sequential batches and re-run. Do NOT leave a frozen run unbounded — an un-monitored background Workflow is the AP #16 fire-and-forget failure mode. (Wall-clock baseline: a typical /Leader audit swarm completes in minutes; a run with no notification well past that, and no `/workflows` progress, is the kill trigger.)
 
 #### Stage 1 Layer-2 Adversarial Gap-Finder Discipline (Theme 8, #477)
 
@@ -366,6 +366,7 @@ See also `../reference/tool-selection-guide.md` "Decision Tree: Code-Understandi
 
 **Evidence**: round-5 user observation N32 (2026-04-20) — "Leader 1-6 should incorporate checking against the workflow of the skills that been invoked too, otherwise it just checks SST3 workflow and standard and anti-patterns ... The SST3 should also have this integrated, so it's like a double guardrail." Pre-existing research: `docs/research/LEADER_SKILL_ENGINEERING_2026_04_12.md` (AI-to-AI prompt engineering + Stage-4 conflation fix + Ralph tier design).
 
+<!-- stages: 2,3,5 -->
 #### Skill-Canonical Audit Template (Comprehensive Walk)
 
 **Use for AUDIT prompts** (Stage 2 author / Stage 3 subagent / Stage 5 subagent): walk every section of the invoked-skill canonical, return per-section pass/fail. **NOT for INVARIANT GATES** (Ralph checklists, Stage 4 Gate 1, AC checkboxes, Mirror-lane triggers, file:line/exit-code checks) — gates verify named conditions; audits verify a draft against a multi-section canonical.
@@ -1329,6 +1330,7 @@ Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation R
 
 **Enforcement**: AP #18, Stage 4 Verification Loop, `issue-template.md` PREREQUISITE CHECKPOINT.
 
+<!-- stages: 2,3 -->
 #### AC Verifiability — pre-Stage-3 sub-gate (Theme 10, #477)
 
 **Principle**: Every Acceptance Criteria checkbox MUST have an explicit verification command/method that is **falsifiable** (binary pass/fail). Unfalsifiable ACs leak through Stage 2 audit because subagents can rubber-stamp ambiguity ("looks reasonable") — the gate MUST fire BEFORE swarm dispatch, not after.
