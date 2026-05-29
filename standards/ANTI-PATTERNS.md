@@ -1,6 +1,6 @@
 # SST3 Anti-Patterns
 
-> 26 documented failure modes. Origin: Issue #79.
+> 27 documented failure modes (#1–#27; #5 and #11 are subsumed stubs — their content merged into #3+#6 and #13+#14c respectively — retained so cross-reference numbering stays stable). Origin: Issue #79.
 
 <!-- stages: 4 -->
 ## Anti-Pattern #1: Propagation Failures
@@ -527,7 +527,7 @@ The manual `mcp__github-checkbox__update_issue_checkbox` invocation is the canon
 
 **How to apply**: Two exemption-classes both explicitly permitted:
 - (a) **pure git subcommands**: use `git -C <path> <subcmd>` (no CWD change at all). MANDATORY for any cross-repo git operation. Examples: `git -C ../SST3-AI-Harness status`, `git -C $HOME/DevProjects/voice-staging log --oneline`.
-- (b) **non-git commands** (pre-commit install, bash scripts, custom binaries): use a **subshell-protected** form `(cd <path> && command)` so the CWD change is scoped to the subshell and dies with it. Existing canonical examples explicitly permitted: `../dotfiles/scripts/install.sh:228` `(cd "$repo_dir" && pre-commit install ...)`; `../scripts/sst3-code-at-ref.sh:108`.
+- (b) **non-git commands** (pre-commit install, bash scripts, custom binaries): use a **subshell-protected** form `(cd <path> && command)` so the CWD change is scoped to the subshell and dies with it. Existing canonical examples explicitly permitted: `../dotfiles/scripts/install.sh:361` `(cd "$repo_dir" && pre-commit install ...)`; `../scripts/sst3-code-at-ref.sh:108`.
 
 Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited** in any script that has commands following the cd. A `cd -` pattern is fragile (skipped on early-exit / set -e); prefer subshell.
 

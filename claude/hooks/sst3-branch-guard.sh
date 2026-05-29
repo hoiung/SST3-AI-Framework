@@ -178,7 +178,11 @@ fi
 #       handles both via the same `git push origin <branch>:master` pattern).
 # Same class of bug + same fix as check-phase-ac-cadence.py BRANCH_RE
 # extension (commit 9c6d5d0) — Phase 4 bonus finding generalised here.
-is_solo()      { [[ "$1" == solo/* || "$1" == worktree-solo+issue-* ]]; }  # ^solo/ OR ^worktree-solo+issue- PREFIX anchor (AC3c + AC 5.1)
+# #509 AC6.5: solo-branch forms aligned with the canonical sst3_utils.SOLO_BRANCH_RE
+# (Python) + sst3_solo_branch_alt (bash util). This hook is INSTALLED standalone to
+# ~/.claude/hooks/ so it cannot source the repo helper at runtime; the glob is the
+# aligned literal — solo/* plus both EnterWorktree-rename forms (+ and legacy -). KEEP IN SYNC.
+is_solo()      { [[ "$1" == solo/* || "$1" == worktree-solo+issue-* || "$1" == worktree-solo-issue-* ]]; }
 is_sha()       { [[ "$1" =~ ^[0-9a-fA-F]{7,40}$ ]]; }
 is_prevref()   { [[ "$1" == "-" || "$1" =~ ^@\{-[0-9]+\}$ ]]; } # git checkout - / @{-N}
 is_headref()   { [[ "$1" =~ ^HEAD([~^][0-9]*)+$ || "$1" =~ ^HEAD@\{ ]]; }

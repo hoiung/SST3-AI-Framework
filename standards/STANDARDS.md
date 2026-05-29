@@ -319,7 +319,7 @@ The wrapper-lane is **NOT a replacement** for subagents. See ANTI-PATTERNS.md AP
 
 **Naming-honesty note (Issue #445 Stage 5)**: the lane is called "wrapper-lane", not "graph". There is no graph database, no SQLite, no Tree-sitter store, no embeddings. Every query re-parses on disk via ast-grep + ripgrep + git. Field names in the wrapper JSON output reflect what is actually computed (`file_count`, not `total_nodes`); displaced daemon-MCP lineage: see `git log --grep="#445"`.
 
-**Non-interactive shell PATH bootstrap (Issue #456)**: wrappers self-augment PATH via `../scripts/sst3-bash-utils.sh` (sourced by 31 of 38 end-user wrappers) so engines under `~/.cargo/bin`, `~/.local/bin`, `~/.npm-global/bin` resolve from `bash --noprofile --norc -c '...'` (the shape Claude Code's Bash tool spawns). Without this bootstrap, `.bashrc` early-returns on non-interactive shells and engines on disk are invisible. The 8 exempt wrappers (system-PATH-only + the meta-validator that self-bootstraps inline) are listed in `../scripts/.bash-utils-exempt-list`; the `check-wrapper-bash-utils-source` pre-commit hook (declared BEFORE `sst3-self-test`) catches future drift at commit time.
+**Non-interactive shell PATH bootstrap (Issue #456)**: wrappers self-augment PATH via `../scripts/sst3-bash-utils.sh` (sourced by 31 of 38 end-user wrappers) so engines under `~/.cargo/bin`, `~/.local/bin`, `~/.npm-global/bin` resolve from `bash --noprofile --norc -c '...'` (the shape Claude Code's Bash tool spawns). Without this bootstrap, `.bashrc` early-returns on non-interactive shells and engines on disk are invisible. The 7 exempt end-user wrappers (system-PATH-only) plus the meta-validator `sst3-self-test.sh` (self-bootstraps PATH inline, and is infra outside the 38-wrapper denominator) — 8 entries total — are listed in `../scripts/.bash-utils-exempt-list`; the `check-wrapper-bash-utils-source` pre-commit hook (declared BEFORE `sst3-self-test`) catches future drift at commit time.
 
 See also `../reference/tool-selection-guide.md` "Decision Tree: Code-Understanding Queries" and `../docs/guides/code-query-playbook.md`.
 
@@ -1075,7 +1075,7 @@ C:/temp/                  ← Shared temp folder
 **Structure**: Use the What/Get/Install/Learn format from `../templates/CLAUDE_TEMPLATE.md` (Project-Specific Configuration section).
 ```
 
-**Enforcement**: Pre-commit hook rejects README.md files > 80 lines
+**Enforcement**: None — the 80-line figure is an authoring guideline, not a gated check. No pre-commit hook enforces a README line-count limit, and several repo READMEs (the root README, the SST3 scripts-dir README) intentionally exceed it. Keep new READMEs lean per the What/Get/Install/Learn structure above; do not treat 80 as a hard ceiling.
 
 **Per-Stage Feedback / Telemetry**: see canonical section "Per-Stage Feedback Capture (Canonical)" earlier in this file. The previous `SST3-metrics/retrospectives/` lifecycle (per-Issue retrospective files, quarterly review trigger) was superseded in #448 — `archive/retrospective-template.md` produced zero retrospectives across its lifetime; the new per-stage capture mechanism replaces it with 3-layer enforcement, dynamic stage discovery, and a closure-loop on improvements.
 

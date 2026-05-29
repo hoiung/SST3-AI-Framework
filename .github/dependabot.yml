@@ -7,3 +7,10 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+  - package-ecosystem: "pip"
+    directory: "/mcp-servers/github-checkbox/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "python"

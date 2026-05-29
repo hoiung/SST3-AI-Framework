@@ -158,3 +158,15 @@ activate_paths_from_filter() {
     exec > >(jq -c --argjson allowed "$pattern" \
         'if (.file? // null) == null then . else select(.file as $f | $allowed | index($f) != null) end')
 }
+
+# sst3_solo_branch_alt <issue> — canonical solo-branch grep alternation (#509 AC6.5).
+# Bash sister of the Python single-source `sst3_utils.SOLO_BRANCH_RE`. Echoes an
+# ERE fragment matching EVERY solo branch form for the given issue number, so
+# callers (e.g. leader-stage5-drain-check.sh) stop re-hand-rolling — and drifting —
+# the alternation. Forms: solo/issue-N- , solo+issue-N- , solo-issue-N- , each with
+# an optional `worktree-` prefix (EnterWorktree renames `/` -> `+`). KEEP IN SYNC
+# with sst3_utils.SOLO_BRANCH_RE.
+sst3_solo_branch_alt() {
+    local issue="$1"
+    printf '(worktree-)?solo[/+-]issue-%s-' "$issue"
+}
