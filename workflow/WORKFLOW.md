@@ -150,7 +150,7 @@ git push origin <solo-branch>
 <!-- stages: 4 -->
 ## Context Management
 
-**Context**: 1M window (Opus/Sonnet), 200K (Haiku). Handover at 80% (800K of 1M, 160K of 200K) — stop threshold, not routine. Warn at 70%, work until 80%. Content budget ~42K. Research budget <30% Stage 1. At the threshold (or any planned compact), run `/handover` to write the structured pre-compact handover into auto-memory.
+**Context**: 1M window (Opus/Sonnet), 200K (Haiku). Handover at 80% (800K of 1M, 160K of 200K) — stop threshold, not routine. Warn at 70%, work until 80%. Content budget ~42K. Research budget <30% Stage 1. At the threshold (or any planned compact), run `/handover` to write the structured pre-compact handover to `~/handover/` (survives compaction AND a WSL VM reboot, auto-pruned after 7 days) — re-surfaced post-compact by the SessionStart hook, NOT persisted to auto-memory.
 
 <!-- stages: 4 -->
 ## Quality Standards

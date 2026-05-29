@@ -4,7 +4,7 @@
 # WHAT  Claude Code SessionStart hook (matchers: startup / resume / compact).
 #       Emits a JSON envelope whose `additionalContext` carries 4 deterministic
 #       fields the agent needs at session entry but historically forgot:
-#         (a) verbatim operator task from /tmp/sst3-current-task.txt if present
+#         (a) verbatim operator task from ~/handover/current-task.txt if present
 #         (b) active Issue + AC status (gh issue view --json title,body,labels)
 #         (c) Reading Confirmation Checklist literal text
 #         (d) post-compact mandatory re-read directive
@@ -30,13 +30,16 @@
 #
 # CONTRACT  jq must be available (install via scripts/install.sh). gh may be
 #       absent — graceful-degrade to a placeholder string for field (b).
-#       /tmp/sst3-current-task.txt may be absent — graceful-degrade likewise.
+#       ~/handover/current-task.txt may be absent — graceful-degrade likewise.
 #
 # REVERSIBLE  Remove the SessionStart hook block from claude/settings.json or
 #       set `"disableAllHooks": true`. Zero residual state.
 set -uo pipefail
 
-TASK_FILE="${SST3_CURRENT_TASK_FILE:-/tmp/sst3-current-task.txt}"
+# Resume pointer (dotfiles#510): default is ~/handover/current-task.txt — written to
+# $HOME (NOT a literal `~`, which bash does not expand inside a ${VAR:-…} default) so
+# it survives a WSL VM idle-reap / reboot, unlike the legacy /tmp location.
+TASK_FILE="${SST3_CURRENT_TASK_FILE:-$HOME/handover/current-task.txt}"
 MODE="${1:-live}"
 
 if ! command -v jq >/dev/null 2>&1; then
