@@ -457,27 +457,90 @@ class ManifestError(RuntimeError):
     """Raised on manifest schema / loader failures. Caller exits with EXIT_CONFIG."""
 
 
+def _main_clone_root(start: Path) -> Path | None:
+    """Resolve the MAIN clone root by walking up to the repo's `.git`.
+
+    Pure file I/O (no subprocess / no git binary). A linked git worktree has a
+    `.git` *file* of the form `gitdir: <main>/.git/worktrees/<name>`; reading it
+    yields the MAIN clone even from inside a worktree (whose own toplevel lacks
+    the sibling layout). A main clone has a `.git` *directory*. Returns None if no
+    repo root is found within a bounded walk.
+    """
+    cur = start
+    for _ in range(40):  # bounded — never an unbounded walk to /
+        dotgit = cur / ".git"
+        if dotgit.is_dir():
+            return cur  # main clone root
+        if dotgit.is_file():
+            try:
+                txt = dotgit.read_text(encoding="utf-8").strip()
+            except OSError:
+                return cur
+            if txt.startswith("gitdir:"):
+                gd = Path(txt.split(":", 1)[1].strip())
+                if not gd.is_absolute():
+                    gd = (cur / gd).resolve()
+                # gd = <main>/.git/worktrees/<name> — walk up to the ".git" segment,
+                # its parent is the main clone root.
+                p = gd
+                while p.parent != p and p.name != ".git":
+                    p = p.parent
+                if p.name == ".git":
+                    return p.parent
+            return cur  # malformed pointer — fall back to the worktree dir
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
 def find_manifest(start: Path | None = None) -> Path:
-    """Locate `drift-manifest.json` from an invocation site.
+    """Locate the canonical `drift-manifest.json` from any invocation site.
 
-    Search order:
-      1. `<start>/../drift-manifest.json` — canonical (script in dotfiles/SST3/scripts/,
-         manifest at dotfiles/SST3/drift-manifest.json)
-      2. `<start>/../../dotfiles/SST3/drift-manifest.json` — mirror (script in
-         <mirror>/scripts/, canonical at sibling ../dotfiles/ under DevProjects/)
+    The manifest lives ONLY in the dotfiles repo (canonical
+    `dotfiles/SST3/drift-manifest.json`); consumers + public mirrors read the
+    sibling dotfiles copy. This resolver handles every clone shape × (main clone
+    / linked git worktree):
+      - dotfiles canonical:  `<root>/SST3/scripts/` -> `<root>/SST3/drift-manifest.json`
+      - dotfiles self-row:   `<root>/scripts/`      -> `<root>/SST3/drift-manifest.json`
+      - consumer / mirror:   `<repo>/scripts/`      -> `<DevProjects>/dotfiles/SST3/drift-manifest.json`
 
-    Raises ManifestError if not found in either location.
+    Worktree-safe (dotfiles#512): a linked worktree's own toplevel lacks the
+    sibling layout, so we resolve the MAIN clone root via `_main_clone_root`
+    (reads the worktree's `.git`-file `gitdir:` pointer — pure file I/O, no
+    subprocess). Without this the pre-commit drift gate silently SKIPped (exit 0)
+    inside every Stage-4 worktree across the whole fleet — the AP #12 fail-fast
+    hole that bypassed on #509's own worktree commits.
+
+    Raises ManifestError if not found in any candidate location.
     """
     start = (start or Path(__file__).resolve().parent)
     candidates = [
-        start.parent / MANIFEST_FILENAME,  # canonical: dotfiles/SST3/drift-manifest.json
-        start.parent.parent / "dotfiles" / "SST3" / MANIFEST_FILENAME,  # mirror -> sibling
+        start.parent / MANIFEST_FILENAME,             # SST3/scripts/ -> SST3/ (main or worktree)
+        start.parent / "SST3" / MANIFEST_FILENAME,    # repo-root/scripts/ -> repo-root/SST3/ (dotfiles self-row, worktree-safe)
     ]
+    # Worktree/consumer resolution via the MAIN clone root (worktree-safe).
+    main_root = _main_clone_root(start)
+    if main_root is not None:
+        candidates += [
+            main_root / "SST3" / MANIFEST_FILENAME,                      # dotfiles main clone (from a dotfiles worktree)
+            main_root.parent / "dotfiles" / "SST3" / MANIFEST_FILENAME,  # consumer/mirror sibling dotfiles (from main OR worktree)
+        ]
+    # Legacy fallback (pre-#512): mirror script's parent.parent sibling.
+    candidates.append(start.parent.parent / "dotfiles" / "SST3" / MANIFEST_FILENAME)
+
+    seen: set[str] = set()
+    ordered: list[Path] = []
     for p in candidates:
+        s = str(p)
+        if s not in seen:
+            seen.add(s)
+            ordered.append(p)
+    for p in ordered:
         if p.is_file():
             return p
     raise ManifestError(
-        f"{MANIFEST_FILENAME} not found near {start}. Searched: {[str(c) for c in candidates]}"
+        f"{MANIFEST_FILENAME} not found near {start}. Searched: {[str(c) for c in ordered]}"
     )
 
 
