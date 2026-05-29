@@ -517,13 +517,13 @@ AP #12 builds the observability surfaces; AP #16 enforces reading them.
 
 **Principle**: Any prose written in the operator's voice in any repo (CV, LinkedIn, cover letters, blog posts, profile docs) MUST be wrapped in `<!-- iamhoi -->` ... `<!-- iamhoiend -->` markers so the marker-driven voice guard can scan it. Default = SKIP. Untagged prose is silently unprotected.
 
-**Canonical source of truth**: `../scripts/voice_rules.py` (~80 banned words, banned phrases, KEEP_LIST, cutoff date 2026-04-07). Human companion: `~/DevProjects/voice-doc-repo/cv-linkedin/VOICE_PROFILE.md` Sections 8 + 19. NEVER duplicate the rules — both `check-ai-writing-tells.py` (canonical) and any vendored copy (e.g. `hoiboy-uk/scripts/check-ai-writing-tells.py`) import from `voice_rules.py` only.
+**Canonical source of truth**: `../scripts/voice_rules.py` (~80 banned words, banned phrases, KEEP_LIST, cutoff date 2026-04-07). Human companion: `voice-doc-repo/VOICE_PROFILE.md` Sections 8 + 19. NEVER duplicate the rules — both `check-ai-writing-tells.py` (canonical) and any vendored copy (e.g. `hoiboy-uk/scripts/check-ai-writing-tells.py`) import from `voice_rules.py` only.
 
 **MUST**:
 - Wrap every new voice-prose paragraph in `<!-- iamhoi --> ... <!-- iamhoiend -->` before commit.
 - For quoted JD content, banned-word examples, or proper-noun usage inside a tagged block, carve out with `<!-- iamhoi-skip --> ... <!-- iamhoi-skipend -->`.
 - For whole-file exemption, put `<!-- iamhoi-exempt -->` as the FIRST non-blank line.
-- For new banned words: edit `voice_rules.py` AND `VOICE_PROFILE.md` Section 8 in the SAME pass (single-source-edits, AP #9).
+- For new banned words: edit `voice_rules.py` AND `voice-doc-repo/VOICE_PROFILE.md` Section 8 in the SAME pass (single-source-edits, AP #9).
 
 **MUST NOT**:
 - Sanitise authentic the operator vocabulary out (passion, journey, deeply, truly, navigate, back to basics, attention to detail — see KEEP_LIST).
