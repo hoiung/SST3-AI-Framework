@@ -141,6 +141,41 @@ def path_scrub_depth2(text: str, ctx: dict) -> str:
     return out
 
 
+def plugin_path_scrub(text: str, ctx: dict) -> str:
+    """Normalise dotfiles-canonical design-fidelity paths to the sst3-skills plugin layout.
+
+    The design-fidelity skill content (SKILL.md + helper scripts + the two mechanics
+    guides) is authored against the dotfiles repo layout: guides live at repo-root
+    `docs/guides/`, helpers/tests at `.claude/skills/design-fidelity/{scripts,tests}/`.
+    Those paths are CORRECT in dotfiles but do not exist in the standalone marketplace
+    plugin, where the publish pipeline relocates the guides under `references/` (sibling
+    to SKILL.md) and the helpers/tests under `scripts/`/`tests/`. This is the same
+    layout-normalisation role as `path_scrub` (which rewrites `SST3/<sub>/`→`<sub>/`); the
+    canonical source is left untouched so the dotfiles-local skill keeps working.
+
+    The rewritten pointers are backtick prose / code-comment references (skill-root
+    relative), not clickable markdown links, so reader-relative depth does not 404. The
+    one genuinely-clickable pointer — the `mcp-configuration.md` guide, which is
+    dotfiles-internal and NOT vendored — is de-linked to the official public Claude Code
+    MCP docs so a marketplace consumer never hits a dead link.
+    """
+    # De-link the dead mcp-configuration.md pointer (that guide is dotfiles-internal,
+    # not part of the published plugin) -> official public docs.
+    text = re.sub(
+        r"\[MCP Configuration Guide\]\(mcp-configuration\.md\)",
+        "[Claude Code MCP setup](https://code.claude.com/docs/en/mcp)",
+        text,
+    )
+    # Guides relocate to references/ (sibling to SKILL.md in the plugin).
+    text = text.replace("docs/guides/playwright-fallback.md", "references/playwright-fallback.md")
+    text = text.replace("docs/guides/chrome-devtools-mcp.md", "references/chrome-devtools-mcp.md")
+    # Helpers/tests are plugin-relative (skills/design-fidelity/{scripts,tests}/).
+    text = text.replace(".claude/skills/design-fidelity/scripts/", "scripts/")
+    text = text.replace(".claude/skills/design-fidelity/tests/", "tests/")
+    text = text.replace(".claude/skills/design-fidelity/SKILL.md", "SKILL.md")
+    return text
+
+
 def issue_url_scrub(text: str, ctx: dict) -> str:
     """Strip full GitHub URLs to private dotfiles issues; keep issue number."""
     out = _ISSUE_URL_PAREN.sub(r"(Issue #\1)", text)
@@ -421,6 +456,7 @@ TRANSFORMS: dict[str, TransformFn] = {
     "issue_url_scrub": issue_url_scrub,
     "path_scrub": path_scrub,
     "path_scrub_depth2": path_scrub_depth2,
+    "plugin_path_scrub": plugin_path_scrub,
     "private_path_scrub": private_path_scrub,
     "private_repo_issue_scrub": private_repo_issue_scrub,
     "private_term_scrub": private_term_scrub,
