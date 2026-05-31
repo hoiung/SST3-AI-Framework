@@ -10,7 +10,7 @@
 #       prose-only with no runtime backstop: a branch switch produces no
 #       commit, so the git pre-commit hooks (which fire at commit time) cannot
 #       intercept it — HEAD has already moved and muddled a concurrent
-#       worktree. STANDARDS.md:27 makes "Enforcement … not honor system" a
+#       worktree. STANDARDS.md:30 makes "Enforcement … not honor system" a
 #       core principle. This hook is that runtime backstop.
 #
 # MODE  (AC4 — no hardcode) env var SST3_BRANCH_GUARD_MODE:

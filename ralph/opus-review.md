@@ -44,6 +44,8 @@ Thorough architectural review. Catches 10% of issues missed by Haiku+Sonnet.
 - [ ] **Lifecycle wiring architecture**: each recovery/drain/replay function mapped to ALL lifecycle events where data could accumulate; wired to every one. "Called at reconnect" ≠ "called at startup".
 - [ ] **Scope completeness**: enumerate every Acceptance Criteria checkbox from issue body — each maps to specific file:line. Any without = NOT DONE.
 - [ ] **Data correction architecture**: bug producing bad DB state → fix includes BOTH (a) code fix for future AND (b) verified data repair for existing rows.
+- [ ] **Full-module re-run on contract change (AC 5.4)**: for any function contract change, re-run the FULL test module, not only the new tests — confirm zero regressions in the sibling tests that exercise the changed contract indirectly.
+- [ ] **Adversarial-overlap corpus for security gates (AC 5.4)**: for security gates (allowlists, blocklists, fail-loud gates), generate an adversarial-overlap corpus of malformed-but-truthy inputs (string-vs-bool, leading/trailing whitespace, `"0"` / `"false"` strings, empty-string, unicode look-alikes) and confirm the gate produces the correct outcome on each — a gate proven only on clean inputs is unproven against the inputs an attacker actually sends.
 
 ### Factual Claims Audit
 - [ ] Enumerate all numeric assertions in documentation, issue body, design rationale; verify each has source (benchmark, prior issue, measured observation, command output). No source = flag as unverified — must be sourced or removed before OPUS_PASS.

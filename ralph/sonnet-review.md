@@ -21,6 +21,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 - [ ] No silent fallbacks, no fake defaults, no swallowed exceptions; error messages actionable
 - [ ] Every decision boundary + state transition + external call logs structured (key=value or JSON, not free-text prose); quantifiable behaviour has metrics; production/money/user-visible state changes have append-only audit trail
 - [ ] No `print()` as logging; no empty `except:`, bare `pass` on exception, silent `return None` on error, or `continue` on unexpected state; logs searchable (consistent field names)
+- [ ] **Pure-logic observability (NEW — AP #12 extension, #516 AC 4.11)**: for every broad `except`, silent-fallback, or `return None` on an error path in the diff — does any structured log/warn/metric emit when that branch fires? If no → flag as AP #12 violation and FAIL.
 
 ### State-Machine Mutation Correctness (Conditional, #477 AC 3.1 — Theme 3)
 - [ ] **Scope**: introduces or modifies counters / flags / state enums / queues / semaphores / variables gating downstream decisions? If YES, next checkbox mandatory. If NO, mark "N/A — no state machines in scope."
@@ -38,6 +39,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 - [ ] Searched codebase before creating new modules (Glob/Grep/Explore) — **evidence required**: 2-3 grep patterns or Glob queries actually run + result counts
 - [ ] No duplicate modules created; references existing modules where applicable
 - [ ] No dead/obsolete/orphaned code (failed/rescoped approaches); no commented-out "old" code; no unused imports; no leftover temp/WIP patterns
+- [ ] **For doc-only PRs touching a skill canonical or CLAUDE.md-referenced file (AC 5.4)**: verify every CLAUDE.md / SKILL.md / README.md statement that mentions the touched file or category is still accurate post-merge (counts, filenames, "N reports", section names, behaviour descriptions) — a doc edit that shifts what a referenced file contains silently staled the pointer.
 
 ### STANDARDS.md Violation Scan — Logic (per-tier escalation lens)
 

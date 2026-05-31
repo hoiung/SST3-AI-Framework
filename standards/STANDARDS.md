@@ -248,6 +248,25 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **Scope-scaling (no runaway)**: making the Workflow tool the default for four stages does NOT relax AP #14 scope-scaling — swarm size **matches coverage** (one subtask per real angle / directory / claim-cluster), neither a fixed cap nor unbounded. The Workflow auto-scales DOWN for tiny jobs (a Stage-2 draft-check needs few subtasks) and UP for large audits, always governed by AP #14 "no stingy, no runaway". **Kill/timeout seam for a frozen background Workflow** (freeze-detection parity with a hung subprocess): a backgrounded Workflow run surfaces a task-id + a `wf_…` run id. Monitor it per AP #16 — await the completion notification (the harness re-invokes you when it finishes) or watch `/workflows` / read the run's task-output file. If a run exceeds its expected wall-clock with NO completion notification AND `/workflows` (or the output file) shows no forward progress, treat it as frozen: stop it with `TaskStop <task-id>`, then re-author with a smaller fan-out (fewer concurrent subtasks) or split the swarm into sequential batches and re-run. Do NOT leave a frozen run unbounded — an un-monitored background Workflow is the AP #16 fire-and-forget failure mode. (Wall-clock baseline: a typical /Leader audit swarm completes in minutes; a run with no notification well past that, and no `/workflows` progress, is the kill trigger.)
 
+<!-- stages: 1,3,5 -->
+#### Default Tier Assignment per Swarm Role
+
+**Rule**: when authoring a Workflow-tool swarm, assign each subtask a model tier by ROLE via `agent({model})`, per this static map:
+
+| Swarm role | Tier | Examples |
+|------------|------|----------|
+| Mechanical extraction | `haiku` | grep / inventory / file enumeration / AP #24 marker-substring enumeration |
+| Coverage / synthesis | `sonnet` (default for Layer-1 legs) | Stage-1 angles, Stage-2 draft-check, scope-vs-audit, wiring, dangling-pointer, goal-alignment |
+| Adversarial / quality-critical | `opus` | AP #14 Layer-2 cross-check, raw-tools-only, voice-canonical comprehensive-walk, §3-deferral re-litigation, contract/TOCTOU |
+
+**Economics note**: subagents share NO prompt cache — each builds its own prefix from zero (5-min TTL). Uncached-prefix × fan-out is the dominant token cost, NOT reasoning depth. Model tier is the only cost lever the Workflow tool exposes (no effort knob); two adjacent levers are fan-out (AP #14) and per-leg prefix size (a tight scope snippet + ≤5 files shrinks each leg).
+
+**HARD invariant**: cost-optimisation MUST NEVER tier the verification legs (Layer-2 adversarial / AP #14 cross-check) below Opus. Tiering down a Layer-1 coverage leg is fine; tiering down the cross-check that catches the coverage leg's blind spots defeats the layering.
+
+**Design principle**: start deterministic — a static role→tier map via `agent({model})` + this table. Do NOT build adaptive / budget-aware tiering in v1; ship the deterministic table first.
+
+**OPEN integration-research** (tagged `[research]`, not v1 gates): validate role→tier quality-vs-cost across n>1 real runs; deterministic-table vs adaptive-escalation comparison; StructuredOutput reliability by tier; token-rate-limit optimisation (Sonnet = fewest raw tokens); confirm no leg needs the 1M window (a Sonnet/Haiku override drops to 200K — fine for lean legs). Provenance: Issue #16.
+
 #### Stage 1 Layer-2 Adversarial Gap-Finder Discipline (Theme 8, #477)
 
 **Principle**: Layer-1 swarm finds what's in scope; Layer-2 adversarial swarm finds what Layer-1 missed. Different lens = different blind spots = real gap coverage. Mandatory for infrastructure / governance / cross-cutting Stage 1 research.
@@ -268,7 +287,16 @@ See: ../workflow/WORKFLOW.md (Stage 1 — Research) for research-specific critic
 
 **Enforcement**: Leader.md Stage 1 step 2a (Layer-2 adversarial gap-finder MANDATORY). ANTI-PATTERNS.md AP #14d (Scope-gap blindness — Stage 1 research specific).
 
+**Required structural Layer-2 angles (AC 1.8)** — the Layer-2 prompt MUST include these 5 named angles when applicable: (1) **hot/cold path enumeration** — per data-consumption site enumerate cold-path validation, hot-path validation, and revalidation interval; flag any path with cold-path validation lacking hot-path; (2) **async/sync compatibility** — verify the async/sync context of any recommended reuse target matches the call site; (3) **operator-semantics grep** — verify `>=`/`>`/`<=`/`<` in threshold claims against source, not prose; (4) **tool-disambiguation** — when the operator names a specific product/tool, verify exact feature identity against official docs; (5) **self-disconfirmation** — list 2-3 simplest scenarios under which the alleged gap does NOT exist, and verify each against source.
+
 **See "AC Verifiability — pre-Stage-3 sub-gate" under "Workflow Validation Gate" below** — the Acceptance Criteria Measurability rule is merged into Workflow Validation Gate as its pre-Stage-3 half. Cut #8 / AC 1.18 (#498).
+
+**Probe-before-assert (AP #29)**: before a swarm asserts a contract / param mode / endpoint behaviour / file absence / tool availability, it runs a live probe and captures the output; absence is an unverified hypothesis. See cluster: `../standards/stage-5/probe-before-assert.md` (per-target probe recipes); canonical rule ANTI-PATTERNS.md AP #29.
+
+<!-- stages: 5 -->
+#### Stage 5 Fix-Locus — Parked-Branch Authorisation
+
+When a Stage 5 fix touches an artefact whose canonical lives on a **parked branch** (a different issue's solo branch, not the current merge target), the operator must explicitly authorise the parked-branch commit in the same `/Leader 5` invocation — otherwise the fix is limited to main-branch propagation only. Never silently switch to or commit on another issue's parked branch to land a Stage-5 fix (branch-safety + the fix would ride an unrelated, unreviewed branch). Surface the cross-branch locus to the operator with the proposed commands and wait for authorisation.
 
 #### Scope Snippet Rule (#406 F5.1)
 
@@ -287,9 +315,12 @@ Every swarm subagent ends its return with a fenced block:
 - findings: [{path, line, claim, evidence}]
 - tee_log: <path or none>
 - scope_gaps: [...]
+- wrapper_invoked: no|yes|n/a   (REQUIRED for Layer-2 raw-tools-only subagents — `no` proves the raw-only failsafe ran without wrapper-lane)
 ```
 
 Main agent parses the RESULT block; subagent prose body is informational. Reduces typical 4-8K-token return per subagent to ~500 tokens with zero signal loss because every claim already has provenance per Rule 5 above. **When a subagent discusses graph queries, prepend `mcp_graph_available: yes|no` as the FIRST line** — AP #19 "Subagent wrapper-lane access" bullet (Ralph Tier 1 uses this with documented-fallback evidence: `no`+evidence=PASS, `no`+no-evidence=FAIL). **Wrapper-lane disposition (Issue #445)**: under the wrapper-lane, this field is always `no` — wrappers are bash-tool calls, not MCP-protocol calls, and subagents do not inherit the bash-tool set from the main agent in the same way. Documented fallback (grep + manual file reads) is the expected path under wrapper-lane, not a degradation. Ralph Tier 1 sees `no` + valid fallback evidence → PASS, not FAIL.
+
+**Completeness-claim re-verification (AC 5.10)**: when any Layer-1 angle makes a *completeness claim* — "N sites", "no leaks", "0 occurrences", "every caller handled" — a raw-tools-only Layer-2 re-verification of that SPECIFIC claim is mandatory (direct grep / ast-grep / find, `wrapper_invoked: no`). A completeness claim is exactly the assertion most vulnerable to a wrapper recall-miss or a too-narrow pattern; one independent raw sweep per such claim is the failsafe. Cross-ref AP #29 (absence is an unverified hypothesis) + AP #14e (concept-based grep).
 
 <!-- stages: 4 -->
 ### Bash Output Budgets (#406 F4.7)
@@ -840,157 +871,7 @@ Every Stage-5 task close must verify residue drained or waived — `bash <your-d
 <!-- stages: 4 -->
 ## Per-Stage Feedback Capture (Canonical)
 
-Canonical telemetry mechanism for the SST3 5-stage `/Leader` workflow. Each `/Leader` stage close writes a 10-field feedback record so we accumulate observed patterns across runs (which stage routinely catches what bug class, which subagent angles are wasted, which corrections came from the user vs the agent self-caught).
-
-**Write-time template (use it — do not hand-roll the structure)**: copy `../templates/leader-feedback-template.md` when creating a new `feedback-<repo>-<issue>.md`. It carries the canonical frontmatter (8 fields) + the `## Stage N — <Title>` H2 headings (matching `feedback_parser.py` `STAGE_HEADING_RE`) + the 10 per-stage `**field**:` lines. Authoring a feedback file from memory is the root of the bare-`## Stage N` malformed-heading halt (dotfiles#486/#488) — the strict parser rejects a heading without `— <Title>`, and pre-fix that hard-failed every concurrent committer.
-
-**Storage convention** (literal path lives in unmirrored CLAUDE.md only): one `feedback-<repo>-<issue>.md` per issue under the `SST3-metrics/leader-feedback/` runtime telemetry directory. Filename encodes repo to prevent cross-repo collision (e.g. `dotfiles#449` vs `project-a#449`). Pre-commit hook `sst3-metrics-feedback-present` validates filename regex `^feedback-([a-z][a-z0-9_]*(?:-[a-z0-9_]+)*)-([1-9]\d*)\.md$` AND filename↔frontmatter parity. The repo-segment grammar disallows trailing hyphens, double hyphens, and digit-prefix names; the issue segment is a positive int with no leading zeros (rejects `0`, `007`, `00` collisions). All 5 stages append `## Stage <N>` blocks to the same file. Index NDJSON co-located in the same directory.
-
-**Stage discovery**: parser reads `### Stage <N> — <name>` headings from `../workflow/WORKFLOW.md` at runtime. NEVER hardcode the stage list. This is the lesson from the archived `archive/retrospective-template.md` (coupled to a stage that got deleted in #428 and silently broke).
-
-**Frontmatter schema** (8 fields):
-- `issue` — GitHub issue number (integer)
-- `repo` — repository name (encoded in filename via `feedback-<repo>-<issue>.md`; parity-validated against frontmatter at commit time)
-- `created` — ISO date of first stage close
-- `last_updated` — ISO date of most recent stage close
-- `stages_logged` — list of stage numbers logged (e.g. `[1, 2, 3, 4, 5]`)
-- `verdict_summary` — one-paragraph headline observation across all logged stages
-- `topic_keywords` — list of normalized keywords for `--shape-match` lookup (e.g. `[feedback, telemetry, sst3-metrics]`)
-- `reconstructed_stages` — list of stage numbers whose body fields were filled with `[reconstructed-post-compact: ...]` markers (lower-weighted in DRIFT ALERT counts)
-
-**Per-stage body schema (10 fields, hard-cap)**:
-- `model` — agent model id used for the stage (e.g. `opus-4-7-1m`)
-- `worked` — observations of what the workflow caught / surfaced correctly
-- `didnt` — observations of what the workflow missed (FP correctly identified does NOT belong here — see FP-handling rule below)
-- `why` — root-cause analysis of the `didnt` items
-- `improvement` — concrete next-run change suggestion
-- `improvement_status` — enum (see below)
-- `evidence` — file:line / commit hash / command output / subagent RESULT comment-id
-- `friction` — token cost, wall-clock, restart count, per-Ralph-tier outcomes (Stage 4 sub-structure)
-- `rule_self_caught` — agent-self-caught violations of an existing canonical rule
-- `rule_user_caught` — user-caught corrections (attribution wording is FINE — see channel-separation rule)
-
-**`caught_by:` enum** (sub-attribute on findings inside `worked` / `didnt`): `wrapper / raw / haiku / sonnet / opus / user / agent-self`. Lets the aggregator answer queries like "how often did raw-only Layer 2 catch what wrapper missed".
-
-**`improvement_status` enum**: `pending / applied / partial / superseded / rejected`. When status moves to `applied` or `partial`, set `applied_in: <issue#>`. Closure loop: future Stage 1 Step 0 picks up `pending` improvements from prior issues + marks them `applied` (or `partial` for multi-bullet improvements) when the next run satisfies them.
-
-**Closure-loop content-match format (#460 Phase 5)**: Stage 1 closure-loop entries MUST quote the first 80 chars of the source improvement field verbatim so Stage 5 can byte-match without ambiguity:
-
-```
-<repo>#<issue> stage=<N> [bullet=<i>]: "<first 80 chars verbatim>" → <applied-where>
-```
-
-The `[bullet=<i>]` qualifier is REQUIRED for multi-bullet improvement fields (1-indexed), OPTIONAL when the entire improvement is a single bullet. The byte-match rule is: take the first 80 chars of the improvement bullet (after `**improvement**:` or `- ` bullet prefix), strip leading/trailing whitespace, that's the canonical key.
-
-**Multi-bullet partial-application schema**: when only a subset of bullets in a multi-bullet improvement field is applied this run, mark per-bullet rather than per-improvement:
-
-```
-**improvement_status**: partial
-**applied_in_bullets**: [1, 3]
-**carry_forward_bullets**: [2]
-**applied_in**: <issue-number>
-```
-
-Inline per-bullet markers go AFTER the bullet text using HTML comments — e.g. ``- **template-vs-mirror lane mapping** ...<!-- applied_in: 459 -->``. The aggregator and `check-closure-loop-applied.py` (Phase 6) parse these markers via `feedback_parser.py`; the parser emits `applied_in_bullets` + `carry_forward_bullets` into the NDJSON index for cross-issue reporting.
-
-**Soft-cap guidance**: tiny issues 10-20 lines per stage block / medium 30-60 / large 60-120 / >150 revisit. **Hard cap**: 10 fields exactly. Parser emits stderr WARNING (advisory, exit 0) if a per-stage block exceeds 80 lines. Tiny-issue terminal one-liners permitted (`rule_user_caught: none` / `friction: trivial`).
-
-**FP-handling rule**: a false positive correctly identified counts as `worked`, NOT `didnt`. Filter the FP, document why, that's a successful audit. (Avoids inflating DRIFT ALERT counts with the audit's own correctly-rejected hypotheses.)
-
-**Channel-separation rule** (forward-preference-blocklist, NOT attribution-blocklist): feedback files MUST NOT contain forward-looking memory-channel signals: `prefers / always / from now on / default ON / going forward`. Those phrases belong to auto-memory (the user-voice channel). Attribution words that describe what happened in this run (`the operator flagged`, `user pointed out`, `the operator caught`) are FINE — they're the natural vocabulary of `rule_user_caught`. Pre-commit hook enforces.
-
-**DRIFT ALERT spec**: count-based on `(stage, verdict=didnt) >= threshold`. Default threshold 5 (placeholder; calibrate after 10 issues). Configurable via env var `SST3_FEEDBACK_DRIFT_THRESHOLD`. Fires from `leader-feedback-aggregate.sh --summarize` to stderr; AP #21 forbids autonomous Issue creation, so DRIFT ALERTs are advisory signals not actions.
-
-**Single-CONCURRENT-session-per-issue rule** (NOT "single-session"): two parallel `/Leader` runs on the same issue from different chat sessions is OUT OF SCOPE. Sequential sessions (compact + resume) FINE — sentinel auto-releases after 24h staleness so a resumed session can re-acquire.
-
-**Cross-repo support**: every repo's `/Leader` runs write to `SST3-metrics/leader-feedback/`. Repo is encoded in both the filename (`feedback-<repo>-<issue>.md`) and the frontmatter `repo:` field; the filename↔frontmatter parity check enforces consistency. Repo source for new files: `/Leader` workflow fills frontmatter `repo:` at file-creation time (per existing manual-fill convention). The dotfiles pre-commit hook validates parity; it does NOT auto-detect repo because it always runs in dotfiles context regardless of which sister repo's `/Leader` triggered the work.
-
-**Post-compact reconstruction protocol**: if an agent compacted mid-stage and cannot recover original observations, fields use the literal marker `[reconstructed-post-compact: <evidence-source>]` (e.g. `[reconstructed-post-compact: chat-handover.md]`, `[reconstructed-post-compact: phase-3-checkpoint-comment]`). Frontmatter `reconstructed_stages: [N]` flag set. Aggregator weights these lower in DRIFT ALERT counts so reconstructed observations don't dominate signal.
-
-**Stage 4 sub-structure**: Stage 4 `worked` / `didnt` MAY contain per-Ralph-tier sub-bullets (Tier 1 Haiku / Tier 2 Sonnet / Tier 3 Opus). The `friction` field captures `ralph_restarts: <N>` + per-tier outcomes (PASS / FAIL → restart → PASS).
-
-**Activation-sha gate**: `SST3-metrics/leader-feedback/.activation-sha` holds the canonical merge SHA when this mechanism lands on master. The `sst3-metrics-feedback-present` pre-commit hook fires only on solo branches whose first commit descends from `.activation-sha`. Pre-existing branches grandfathered (hook exits 0 with stderr note `pre-activation branch: hook skipped, hand-write feedback retroactively if desired`).
-
-**Stage detection**: pre-commit hook detects which stage a commit belongs to via the `Phase: N` git-trailer in the commit message OR an explicit `--stage N` CLI flag. NO fragile heuristic. NO silent skip. Fail loud if a solo-branch commit on an activated branch has neither.
-
-**Auto-archive**: after 90 days of inactivity, records auto-archive to a `_archive/` subfolder.
-
-**Index**: `feedback-index.ndjson` regenerated post-commit (incremental — mtime-vs-files check; full rebuild via `--rebuild`). Queryable via `../scripts/leader-feedback-aggregate.sh --summarize | --report | --shape-match | --staleness`.
-
-**Enforcement (3 layers)**:
-- **Layer A**: pre-commit hook `sst3-metrics-feedback-present` (compact-resilient — survives context loss). Bypass for genuine emergencies: `SKIP=sst3-metrics-feedback-present git commit ...`.
-- **Layer B**: persistent sentinel files in the gitignored `.sentinels/` subfolder catch Stages 1+2 (which don't produce commits). Auto-release after 24h staleness so compact-resume cycles can re-acquire. Layer B sentinels also catch compact-before-commit gaps — if `/Leader N` completes work that gets compacted before the per-stage feedback commit lands, the `.sentinels/` marker survives compaction and is detected at next session start, so the post-compact agent sees the unflushed feedback rather than silently bypassing it (#498 F-22).
-- **Layer C**: skill-body sign-off line in `../claude/commands/Leader.md` for each of the 5 stages — the redundant-by-design third layer (AP #20 case proved skill-body alone leaks).
-
-**Hook-failure protocol**: `feedback_parser.py` exits 1 with single-line stderr `feedback_parser: <human-readable error> at <file>:<line>`. NEVER raises stack trace. NEVER prints debug noise. The error must be diagnosable from the single line.
-
-**No retrofill**: pre-existing closed issues are NOT seeded with fabricated feedback records. The first live record under this canonical IS the implementation Issue's own dogfood (#448). Avoids the fabrication-vs-criterion contradiction that killed the original retrofill scope.
-
-**Canonical scope boundary**: this section is THE canonical source for what / how / why feedback records exist. `../claude/commands/Leader.md` SIGN-OFF lines reference this section for the per-stage write step. `../claude/commands/SST3-solo.md` references this section at Per-Session Initialization and Verification Loop. `../workflow/WORKFLOW.md` references this section in each stage trailer. `../dotfiles/CLAUDE.md` is the single place where the literal `SST3-metrics/leader-feedback/...` storage path lives — the workflow files are mirrored to public repos and use this section reference only.
-
-<!-- stages: always -->
-### Cross-Repo Cohabitation Protocol (#469 Phase 4 — closes dotfiles#449 stage=5)
-
-> **Canonical: stage-4/cohabitation-protocol.md** — physical extract per dotfiles#498 AC 4.1+4.2; this section retains the cross-reference anchor while the consolidated source-of-truth lives in the linked extract.
-
-When a sister repo's `/Leader` run writes feedback that references both the sister repo's work AND a dotfiles-side artefact change, both repos may end up needing entries in their own canonical paths but only ONE can be merged at a time (due to branch-safety rule "NEVER switch branches"). The 4-step cohabitation protocol:
-
-1. **Active-branch minimal marker**: while on the sister repo's solo branch, write a minimal one-line marker file at `SST3-metrics/leader-feedback/feedback-<sister-repo>-<issue>.md` containing only the FM block + a placeholder `[parked: full block at /tmp/feedback-<sister-repo>-<issue>-stage-N.md awaiting cross-repo apply post-merge]` body. Stages 1-2 placeholders rather than full blocks because the active sister-repo `/Leader` session is committing to its own clone's worktree and a CONCURRENT cross-repo dotfiles commit from inside that same chat session would risk a CONTENDED working-tree mutation if it required a shared-tree branch-switch. Post-dotfiles#488 worktree-first the operator MAY parallel-EnterWorktree into the dotfiles clone to commit fully — Cohabitation governs CONTENDED concurrent mutations of the SAME working tree, NOT parallel mutations across ISOLATED worktrees (see `[[feedback-cohabitation-applies-to-contended-clone-mutations-not-cross-repo-commits]]`).
-2. **Sister parked full block**: stage the FULL stage block to `/tmp/feedback-<sister-repo>-<issue>-stage-N.md`. This is the data-of-record until applied.
-3. **Sign-off comment with apply commands**: at /Leader 5 sign-off, post the apply commands as a comment on the sister-repo Issue: `cp /tmp/feedback-<sister-repo>-<issue>-stage-N.md $DOTFILES_ROOT/SST3-metrics/leader-feedback/feedback-<sister-repo>-<issue>.md && cd $DOTFILES_ROOT && git add -f SST3-metrics/leader-feedback/feedback-<sister-repo>-<issue>.md && git commit -m "metrics(feedback): apply parked block from <sister-repo>#<issue> (Phase: 5)"`. The `-f` is the dotfiles#488 AC 4.1 forced-promotion contract: a promoted block may originate from the now-gitignored `_drafts/` staging subdir, so the apply MUST force-add it into tracking; `-f` is a harmless no-op on the non-ignored canonical root path, kept identical to the `sweep-parked-feedback.sh` suggested-apply for single-source consistency (AP #9).
-4. **Post-merge sweep enforcement**: `bash dotfiles/scripts/sweep-parked-feedback.sh <issue> [--repo <sister-repo>]` invoked at Stage 5 step 7a.0 (per Leader.md) BLOCKs sign-off if any `/tmp/feedback-<sister-repo>-<issue>*.md` file remains. Operator MUST apply the full block before sign-off proceeds. The completeness-check C15 enforces server-side via the Layer B GitHub Actions workflow.
-
-**TBD-issue staging via `_drafts/` subdir**: pre-issue feedback (work where the GitHub Issue hasn't been assigned yet) goes to `SST3-metrics/leader-feedback/_drafts/feedback-<repo>-<topic>-pre-issue.md`. The `_drafts/` subdir is **gitignored + git-untracked** (dotfiles#488 Fix-D / AC 4.1) so a parallel agent's in-flight pre-issue draft is never swept into a bystander's commit during Stages 1-3. Aggregator's non-recursive glob `feedback-*.md` excludes `_drafts/` automatically — no parser regex change needed. When the Issue is assigned, promote with a plain `mv` then a **forced** add (the `_drafts/` source is untracked/ignored, so a `git mv` of a non-tracked entry is not available): `mv _drafts/feedback-<repo>-<topic>-pre-issue.md feedback-<repo>-<issue>.md && git add -f feedback-<repo>-<issue>.md` + update FM `issue:` field. The `git add -f` is required (not optional polish) so the promoted file enters tracking and the Stage-5 `sweep-parked-feedback.sh` BLOCK + completeness-check C15 still see it. Pattern matches Jekyll/Hugo `_drafts/` precedent.
-
-**Aggregator self-validates per-file** (#469 Phase 1 hook-order fix): `leader-feedback-aggregate.sh` calls `validate_record()` per-file BEFORE `--emit-ndjson` parse — single point of enforcement at the aggregator boundary, eliminating the pre-commit hook-order timing window without touching `.pre-commit-config.yaml`. Belt-and-braces with the parser's strict-mode emit-ndjson which validates at the CLI layer too.
-
-<!-- stages: 4 -->
-### Multi-Agent Multi-Worktree Concurrency Contract
-
-> **Canonical: stage-4/cohabitation-protocol.md** — physical extract per dotfiles#498 AC 4.1+4.2; this section retains the cross-reference anchor while the consolidated source-of-truth lives in the linked extract.
-
-**Principle** (dotfiles#495 / dotfiles#488 worktree-first canonical): the SST3 harness supports multiple agents working in parallel via EnterWorktree-isolated worktrees on the same clone, provided each agent operates on its own solo branch in its own worktree. This section is the explicit scope contract.
-
-**IN-SCOPE**:
-- Multiple agents in parallel worktrees on the SAME clone working on DIFFERENT Issues (e.g. agent-A in `worktree-solo+issue-500-foo`, agent-B in `worktree-solo+issue-501-bar`, both on the same dotfiles clone)
-- Multiple agents across different machines/operators on DIFFERENT Issues (no shared filesystem; coordination via origin/master push race resolved by Gate-2 server-FF rebase-retry)
-- Cross-repo parallelism: agent-A in sister-repo `project-a` worktree + agent-B EnterWorktree into the dotfiles clone for canonical edits (per Cohabitation Protocol clarification above)
-
-**OUT-OF-SCOPE**:
-- Two parallel `/Leader` sessions on the SAME Issue from different chat sessions — see the Single-CONCURRENT-session-per-issue rule above at `:821` (sentinel auto-releases after 24h staleness for sequential compact+resume; concurrent same-issue is forbidden)
-- Cross-machine residue detection — `leader-stage5-drain-check.sh` D3 (self-opened worktree detection) is LOCAL-only by design (`leader-stage5-drain-check.sh:55-62`); residue on a different machine's clone is the operator's responsibility, not the harness's
-- Shared-tree concurrent mutation — two agents committing to the SAME working tree (not the same clone, the same TREE) remains Cohabitation-CONTENDED and forbidden
-
-**IN-WORKTREE INVARIANTS** (every Stage-4 implementing agent in a worktree, no exceptions):
-- NEVER `git checkout main`, `git checkout master`, `git switch main`, `git switch master`
-- NEVER `git pull origin main`, `git pull origin master`, `git merge solo`
-- ALWAYS commit and push to the CURRENT worktree's solo branch
-- Gate-2 merge is ALWAYS the server-FF push pattern (`git push origin <solo>:master` per `### Solo Branch Merge Safety`), NEVER a shared-tree branch-switch + local-merge
-- ExitWorktree cleanup happens AFTER Gate-2 push is confirmed landed (`git ls-remote origin master` == solo tip), per `**Branch and Worktree Cleanup**`
-- Runtime backstop: `claude/hooks/sst3-branch-guard.sh` PreToolUse hook intercepts forbidden branch-switch attempts (WARN by default; DENY via `SST3_BRANCH_GUARD_MODE=DENY`)
-
-**Cross-references**:
-- Worktree-first canonical rule: CLAUDE.md "Branch Safety (CRITICAL — DO NOT VIOLATE)" anchor
-- Merge mechanic: this STANDARDS.md `### Solo Branch Merge Safety` section
-- Cleanup mechanic: this STANDARDS.md `**Branch and Worktree Cleanup**` section
-- Cohabitation distinction: this STANDARDS.md `### Cross-Repo Cohabitation Protocol` section above
-
-<!-- stages: 4 -->
-### Canonical field-line format vs Banned legacy formats
-
-The parser strictly requires `**field**:` bare bold form. Banned legacy formats (parser rejects since #469 Phase 3 strict mode):
-
-| Form | Status | Example |
-|------|--------|---------|
-| `**field**: value` | Canonical | `**model**: opus-4-7-1m` |
-| `- **field**: value` | Banned (bullet-prefix-bold) | `- **model**: ...` |
-| `- field: value` | Banned (bullet-prefix-no-bold) | `- model: ...` |
-| `- field: \|<br>    indented value` | Banned (YAML literal block) | (multi-line legacy) |
-| `## Field` (H2 section) | Banned (header-as-field) | `## Model` |
-
-Continuation lines for multi-line values: bare bullets at column 0, no leading `- ` prefix on the field line itself. Migration scripts for the banned forms live transient in `/tmp/` for one-shot use; canonical pattern is to enforce via parser strict mode + per-file validate at aggregator boundary, not retroactive correction.
-
-**Codepath-split note** (#469 Phase 3): pre-Phase-3 the parser had two effective code paths — `parse_record()` (lax, used by `--emit-ndjson`) and `validate_record()` (strict, used by default + by aggregator pre-Phase-1). Files with missing FM fields / wrong heading levels / forward-pref trips silently emitted 0 NDJSON lines via the lax path. Post-Phase-3: both paths run validate first; CLI consumers and Python module consumers see identical strictness. This single-validate-then-emit codepath is the cure for the silent-skip class. Coining a new Anti-Pattern from one instance is premature per Pass-1 hostile FP sweep — if the codepath-split pattern recurs in another tool, operator can authorise the AP separately per AP #21 (no autonomous Issue creation).
+> Canonical: `../standards/stage-4/per-stage-feedback-capture.md` (extracted for de-bloat, dotfiles#516 AC 6.2). The section-name anchor "Per-Stage Feedback Capture (Canonical)" is preserved here; the full mechanism + 10-field spec + write-time template rules live in the cluster file (loaded by `load-stage-rules.sh 4`).
 
 <!-- stages: 4 -->
 ## Path Portability
@@ -1151,6 +1032,7 @@ Housekeeping in 3 places (during work, after merge, STANDARDS.md) is intentional
 - [ ] Isolate components with clear interfaces
 - [ ] Require PR review before merging
 - [ ] Run automated tests in CI/CD
+- [ ] **State-machine & persistence-schema rule (#516 AC 4.1)**: any PR shipping state-machine / crash-recovery / idempotency / atomicity logic MUST include a `state-diagram-as-comment` enumerating all reachable states and valid transitions in the same commit. Schema fields representing 3+ states MUST be string enums at design time — never a bool-with-a-magic-third-state.
 
 <!-- stages: 4 -->
 ### DON'T
@@ -1353,6 +1235,8 @@ Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation R
 - ``radon cc <file> -a`` returns avg ≤B (or per-function rank ≤C)
 - File at `<specific-path>:<line-range>` contains the named text/structure (verbatim)
 - Command + expected output recorded inline in the AC
+
+**Path portability (dotfiles#516 Stage 5)**: verification commands MUST use **repo-relative paths** run from the repo root (e.g. `grep -nE '...' STANDARDS.md`, `wc -l <path-under-the-repo>`), never a main-clone-absolute path (`/home/<user>/DevProjects/<repo>/...`). An absolute canonical-clone path silently no-ops when CWD is a Stage-4 worktree (the AC 4.2 / AP #29 canonical-clone-absolute-path failure) AND false-FAILs when run against a main clone that has not been fast-forwarded post-merge. An AC whose own verify command hardcodes the main-clone path is not portably falsifiable — rewrite it relative before dispatch.
 
 **Enforcement**:
 - Leader.md Stage 2 step 4e (AC verifiability sweep — author runs before subagent dispatch).

@@ -62,16 +62,30 @@ fi
 
 while IFS= read -r FILE; do
     [[ -f "$FILE" ]] || continue
+    # AC 5.1 (dotfiles#516): dispatch the function-definition pattern(s) BY LANGUAGE.
+    # The prior code applied the Python `def $F($$$)` pattern to every language,
+    # so TS/JS/Rust files extracted ZERO symbols and silently reported 0
+    # impacted_callers (false-negative blast radius). Each language needs its own
+    # definition pattern(s) — and most need the body to match a full definition
+    # node (verified against ast-grep 0.42.1): TS/JS named functions AND arrow
+    # consts; Rust functions WITH and WITHOUT a `-> ret` annotation. Patterns are
+    # single-quoted so the ast-grep meta-vars $F / $$$ stay literal.
+    # shellcheck disable=SC2016  # DEFPATS meta-vars $F, $$$ must NOT undergo bash expansion
     case "$FILE" in
-        *.py)  LANG="python" ;;
-        *.ts)  LANG="typescript" ;;
-        *.tsx) LANG="tsx" ;;
-        *.js)  LANG="javascript" ;;
-        *.rs)  LANG="rust" ;;
+        *.py)  LANG="python";     DEFPATS=('def $F($$$)') ;;
+        *.ts)  LANG="typescript"; DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
+        *.tsx) LANG="tsx";        DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
+        *.js)  LANG="javascript"; DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
+        *.rs)  LANG="rust";       DEFPATS=('fn $F($$$) { $$$ }' 'fn $F($$$) -> $R { $$$ }') ;;
         *)     continue ;;
     esac
-    # shellcheck disable=SC2016  # ast-grep meta-vars $F, $$$ must NOT undergo bash expansion
-    SYMBOLS=$(ast-grep run --pattern 'def $F($$$)' --lang "$LANG" "$FILE" --json=stream 2>/dev/null | jq -r '.metaVariables.single.F.text // empty' | sort -u)
+    # pipefail disabled in this subshell only: a pattern that matches nothing makes
+    # ast-grep exit non-zero, which would otherwise abort the loop under set -o pipefail.
+    SYMBOLS=$( set +o pipefail
+        for PAT in "${DEFPATS[@]}"; do
+            ast-grep run --pattern "$PAT" --lang "$LANG" "$FILE" --json=stream 2>/dev/null \
+                | jq -r '.metaVariables.single.F.text // empty'
+        done | sort -u )
     COUNT=0
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue

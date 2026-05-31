@@ -13,6 +13,7 @@ Fast, cheap surface validation. Catches 60% of issues.
 - [ ] All "Expected Behavior" + "Acceptance Criteria" checkboxes have evidence; no unchecked mandatory checkboxes
 - [ ] All commits on current solo branch reference issue number (#X); format `type: description (#issue)`; no WIP/temp commits
 - [ ] No `console.log`, `print()` debug statements, debug flags enabled, or commented-out old code
+- [ ] Linter documented in CLAUDE.md (ruff / shellcheck / etc.) runs clean on the diff (sub-30s) (AC 5.4)
 
 ### Governance — Checkbox-MCP Evidence Audit (AP #20)
 - [ ] **Checkbox-MCP evidence audit**: fetch issue body via `mcp__github__get_issue` or `mcp__github-checkbox__get_issue_checkboxes` (ToolSearch-bootstrap if deferred per STANDARDS.md "MCP Tool Schema Loading"); parse `## Proof of Work` section. Sample 3 random `[x]` boxes; verify each has a matching PoW entry AND the evidence text matches a `mcp__github-checkbox__update_issue_checkbox` invocation pattern (file:line / commit / command output / subagent RESULT). **Fail if any checked box has narrative-only evidence OR lacks a Proof of Work entry**. Do NOT use `get_issue_events` timeline (self-edit-suppressed per STANDARDS.md). Canonical: STANDARDS.md "Governance Evidence Signal (Canonical)", AP #20, tool-selection-guide.md Example 2.

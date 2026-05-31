@@ -70,7 +70,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 **Purpose**: All SST3 workflow tasks — 5-stage sequential process with subagent swarms for research/review, main agent for implementation.
 
 **Context Window**: 1M tokens (Opus 4.6/Sonnet 4.6), 200K (Haiku 4.5)
-**Content Budget**: ~42K tokens (STANDARDS.md + CLAUDE.md + Issue loaded at session start)
+**Content Budget**: per-stage loading (#498) — session start loads CLAUDE.md (~9K tok) + `load-stage-rules.sh always` subset (~4K tok / 16K bytes) + the Issue; each stage adds its `load-stage-rules.sh <N>` subset on entry (the full STANDARDS canon is ~30K tok and is no longer read whole)
 **Handover at**: 80% of model window
 
 ## 5-Stage Sequential Workflow
@@ -86,6 +86,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Research phase <30% of context budget
 - Main agent collates findings → writes /tmp file: **findings + gaps + plan**
 - Check `docs/research/` for existing research first
+- **Leader.md parity** (solo loads WORKFLOW.md, NOT Leader.md — so also apply these Leader.md Stage-1 steps): handover-claim verification gate — step 1a.5's 3 verification classes (closure-rationale / pre-existing-classification / fix-ranking) + run any mechanically-testable hypothesis before scope [AC 1.7]; for any non-code / operator-side / "false-positive-on-contract" framing, dispatch a live-system probe + capture a host-baseline file fed to every subagent [AC 1.9]; empty-SEED → raw-grep fallback + `pre_swarm_graph_seed` frontmatter when the wrapper returns near-empty for a symbol known to exist [AC 1.11]
 
 ### Stage 2 — Issue Creation (Main Agent from /tmp)
 - Create issue using `issue-template.md` from /tmp research
@@ -93,6 +94,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Author + run the draft-check swarm via the Workflow tool (DEFAULT) for scope-check vs audit; Agent/Task = the documented fallback only for a trivial single-angle check
 - Quality mantras VERBATIM: no inefficiencies, fix optimisations, reliable/robust, dedupe, no bottlenecks, fast/safe, no memory leaks, follows STANDARDS.md
 - No false positives. No priority levels. All must be fixed.
+- **Leader.md parity** (also apply these Leader.md Stage-2 author/draft steps): two-angle verifiability sweep — falsifiability (passes the FAIL state too = toothless) + discriminability (no bare-substring where exact-match exists) + script/gate preconditions [AC 2.2]; finding-to-AC traceability table — every Fn AND Gn → an AC or explicit out-of-scope, bound at sub-element not headline level [AC 2.3]; expanded L1/L2 prompts — implementation-correctness axis, carve-out respect, backwards-compat source-read, shape-gated angles [AC 2.4]; author-time citation freshness — grep-verify every file:line before writing it + stale-count cleanup [AC 3.4]; scope decomposition — sub-issue merge/drop tracing, multi-axis split, JBGE-DEFERRED knob gate [AC 3.11]; voice-mirror vendor prerequisite pre-check for voice-scanner consumers [AC 3.16]
 
 ### Stage 3 — Triple-Check (Subagents Verify Scope)
 - Scope vs audit = 100% captured, no gaps, no overengineering
@@ -100,6 +102,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Check for dead/obsolete/legacy code cleanup
 - Verify not scoping the opposite of what was agreed
 - All scope in issue BODY — never comments
+- **Leader.md parity** (also apply these Leader.md Stage-3 sanity angles): draft internal-consistency — Expected-Behavior ↔ AC binding + deferred-feature coherence [AC 3.3]; subagent BLOCK/FAIL findings get main-agent source-verify before acting + a rejected-finding-revisit angle [AC 3.6]; cross-stage contradiction resolution — source decides over recency-bias, and Stage-2 parked feedback is fed to the Stage-3 subagents [AC 3.13]
 
 ### Stage 4 — Implementation + Merge + User Review
 - Implement all phases, commit per file
@@ -108,6 +111,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Merge to main BEFORE user review (Solo Branch Merge Safety: pull, diff, preserve both)
 - POST user-review-checklist.md from TEMPLATE (ALL sections mandatory)
 - Fix gaps — no deferrals, no excuses unless confirmed false positive
+- **Leader.md parity** (also apply this Leader.md Stage-4 step): worktree setup + pre-commit formatter staging hygiene — when a formatter hook (end-of-file-fixer / trailing-whitespace) modifies a file mid-commit, re-stage by exact pathspec and re-commit; never `| tail -N` between hook output and exit-code propagation under `set -e` [AC 4.2]
 
 ### Stage 5 — Post-Implementation Review (Subagent Swarm)
 - Author + run the post-implementation audit swarm via the Workflow tool (DEFAULT); Agent/Task = the documented fallback only for a trivial single-angle check
@@ -116,6 +120,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Inefficiencies, dead code, optimisations, dedupe, bottlenecks, memory leaks
 - STANDARDS.md compliance. Issue body 100% complete.
 - Fix ALL problems. Run regression tests.
+- **Leader.md parity** (also apply this Leader.md Stage-5 step): scope-snippet source verification — a step-0 HEAD re-derive checklist (re-grep the scope snippet against current `HEAD` before auditing) + a truth-table temporal axis so post-merge state is not audited against a pre-merge snapshot [AC 5.5]
 
 ## Task Description
 
@@ -127,7 +132,7 @@ Describe the task you need to complete:
 
 ### Before Starting Work
 - [ ] Read CLAUDE.md in full
-- [ ] Read STANDARDS.md in full
+- [ ] Load the STANDARDS canon via `[canonical-only — read standards/STANDARDS.md + standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md 4-tagged sections directly via `<!-- stages: 4 -->` markers]` (Stage-4 subset + always carve-out) — the #498 per-stage loader, preferred over a full STANDARDS.md read (see file top)
 - [ ] Read Issue line-by-line (not skim)
 - [ ] Enter an isolated worktree per the CLAUDE.md "Branch Safety (CRITICAL — DO NOT VIOLATE)" anchor (dotfiles#488 Fix-A): call the `EnterWorktree` tool named `solo/issue-{number}-{description}` — do NOT bare `git checkout -b solo/...` in the shared clone (a clone has one HEAD/index; a concurrent agent's branch-create moves yours). The CLAUDE.md anchor is authoritative (the tool only activates from a user/CLAUDE.md/memory directive); this line REFERENCES it.
 - [ ] **HARD STOP**: NEVER switch branches mid-implementation — this remains the in-worktree invariant (commit + push to the worktree's solo branch only; Gate-2 uses the AC 1.3 remote-FF procedure, never a shared-tree branch-switch).
