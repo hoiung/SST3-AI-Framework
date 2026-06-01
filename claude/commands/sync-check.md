@@ -6,7 +6,7 @@ Layer-2 orchestrator that composes the SST3 wrapper-lane to surface code+doc+syn
 
 ## What this skill does
 
-When invoked, this skill runs `bash dotfiles/scripts/sst3-check.sh` in the current repo and reports findings as a structured table. By default it runs all three areas (code, doc, sync); pass an arg to narrow scope.
+When invoked, this skill runs `bash <your-dotfiles-clone>/SST3/scripts/sst3-check.sh` in the current repo and reports findings as a structured table. By default it runs all three areas (code, doc, sync); pass an arg to narrow scope.
 
 ## Usage
 
@@ -22,15 +22,15 @@ When invoked, this skill runs `bash dotfiles/scripts/sst3-check.sh` in the curre
 The 6 code-query wrappers (`sst3-code-{callers,callees,subclasses,search,impact,review}.sh`) require a target symbol, pattern, or base-branch argument. They are not orchestrator-composable; invoke them directly when needed:
 
 ```bash
-bash dotfiles/scripts/sst3-code-callers.sh <symbol> <lang>
-bash dotfiles/scripts/sst3-code-callees.sh <function> <lang>
-bash dotfiles/scripts/sst3-code-callees.sh <Class.method> <lang>          # method scoped to class
-bash dotfiles/scripts/sst3-code-callees.sh <Class> <lang> --class         # union of all class methods
-bash dotfiles/scripts/sst3-code-subclasses.sh <ClassName> <lang>          # reverse-inheritance lookup (#445 R4)
-bash dotfiles/scripts/sst3-code-search.sh <pattern> <lang> [--literal]
-bash dotfiles/scripts/sst3-code-impact.sh <base-branch>
-bash dotfiles/scripts/sst3-code-review.sh <base-branch>
-bash dotfiles/scripts/sst3-sync-doc-to-code.sh <doc-file> [<lang>]
+bash scripts/sst3-code-callers.sh <symbol> <lang>
+bash scripts/sst3-code-callees.sh <function> <lang>
+bash scripts/sst3-code-callees.sh <Class.method> <lang>          # method scoped to class
+bash scripts/sst3-code-callees.sh <Class> <lang> --class         # union of all class methods
+bash scripts/sst3-code-subclasses.sh <ClassName> <lang>          # reverse-inheritance lookup (#445 R4)
+bash scripts/sst3-code-search.sh <pattern> <lang> [--literal]
+bash scripts/sst3-code-impact.sh <base-branch>
+bash scripts/sst3-code-review.sh <base-branch>
+bash scripts/sst3-sync-doc-to-code.sh <doc-file> [<lang>]
 ```
 
 Same applies to `sst3-sync-tool-eviction.sh <evicted_token>` — the orchestrator composes it with a runtime-constructed displaced-MCP token; for any other eviction guard, invoke directly.
@@ -66,7 +66,7 @@ The terminator is the canonical "done" marker. Consumers that detect the orchest
 NDJSON to stdout, one finding per line, each tagged with `kind: "<area>"`. Pipe to `jq` for filtering:
 
 ```bash
-bash dotfiles/scripts/sst3-check.sh --all 2>/dev/null | jq -c 'select(.kind | startswith("doc-"))'
+bash <your-dotfiles-clone>/SST3/scripts/sst3-check.sh --all 2>/dev/null | jq -c 'select(.kind | startswith("doc-"))'
 ```
 
 ## Exit codes

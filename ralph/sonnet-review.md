@@ -87,9 +87,9 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 
 > Doc-only exemption: [`_doc-only-exemption.md`](_doc-only-exemption.md). Preconditions: [`_wrapper-lane-preconditions.md`](_wrapper-lane-preconditions.md). Fallback: [`_fallback-clause.md`](_fallback-clause.md).
 
-- [ ] For each modified function: `bash dotfiles/scripts/sst3-code-callers.sh <function_name> <lang>` → list all call sites; verify each handles changed signature/behaviour (subagent reads each caller for intent).
-- [ ] For each modified function: outgoing-call audit (callees) — `bash dotfiles/scripts/sst3-code-callees.sh <function_name> <lang>` → list every callee; verify contract handled (null-safety, config access, signature compatibility). Unsupported language → dispatch semantic subagent.
-- [ ] `bash dotfiles/scripts/sst3-code-search.sh '<pattern>' <lang>` for duplicate implementations: search for new calculation/parsing/schema-handling logic — confirm not already existing.
+- [ ] For each modified function: `bash scripts/sst3-code-callers.sh <function_name> <lang>` → list all call sites; verify each handles changed signature/behaviour (subagent reads each caller for intent).
+- [ ] For each modified function: outgoing-call audit (callees) — `bash scripts/sst3-code-callees.sh <function_name> <lang>` → list every callee; verify contract handled (null-safety, config access, signature compatibility). Unsupported language → dispatch semantic subagent.
+- [ ] `bash scripts/sst3-code-search.sh '<pattern>' <lang>` for duplicate implementations: search for new calculation/parsing/schema-handling logic — confirm not already existing.
 - [ ] **Sync-lane (diff-triggered)** per [`_doc-only-exemption.md`](_doc-only-exemption.md) — run `sst3-sync-related-code.sh` / `sst3-doc-frontmatter.sh` if `docs/research/*` changed.
 - [ ] **AP #19 under-use + over-trust check**: every subagent RESULT block starts with `mcp_graph_available: yes|no` per [`_wrapper-lane-preconditions.md`](_wrapper-lane-preconditions.md). If wrapper-lane used, one result spot-checked by reading source — record spot-check file:line in RESULT.
 
@@ -98,7 +98,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 > Offline ast-grep SEC scan of the changed code. Canonical doctrine: STANDARDS.md "Security & Dependency Audit Gate"; AP #27. This is a GATE (mirrors the doc-lane FAIL semantics), not a run-record.
 
 - [ ] **SEC scope gate**: does the diff touch code files (`.py`/`.rs`/`.js`/`.ts`) in a SEC-applicable repo? Resolve via `python3 -c "from SST3.scripts.sst3_utils import sec_dep_applicable as f; print(f('<repo>')['sec'])"`. If `False` (non-code shape / GAS / scaffold) OR the diff touches no code file → "N/A — shape-gated skip-clean" and the two FAIL conditions below do not apply. If `True` and code files changed → next two are mandatory.
-- [ ] **SEC ran-clean (FAIL condition a)**: run `bash dotfiles/scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`scripts/install.sh`), not waved through.
+- [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`scripts/install.sh`), not waved through.
 - [ ] **SEC no-net-new-finding (FAIL condition b)**: **any SEC finding on an added/modified line in the diff = FAIL** (fix it; do not defer). Pre-existing findings on unchanged lines of a touched file are out of scope for this diff (they predate it). Record the wrapper exit + finding count in the RESULT block.
 
 ## Pass Criteria

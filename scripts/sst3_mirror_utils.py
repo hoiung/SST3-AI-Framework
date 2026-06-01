@@ -184,6 +184,11 @@ def issue_url_scrub(text: str, ctx: dict) -> str:
     return out
 
 
+# FP-by-design (#520 item-1): no positive expected-output tuple in
+# test_mirror_drift.py's IDEMPOTENCY_CASES — a positive case would require
+# embedding a real private repo literal in that byte-identical-mirrored test
+# file (a privacy leak). Covered by test_transform_no_op_on_clean_text (loops
+# all TRANSFORMS) + the early-return no-op on mirror clones. Do NOT re-flag.
 def private_repo_issue_scrub(text: str, ctx: dict) -> str:
     """Replace `<private-repo>#<num>` shorthand with `Issue #<num>` (#497 A.5.1).
 
@@ -217,6 +222,11 @@ def repo_ref_scrub(text: str, ctx: dict) -> str:
     return _REPO_REF_RE.sub(r"\1", text)
 
 
+# FP-by-design (#520 item-1): no positive expected-output tuple in
+# test_mirror_drift.py's IDEMPOTENCY_CASES — a positive case would require a real
+# operator-identity / private literal in that byte-identical-mirrored test file (a
+# privacy leak). Covered by test_transform_no_op_on_clean_text + the identity
+# fallback no-op on mirror clones (empty pairs). Do NOT re-flag.
 def private_term_scrub(text: str, ctx: dict) -> str:
     """Replace operator-identity + private-repo-name literals (#497 Phase E).
 

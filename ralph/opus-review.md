@@ -54,8 +54,8 @@ Thorough architectural review. Catches 10% of issues missed by Haiku+Sonnet.
 
 > Doc-only exemption: [`_doc-only-exemption.md`](_doc-only-exemption.md). Preconditions: [`_wrapper-lane-preconditions.md`](_wrapper-lane-preconditions.md). Fallback: [`_fallback-clause.md`](_fallback-clause.md).
 
-- [ ] **Dead code detection**: `bash dotfiles/scripts/sst3-code-large.sh 200 <lang>` + manual orphan scan. For each candidate: `bash dotfiles/scripts/sst3-code-callers.sh <name> <lang>` returns empty in same module ⇒ orphan. Subagent confirms whether reflection/dynamic dispatch (not orphan) vs true orphan (cleanup target).
-- [ ] **Impact scope validation**: `bash dotfiles/scripts/sst3-code-impact.sh <base-branch>` — enumerate all impacted modules; identify unexpected cross-boundary edges. Document each boundary: intended (defence-in-depth / architectural layering) vs emergent (refactor target). Phase A wrapper-lane does not expose `max_depth`; deeper-than-1-hop requires subagent walk.
+- [ ] **Dead code detection**: `bash scripts/sst3-code-large.sh 200 <lang>` + manual orphan scan. For each candidate: `bash scripts/sst3-code-callers.sh <name> <lang>` returns empty in same module ⇒ orphan. Subagent confirms whether reflection/dynamic dispatch (not orphan) vs true orphan (cleanup target).
+- [ ] **Impact scope validation**: `bash scripts/sst3-code-impact.sh <base-branch>` — enumerate all impacted modules; identify unexpected cross-boundary edges. Document each boundary: intended (defence-in-depth / architectural layering) vs emergent (refactor target). Phase A wrapper-lane does not expose `max_depth`; deeper-than-1-hop requires subagent walk.
 - [ ] **Large functions audit**: confirm no function in diff exceeded 200 lines (`sst3-code-large.sh 200 <lang>` scoped via subagent grep on diff files). If any did → architectural red flag, require refactor.
 - [ ] **AP #19 full compliance**: includes Sonnet's over-trust spot-check, plus: any "no results" response in area with unsupported-language files (YAML, JSON, SQL, shell) explicitly broadened to subagent exploration before drawing negative conclusion; wrapper `last_updated` recorded in RESULT.
 

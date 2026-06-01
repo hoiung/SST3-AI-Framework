@@ -345,9 +345,9 @@ Rule of thumb: any single Bash invocation that produces > 200 lines should be wr
 <!-- stages: 4 -->
 ### Structural Code Queries — Wrapper-Lane First, Subagent Fallback
 
-For structural code questions (callers, callees, imports, inheritance, blast radius, dead code, large functions, test coverage) in a language the wrapper-lane parses (Python, TypeScript, TSX, JavaScript, Rust — the five languages ast-grep is wired for in the wrappers), prefer **wrapper-lane** bash queries (`bash dotfiles/scripts/sst3-code-*.sh`) over subagent exploration — when the pre-query gate passes:
+For structural code questions (callers, callees, imports, inheritance, blast radius, dead code, large functions, test coverage) in a language the wrapper-lane parses (Python, TypeScript, TSX, JavaScript, Rust — the five languages ast-grep is wired for in the wrappers), prefer **wrapper-lane** bash queries (`bash scripts/sst3-code-*.sh`) over subagent exploration — when the pre-query gate passes:
 
-1. **Wrapper invocable**: `bash dotfiles/scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The lane is stateless — there is no graph to build. `file_count` reports the count of supported source files in the target repo (audit-trail aid, not a precondition).
+1. **Wrapper invocable**: `bash scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The lane is stateless — there is no graph to build. `file_count` reports the count of supported source files in the target repo (audit-trail aid, not a precondition).
 2. **No staleness — every call re-parses from disk**. The wrapper-lane has no persistent cache; `sst3-code-update.sh` is a no-op contract-preservation shim. `last_updated` reflects the repo HEAD commit time, not query freshness.
 3. **Target file / project language is in the supported list**. If not (Markdown, YAML, JSON, SQL, TOML, shell, HTML, Jinja, Dockerfile, etc.), skip the wrapper-lane; use subagent exploration.
 4. **`search` is keyword-only**. The wrapper invokes ripgrep (`--literal` mode) or ast-grep structural patterns — there are no embeddings, no semantic similarity. Any "no match" must be cross-checked with a synonym sweep before drawing a negative conclusion.

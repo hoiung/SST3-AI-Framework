@@ -4,9 +4,9 @@
 
 ## Preconditions (code-touching PRs, run once per review)
 
-`bash dotfiles/SST3/scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The wrapper-lane is stateless — there is no staleness check; every query re-parses on disk. If the wrapper exits non-zero (missing inner engine), skip to the per-tier fallback clause (see [`_fallback-clause.md`](_fallback-clause.md)).
+`bash scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The wrapper-lane is stateless — there is no staleness check; every query re-parses on disk. If the wrapper exits non-zero (missing inner engine), skip to the per-tier fallback clause (see [`_fallback-clause.md`](_fallback-clause.md)).
 
-**Exit 127 semantics (post Issue #456)**: means the engine is **genuinely missing on disk** (npm/cargo/pipx install never ran). Pre-#456 the same code ALSO fired when the engine was on disk but PATH was not propagated to non-interactive shells; that PATH-propagation gap is now closed by `../dotfiles/SST3/scripts/sst3-bash-utils.sh` self-bootstrap. Run `scripts/install.sh` to install missing engines — do NOT add custom PATH workarounds in the calling agent.
+**Exit 127 semantics (post Issue #456)**: means the engine is **genuinely missing on disk** (npm/cargo/pipx install never ran). Pre-#456 the same code ALSO fired when the engine was on disk but PATH was not propagated to non-interactive shells; that PATH-propagation gap is now closed by `../scripts/sst3-bash-utils.sh` self-bootstrap. Run `scripts/install.sh` to install missing engines — do NOT add custom PATH workarounds in the calling agent.
 
 **Rollout note**: required-when-available wording became authoritative with Issue #419. Reviews in-flight at #419 merge-time grandfathered UNTIL the branch's next push; any review dispatched after that push follows the full required-when-available rule.
 

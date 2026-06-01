@@ -31,7 +31,7 @@ SST3 workflow provides THREE methods for GitHub interactions:
 
 ## Deferred Tools & ToolSearch
 
-MCP tool schemas may be **deferred** by the Claude Code harness — tools appear as names only at session start and must be loaded via `ToolSearch` with `select:<tool_name>` before invocation. See `../dotfiles/SST3/standards/STANDARDS.md` section "**MCP Tool Schema Loading (Deferred Tools + ToolSearch)**" for the canonical rule, generic + github-checkbox load patterns, and fail-mode handling. This is cross-linked, not duplicated — STANDARDS.md is the single source of truth for the rule.
+MCP tool schemas may be **deferred** by the Claude Code harness — tools appear as names only at session start and must be loaded via `ToolSearch` with `select:<tool_name>` before invocation. See `../standards/STANDARDS.md` section "**MCP Tool Schema Loading (Deferred Tools + ToolSearch)**" for the canonical rule, generic + github-checkbox load patterns, and fail-mode handling. This is cross-linked, not duplicated — STANDARDS.md is the single source of truth for the rule.
 
 ---
 
@@ -280,7 +280,7 @@ mcp__github-checkbox__update_issue_checkbox(
 )
 ```
 
-**Evidence patterns by deliverable type** — CANONICAL table (post-#429, replaces archived `../dotfiles/SST3/archive/ORCHESTRATOR.md:738-763`; all other files reference this location by section name):
+**Evidence patterns by deliverable type** — CANONICAL table (post-#429, replaces archived `../archive/ORCHESTRATOR.md:738-763`; all other files reference this location by section name):
 
 | Deliverable Type | Evidence Pattern |
 |---|---|
@@ -298,7 +298,7 @@ mcp__github-checkbox__update_issue_checkbox(
 - ✗ NOT in bulk at stage end
 - ✗ NOT before work is complete
 
-**Deferred-tool bootstrap**: if `mcp__github-checkbox__*` tools are deferred, load schemas first via `ToolSearch(select:mcp__github-checkbox__update_issue_checkbox,...)` per `../dotfiles/SST3/standards/STANDARDS.md` "MCP Tool Schema Loading".
+**Deferred-tool bootstrap**: if `mcp__github-checkbox__*` tools are deferred, load schemas first via `ToolSearch(select:mcp__github-checkbox__update_issue_checkbox,...)` per `../standards/STANDARDS.md` "MCP Tool Schema Loading".
 
 ### Example 3: Create Sub-Issue Relationship
 
@@ -394,7 +394,7 @@ For structural code questions (callers, callees, imports, inheritance, blast rad
 
 Run BEFORE any wrapper-lane call:
 
-1. Wrapper invocable: `bash dotfiles/SST3/scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. If exit non-zero (typically exit 127 = inner engine missing), see playbook Install section. The wrapper-lane is stateless — no graph to build, no freshness window.
+1. Wrapper invocable: `bash scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. If exit non-zero (typically exit 127 = inner engine missing), see playbook Install section. The wrapper-lane is stateless — no graph to build, no freshness window.
 2. Target language is supported by the wrapper-lane: Python, TypeScript, TSX, JavaScript, Rust (the five ast-grep is wired for in the wrappers). If not (Markdown, YAML, JSON, SQL, TOML, shell, HTML, Jinja, Dockerfile, Go, Java, etc.) → skip wrapper-lane, use subagents.
 3. Spot-check discipline: read one wrapper result from source before drawing conclusions. "Never Assume — Always Check" applies. `search` is keyword-only — verify with synonym sweep before any "no match" conclusion.
 
@@ -422,13 +422,13 @@ For any of the above → subagents remain the primary tool (see the 12 subagent-
 
 | Question | Wrapper call |
 |---|---|
-| Who calls `foo`? | `bash dotfiles/SST3/scripts/sst3-code-callers.sh foo <lang>` |
-| What does `foo` call? | `bash dotfiles/SST3/scripts/sst3-code-callees.sh foo <lang>` |
-| Blast radius of editing `file.py`? | `bash dotfiles/SST3/scripts/sst3-code-impact.sh <base-branch>` |
-| Any function over 200 lines? | `bash dotfiles/SST3/scripts/sst3-code-large.sh 200 <lang>` |
+| Who calls `foo`? | `bash scripts/sst3-code-callers.sh foo <lang>` |
+| What does `foo` call? | `bash scripts/sst3-code-callees.sh foo <lang>` |
+| Blast radius of editing `file.py`? | `bash scripts/sst3-code-impact.sh <base-branch>` |
+| Any function over 200 lines? | `bash scripts/sst3-code-large.sh 200 <lang>` |
 | Find tests covering `foo`? | ⊘ Deferred to semantic-subagent fallback — Phase A wrappers do not expose `tests_for` (Issue #445; no canonical call sites) |
-| Review for diff vs default branch? | `bash dotfiles/SST3/scripts/sst3-code-review.sh <base-branch>` (use `main` or `master` per repo) |
-| Wrapper-lane status? | `bash dotfiles/SST3/scripts/sst3-code-status.sh` |
+| Review for diff vs default branch? | `bash scripts/sst3-code-review.sh <base-branch>` (use `main` or `master` per repo) |
+| Wrapper-lane status? | `bash scripts/sst3-code-status.sh` |
 
 See `../../docs/guides/code-query-playbook.md` for full operational playbook (freshness recipe, fallback rules, embeddings policy, cadence governance).
 
