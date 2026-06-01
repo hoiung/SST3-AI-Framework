@@ -6,7 +6,7 @@
 # Output:  NDJSON written to /tmp/review.ndjson chaining:
 #            {section:"impact", changed_file, impacted_callers}
 #            {section:"untested-in-diff", file, untested:[names]}
-#            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 commits; exit 0 no-op)
+#            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 changed files; exit 0 no-op)
 # Engines: composes sst3-code-impact.sh + sst3-code-untested-py.sh.
 
 set -euo pipefail
@@ -78,18 +78,29 @@ if ! git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null 2>&1; then
     exit 64
 fi
 
-# #520 (item-3): empty-diff-range guard. When BASE...HEAD has zero commits (e.g.
-# the Stage-5 audit running `review.sh <default>` AFTER a merge, so the range is
-# empty), the impact engine emits 0 bytes rc 0 and the `grep -v '^$'` pipe below
-# exits 1 — under `pipefail`+`set -e` that aborts the script BEFORE `echo "$OUT"`,
-# a silent exit 1 indistinguishable from "engine broken". An empty range is a
-# legitimate no-op: emit a distinct diagnostic and exit 0. BASE is already
-# validated above, so the `|| echo 0` here only ever fires on a genuinely-empty
-# (valid) range. Exit codes 64/127/143 stay reserved for usage / engine-missing /
-# sigterm.
-RANGE_COUNT=$(git rev-list --count "${BASE}...HEAD" 2>/dev/null || echo 0)
-if [[ "$RANGE_COUNT" -eq 0 ]]; then
-    EMPTY_NOTE="no commits in ${BASE}...HEAD; nothing to review"
+# #520 (item-3): empty-diff-range guard. When BASE...HEAD has no changed files
+# (e.g. the Stage-5 audit running `review.sh <default>` AFTER a merge, so the
+# range is empty), the impact engine emits 0 bytes rc 0 and the `grep -v '^$'`
+# pipe below exits 1 — under `pipefail`+`set -e` that aborts the script BEFORE
+# `echo "$OUT"`, a silent exit 1 indistinguishable from "engine broken". An empty
+# range is a legitimate no-op: emit a distinct diagnostic and exit 0. Exit codes
+# 64/127/143 stay reserved for usage / engine-missing / sigterm.
+#
+# #520 Stage-5 fix: guard on the SAME `git diff --name-only "${BASE}...HEAD"` the
+# engines consume (impact: sst3-code-impact.sh:57; untested-py CHANGED: line 119
+# below — both 3-dot = merge-base..HEAD, HEAD-side changes only), NOT a
+# `git rev-list --count` commit proxy. rev-list with a 3-dot range counts the
+# SYMMETRIC commit difference (commits unique to EITHER side), so when BASE is a
+# descendant of / diverged-ahead-of HEAD (e.g. local HEAD lags origin/master and
+# origin/master is passed as base) the proxy sees commits while the diff is empty:
+# the engines emit nothing and the script writes an empty $OUT and exits 0
+# silently — the very silent-empty class this guard kills, escaping through a
+# divergent base. Counting changed files off the engine's own range is
+# definitionally aligned. BASE is ref-validated above, so an empty list here is a
+# genuine empty range, not a bad ref.
+CHANGED_FILES=$(git diff --name-only "${BASE}...HEAD" 2>/dev/null || true)
+if [[ -z "$CHANGED_FILES" ]]; then
+    EMPTY_NOTE="no changed files in ${BASE}...HEAD; nothing to review"
     jq -nc --arg b "$BASE" --arg note "$EMPTY_NOTE" \
         '{section:"empty-diff-range", base:$b, note:$note}' >> "$OUT"
     echo "empty-diff-range: $EMPTY_NOTE" >&2
