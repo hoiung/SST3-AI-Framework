@@ -3,7 +3,9 @@
 #
 # Usage:   sst3-code-review.sh <base-branch>
 # Example: sst3-code-review.sh main
-# Output:  NDJSON written to /tmp/review.ndjson chaining:
+# Output:  path to a per-invocation NDJSON file echoed on stdout; default
+#          `mktemp -t sst3_review.XXXXXX.ndjson`, override via SST3_REVIEW_NDJSON.
+#          The file chains:
 #            {section:"impact", changed_file, impacted_callers}
 #            {section:"untested-in-diff", file, untested:[names]}
 #            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 changed files; exit 0 no-op)
