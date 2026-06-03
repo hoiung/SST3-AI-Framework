@@ -143,14 +143,19 @@ Every Acceptance Criteria checkbox MUST have an explicit verification command/me
 
 ### Scope Verification
 - [ ] Independent Workflow-swarm verification: scope vs audit doc = 100% captured
-- [ ] Check against chat history: nothing discussed and agreed was forgotten
-- [ ] Verify not scoping the opposite of what was agreed
+- [ ] **Chat Reconciliation (Verifier-Led, MAIN-AGENT-owned, non-delegable)** — the chat-history / opposite-scoping check is NOT a subagent self-cert: ran the 3-model neutral panel (Haiku+Sonnet+Opus, shown ONLY the operator's raw messages), flagged invented/dropped/inverted vs the draft, posted the `## Chat Reconciliation` section below, and PAUSED for operator sign-off before issue creation (Leader.md step 2a / AC 7.1; the AC 7.2 gate BLOCKS creation if the section is absent)
 - [ ] Check for dead/obsolete/legacy code cleanup opportunities
 - [ ] All scope in issue BODY — never in comments
 
 ### Scope Amendment (If gaps found)
 - [ ] All gaps added to Acceptance Criteria above (NOT in comments — BODY is permanent scope)
 - [ ] Re-run Scope Coverage Audit with amended checkboxes
+
+---
+
+## Chat Reconciliation
+<!-- Populated at Stage 3 by the verifier-led 3-model panel (Leader.md step 2a, AC 7.1). The AC 7.2 binary gate BLOCKS `gh issue create` if this heading is absent — do NOT delete it. STANDARDS.md "Chat Reconciliation (Verifier-Led)". -->
+> _Per-model reads (Haiku / Sonnet / Opus — each shown ONLY the operator's raw messages, never the scope) + the main-agent divergence check (`invented` / `dropped` / `inverted`) vs the drafted scope go here. The operator signs off on this report before issue creation._
 
 ---
 

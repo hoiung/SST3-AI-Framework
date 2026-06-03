@@ -98,9 +98,8 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 3 — Triple-Check (Subagents Verify Scope)
 - Scope vs audit = 100% captured, no gaps, no overengineering
-- Check against chat history — don't forget agreed items
+- **Chat Reconciliation (Verifier-Led, MAIN-AGENT-owned, non-delegable)** — the chat-history / opposite-scoping check is NOT a subagent self-cert (subagents never receive the conversation). Dispatch the 3-model neutral panel (Haiku+Sonnet+Opus, shown ONLY the operator's raw messages from `extract-chat-agreements.py`), flag invented/dropped/inverted vs the draft, POST `## Chat Reconciliation`, PAUSE for operator sign-off before issue creation (Leader.md step 2a / AC 7.1; STANDARDS.md "Chat Reconciliation (Verifier-Led)"; #522)
 - Check for dead/obsolete/legacy code cleanup
-- Verify not scoping the opposite of what was agreed
 - All scope in issue BODY — never comments
 - **Leader.md parity** (also apply these Leader.md Stage-3 sanity angles): draft internal-consistency — Expected-Behavior ↔ AC binding + deferred-feature coherence [AC 3.3]; subagent BLOCK/FAIL findings get main-agent source-verify before acting + a rejected-finding-revisit angle [AC 3.6]; cross-stage contradiction resolution — source decides over recency-bias, and Stage-2 parked feedback is fed to the Stage-3 subagents [AC 3.13]
 
