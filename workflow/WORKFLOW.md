@@ -63,8 +63,7 @@
 - [ ] **Dispatch Layer-1 subagents; wait for all /tmp output files; THEN dispatch Layer-2 subagents with Layer-1 outputs as input context (AC 3.12)** — Layer-2 must NOT be dispatched concurrently with Layer-1 (Layer-2 verifies false-positive claims against actual Layer-1 verdicts, not hypotheticals). Authored + run via the Workflow tool (DEFAULT; minimum 3 subtasks, scale up); Agent/Task is the documented fallback only for a trivial single-angle check. AP #14 governs — the main agent verifies every finding against source.
 - [ ] Scope vs audit doc = 100% captured, nothing missing, no gaps
 - [ ] No overengineering — only what was agreed
-- [ ] Check against chat history — don't forget things discussed and agreed on
-- [ ] Verify no tendency to scope the opposite of what was agreed
+- [ ] **Chat Reconciliation (Verifier-Led) — MAIN-AGENT-OWNED, non-delegable**: the former "Check against chat history" + "scope the opposite of what was agreed" subagent bullets were structurally vacuous (subagents never receive the conversation). Replaced by Leader.md Stage-3 step 2a: extract the operator's raw messages (`extract-chat-agreements.py`), dispatch the THREE-MODEL neutral verifier panel (one Haiku + one Sonnet + one Opus, shown ONLY the raw messages — NOT the scope), then the main agent flags `invented` / `dropped` / `inverted` divergence against the drafted issue, POSTs the `## Chat Reconciliation` report, and PAUSEs for operator sign-off before `gh issue create`. Doctrine: STANDARDS.md "Chat Reconciliation (Verifier-Led)" (#522).
 - [ ] Check for dead/obsolete/legacy code cleanup opportunities
 - [ ] **Verify-command execution (AC 3.1)**: for every AC verify command in the draft, run it against the live repo; any FAIL or vacuous-pass = block Issue creation until the AC is rewritten.
 - [ ] **Filesystem-state verification (AC 3.7)**: all path/file/dir existence claims verified via `ls` / `find` / `git ls-tree` against the live repo.
@@ -117,7 +116,7 @@
 - [ ] Check issue body scope 100% completed — no gaps
 - [ ] Fix ALL problems — no deferrals, no excuses
 - [ ] Run regression tests — if not run yet, run them now
-- [ ] **Task-close drain gate (#493 Phase 2 — Leader.md step 7a.1)**: `bash <your-dotfiles-clone>/SST3/scripts/leader-stage5-drain-check.sh <issue-number> [--repo <repo>]` exit 0 mandatory before sign-off. Detects D1-D5 residue (uncommitted task-touched files / self-created stash / self-opened worktree / un-pushed commits / unfinished propagation tail). Sits BETWEEN the 7a.0 sweep and the 7a completeness-check in Leader.md Stage 5 sequence; Layer B failsafe replays in `.github/workflows/stage5-completeness.yml`.
+- [ ] **Task-close drain gate (#493 Phase 2 — Leader.md step 7a.1)**: `bash <your-dotfiles-clone>/SST3/scripts/leader-stage5-drain-check.sh <issue-number> [--repo <repo>]` exit 0 mandatory before sign-off. Detects D1-D6 residue (uncommitted task-touched files / self-created stash / self-opened worktree / un-pushed commits / unfinished propagation tail / **D6**: the issue's dotfiles feedback file `SST3-metrics/leader-feedback/feedback-<repo>-<issue>.md` not committed + pushed + synced to `origin/master` — cross-repo, runs regardless of `--repo`; #522). Sits BETWEEN the 7a.0 sweep and the 7a completeness-check in Leader.md Stage 5 sequence; Layer B failsafe replays in `.github/workflows/stage5-completeness.yml`.
 - [ ] Per-stage feedback per STANDARDS.md §Per-Stage Feedback Capture — write the Stage 5 block before declaring complete
 
 <!-- stages: 5 -->

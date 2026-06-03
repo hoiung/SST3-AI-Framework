@@ -379,7 +379,7 @@ Phase checkpoints post a comment to the Issue — they DO NOT pause work. Post t
 1. Voice Content Protection + AI-tells — STANDARDS.md "Voice Content Protection (Marker-Driven)" + `../scripts/voice_rules.py`
 2. Intentional-vs-accidental architecture — STANDARDS.md "Subagent Orchestration Discipline" + AP #11b false-positive sweep
 3. Research Applied Collectively (cross-lens) — STANDARDS.md "Research Must Be Applied Collectively, Never Singularly"
-4. Chat-history scope-drift / opposite-scoping — WORKFLOW.md Stage 3
+4. Chat-history scope-drift / opposite-scoping (verifier-led; the panel reads chat, the MAIN AGENT owns the divergence check) — STANDARDS.md "Chat Reconciliation (Verifier-Led)", Leader.md S1/S3/S5 (#522)
 5. False-positive sweep for confirmed violations — AP #11, `user-review-checklist.md` §7
 6. Scope vs audit 100% alignment — WORKFLOW.md Stage 3, `issue-template.md` AC section
 7. Overengineering / out-of-scope detection — WORKFLOW.md Verification Loop, `issue-template.md` Cleanup Requirements
