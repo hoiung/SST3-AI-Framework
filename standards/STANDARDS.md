@@ -666,6 +666,35 @@ The opaque-token mechanism for hash-redacting literal business identifiers in pu
 
 ---
 
+<!-- stages: always -->
+### Named-Entity Scope — Don't Broaden a Named Set
+
+**Principle**: When the operator enumerates specific entities, values, or a SET (e.g. `MB100/MBS100`, a named file list, specific tickers/IDs/issues), that enumeration IS the scope. NEVER broaden a named set to "all" / "every" / "uniform" / "any" as a simplification — a superset is a different (wrong) scope, even when it looks "more general" or "cleaner".
+
+**Failure mode**: an agent reads "keep the MB100/MBS100 rows" and ships "keep ANY row / uniform across all strategies" — the opposite of a precise instruction (operator caught this live on auto_pb#1522, 2026-06-03). Broadening feels like generalisation but silently violates the contract.
+
+**The inverse of AP #14e**: #14e says *enumerate every site of a pattern-CLASS you are extending* (don't under-apply). Named-Entity Scope is the mirror: *don't widen a SET the operator explicitly bounded* (don't over-apply). Both are scope-fidelity rules.
+
+**Enforcement**: Leader.md Stage 1 step 0 (restatement preserves named entities verbatim) + Stage 3 "Named-scope fidelity" sanity angle (flag any AC applying to a broader set than the operator named).
+
+---
+
+<!-- stages: 1,3,5 -->
+### Chat Reconciliation (Verifier-Led)
+
+**Why**: Anti-scope-creep is NOT about feedback being caught post-hoc — that is too late. The live failure is agents drifting from what was AGREED IN CHAT: overengineering, inventing features, or shipping the opposite of what was agreed. A self-reported reconciliation table does not fix this (the drifting agent writes its own verdicts — it catches omission, not self-deception). The fix is VERIFIER-LED and grounded in the recorded transcript (Claude Code stores every session as JSONL under `~/.claude/projects/<project-slug>/<session>.jsonl`, which survives compaction).
+
+**Mechanism** (one early pass at Stage 1; the full panel at Stage 3 and Stage 5):
+1. **Transcript-reader** — `../scripts/extract-chat-agreements.py` extracts the operator's raw human-typed messages (drops tool_result / `<system-reminder>` / `<command-*>` noise).
+2. **`## Agreements Log`** — appended to the research file AS agreements are made (captured-when-agreed > reconstructed-late; a low-bias anchor for the verifier).
+3. **Three-model neutral verifier panel** — one Haiku + one Sonnet + one Opus, dispatched IN PARALLEL via the Workflow tool's per-agent `model` override (model diversity = different blind spots; distinct from Ralph's SEQUENTIAL code-review). Each fresh-context verifier is given ONLY the extracted messages + the agreements log and a NEUTRAL prompt ("from these messages, what did the operator ask for / agree to / rule out? cite each; no speculation") — it is NOT shown the agent's scope/issue/diff, so it cannot be led into rubber-stamping. It produces a fresh INDEPENDENT interpretation.
+4. **Main-agent divergence check** — the main agent double-checks each independent interpretation against (a) its own understanding and (b) the current artifact (research scope @ S1 / issue scope @ S3 / delivered diff @ S5). Divergence is the drift signal, classified with three tokens: `invented` (in the artifact, never in the interpretation), `dropped` (in the interpretation, missing from the artifact), `inverted` (the artifact contradicts the interpretation).
+5. **Operator sign-off** — the consolidated `## Chat Reconciliation` report is POSTED and the operator approves it at the two commitment points: Stage 3 (before `gh issue create`) and Stage 5 (before sign-off).
+
+**Honest limit**: the deterministic floors only guarantee the verifier RAN and the report is POSTED (cannot be silently skipped) — the Stage-1 `## Agreements Log` presence gate, the Stage-3 `## Chat Reconciliation` binary-grep gate, and the Stage-5 `C17` presence check. A script cannot judge whether a verdict is honest; the three independent model reads + the operator's sign-off are what catch truthfulness.
+
+---
+
 <!-- stages: 4 -->
 ### Investigate Before Coding
 
@@ -866,12 +895,14 @@ Canonical audit signal for verifying that `mcp__github-checkbox__update_issue_ch
 <!-- stages: 4 -->
 ## Task-Close Drain Gate (Canonical)
 
-Every Stage-5 task close must verify residue drained or waived — `bash <your-dotfiles-clone>/SST3/scripts/leader-stage5-drain-check.sh <issue>` exit 0 mandatory before sign-off. The gate fires on five classes (D1: uncommitted task-touched files / D2: self-created stash / D3: self-opened worktree / D4: un-pushed commits / D5: unfinished propagation tail — dotfiles-scoped). Either drain the residue and re-run, or pass an explicit `--waive-residue <class>:<reason>` flag per class to record the operator's deliberate exception. Layer-A pre-flight (Leader.md step 7a.1, between the 7a.0 sweep and the 7a completeness check) + Layer-B GHA failsafe (`.github/workflows/stage5-completeness.yml`) replay the same gate server-side; both layers are mandatory. Parallel to the completeness-gate principle (#460 W4) but enforces "the task left no residue", not "the feature is complete". Introduced in #493 Phase 2.
+Every Stage-5 task close must verify residue drained or waived — `bash <your-dotfiles-clone>/SST3/scripts/leader-stage5-drain-check.sh <issue>` exit 0 mandatory before sign-off. The gate fires on six classes (D1: uncommitted task-touched files / D2: self-created stash / D3: self-opened worktree / D4: un-pushed commits / D5: unfinished propagation tail — dotfiles-scoped / D6: the issue's dotfiles feedback file `feedback-<repo>-<issue>.md` is not committed + pushed + synced to `origin/master` — runs regardless of `--repo`, since feedback lives in dotfiles even when the work repo differs; #522). Either drain the residue and re-run, or pass an explicit `--waive-residue <class>:<reason>` flag per class to record the operator's deliberate exception. Layer-A pre-flight (Leader.md step 7a.1, between the 7a.0 sweep and the 7a completeness check) + Layer-B GHA failsafe (`.github/workflows/stage5-completeness.yml`) replay the same gate server-side; both layers are mandatory. Parallel to the completeness-gate principle (#460 W4) but enforces "the task left no residue", not "the feature is complete". Introduced in #493 Phase 2.
 
 <!-- stages: 4 -->
 ## Per-Stage Feedback Capture (Canonical)
 
 > Canonical: `../standards/stage-4/per-stage-feedback-capture.md` (extracted for de-bloat, dotfiles#516 AC 6.2). The section-name anchor "Per-Stage Feedback Capture (Canonical)" is preserved here; the full mechanism + 10-field spec + write-time template rules live in the cluster file (loaded by `load-stage-rules.sh 4`).
+
+**Commit + push the feedback file (cross-repo sync — #522)**: the per-issue feedback file lives in dotfiles `SST3-metrics/leader-feedback/feedback-<repo>-<issue>.md` EVEN WHEN the work repo is a different repo (auto_pb, consumer-private-A, …). It MUST be committed AND pushed to dotfiles `origin/master` before Stage-5 sign-off — a consumer-repo session that drains only its own work repo leaves the dotfiles-side feedback orphaned and un-aggregated (the recurring "feedbacks just sitting uncommitted" failure). Stage-5 drain-check class **D6** gates this (present + committed + pushed to `origin/master`). Use `mark-improvements-applied.sh` for closure marks so `applied_in` lands on its own field line, never crammed into `improvement_status`.
 
 <!-- stages: 4 -->
 ## Path Portability
@@ -1237,6 +1268,8 @@ Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation R
 - Command + expected output recorded inline in the AC
 
 **Path portability (dotfiles#516 Stage 5)**: verification commands MUST use **repo-relative paths** run from the repo root (e.g. `grep -nE '...' STANDARDS.md`, `wc -l <path-under-the-repo>`), never a main-clone-absolute path (`/home/<user>/DevProjects/<repo>/...`). An absolute canonical-clone path silently no-ops when CWD is a Stage-4 worktree (the AC 4.2 / AP #29 canonical-clone-absolute-path failure) AND false-FAILs when run against a main clone that has not been fast-forwarded post-merge. An AC whose own verify command hardcodes the main-clone path is not portably falsifiable — rewrite it relative before dispatch.
+
+**Pre-fix FAIL assertion (#522)**: a falsifiable verify is not enough — it must also DISCRIMINATE. Dry-run each AC verification command against the current PRE-FIX tree and confirm it returns the FAIL value (non-zero exit / the pre-impl count); a verify that passes pre-fix is vacuous (it would pass whether or not the work is done) and MUST be re-scoped (line-range / exact-pattern / call-site anchor) before dispatch. Pin `/usr/bin/grep` in any piped grep verify — the default `grep` is a ugrep function wrapper that emits nothing in a pipe, a silent vacuous PASS.
 
 **Enforcement**:
 - Leader.md Stage 2 step 4e (AC verifiability sweep — author runs before subagent dispatch).
