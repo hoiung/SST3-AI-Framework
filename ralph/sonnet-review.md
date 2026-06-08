@@ -98,7 +98,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 > Offline ast-grep SEC scan of the changed code. Canonical doctrine: STANDARDS.md "Security & Dependency Audit Gate"; AP #27. This is a GATE (mirrors the doc-lane FAIL semantics), not a run-record.
 
 - [ ] **SEC scope gate**: does the diff touch code files (`.py`/`.rs`/`.js`/`.ts`) in a SEC-applicable repo? Resolve via `python3 -c "from SST3.scripts.sst3_utils import sec_dep_applicable as f; print(f('<repo>')['sec'])"`. If `False` (non-code shape / GAS / scaffold) OR the diff touches no code file → "N/A — shape-gated skip-clean" and the two FAIL conditions below do not apply. If `True` and code files changed → next two are mandatory.
-- [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`scripts/install.sh`), not waved through.
+- [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`<your-dotfiles-clone>/scripts/install.sh`), not waved through.
 - [ ] **SEC no-net-new-finding (FAIL condition b)**: **any SEC finding on an added/modified line in the diff = FAIL** (fix it; do not defer). Pre-existing findings on unchanged lines of a touched file are out of scope for this diff (they predate it). Record the wrapper exit + finding count in the RESULT block.
 
 ## Pass Criteria

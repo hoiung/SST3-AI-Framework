@@ -154,8 +154,8 @@ Automate the repeatable. Spend your edge where humans still win: creativity, int
 | Quality gate pass rate | 3-tier Ralph Review on every merge |
 | Pre-commit hooks | 16 enforcement hooks (mirror drift, secret scan, hardcoded params, etc.) |
 | Methodology generations | 3 (SST1 → SST2 → SST3), each driven by real failures |
-| Framework components | 234 mirrored files: standards (incl. 9 stage-4 extracts), templates, scripts, tests, hooks, MCP server |
-| Last verified | 2026-05-24 (#501 Phase 4 quantitative refresh) |
+| Framework components | 272 tracked files: standards (incl. 12 stage-4 extracts), templates, scripts, tests, hooks, MCP server |
+| Last verified | 2026-06-08 (#523 — framework-component counts re-verified; operator stats above per #501 2026-05-24) |
 
 ## Architecture
 
@@ -163,11 +163,11 @@ Automate the repeatable. Spend your edge where humans still win: creativity, int
 SST3-AI-Harness/
 ├── workflow/              # 5-stage Solo delivery lifecycle
 ├── standards/             # Engineering standards + anti-patterns + stage-4 extracts
-│   └── stage-4/           # 9 stage-4 procedure extracts (verification-loop, ralph-review, ...)
+│   └── stage-4/           # 12 stage-4 procedure extracts (verification-loop, ralph-review, ...)
 ├── templates/             # Issue, review, handover templates
 ├── reference/             # Tool selection, lane selection, building-skills, failed-experiments
 ├── ralph/                 # 3-tier automated review system (Haiku/Sonnet/Opus)
-├── scripts/               # 73 enforcement + automation scripts (40 are wrapper-lane sst3-*.sh)
+├── scripts/               # 82 enforcement + automation scripts (40 are wrapper-lane sst3-*.sh)
 ├── tests/                 # 14 test files + regression suite runner
 ├── mcp-servers/           # Custom MCP server (github-checkbox)
 ├── claude/                # Statusline + commands (Leader/SST3-solo) + 9 PreToolUse/session hooks
@@ -192,7 +192,7 @@ The main orchestrator agent orchestrates the workflow. Subagents handle research
 
 ## Stage-4 Extracts
 
-Stage 4 is the implementation stage — it carries the heaviest procedural payload (Verification Loop, Ralph Review, Gate-2 merge, Gate-3 user review, the Three-Tier test gate, contract verification, observability invariants, cross-repo cohabitation protocol, file housekeeping). Rather than inlining all of that procedural content into `standards/STANDARDS.md` (which would push it past its token budget), Stage-4 procedures live as 9 standalone extracts under `standards/stage-4/`:
+Stage 4 is the implementation stage — it carries the heaviest procedural payload (Verification Loop, Ralph Review, Gate-2 merge, Gate-3 user review, the Three-Tier test gate, contract verification, observability invariants, cross-repo cohabitation protocol, file housekeeping). Rather than inlining all of that procedural content into `standards/STANDARDS.md` (which would push it past its token budget), Stage-4 procedures live as 12 standalone extracts under `standards/stage-4/`:
 
 - **`verification-loop.md`** — the post-implementation iterative gate that runs until every check passes
 - **`ralph-review.md`** — the three-tier code-delivery verification (Haiku surface, Sonnet logic, Opus architectural)
@@ -203,6 +203,9 @@ Stage 4 is the implementation stage — it carries the heaviest procedural paylo
 - **`observability-fail-fast.md`** — runtime observability invariants the loop verifies
 - **`cohabitation-protocol.md`** — multi-agent contended-clone vs cross-repo mutation discipline
 - **`file-housekeeping.md`** — code-hygiene + file-housekeeping cleanup gates
+- **`ap18-workflow-tier.md`** — the AP #18 sample-invocation (Workflow-tier) validation gate for pipeline/CLI-wiring changes
+- **`per-stage-feedback-capture.md`** — the per-stage feedback-capture schema + 3-layer (hook / sentinel / inline) enforcement
+- **`source-of-intent.md`** — AP #28 source-of-intent verification (act on source, not appearance or memory) worked examples
 
 The Stage-4 entry-point skill (`claude/commands/Leader.md` Stage 4 section) loads these extracts at session start via a per-stage rule loader on the canonical side; in the public mirror, adopters read the extracts directly and apply the Verification Loop / Ralph Review / Gate-2 procedures inline. The extracts pattern was introduced in the dotfiles canonical revamp to keep `STANDARDS.md` focused on rules + invariants while procedural details live in scoped files that can be loaded only when their stage is active.
 
@@ -258,13 +261,13 @@ This implements **RAG-based governance**: the server queries live GitHub data be
 
 SST3 ships a wrapper-lane of 40 stateless bash scripts at `scripts/sst3-*.sh` that give the orchestrator AST-level code awareness without a daemon, SQLite graph, or persistent state. Each call re-parses on disk and emits NDJSON. Inner engines: `ast-grep` (Tree-sitter; Python, TypeScript, TSX, JavaScript, Rust), `lychee`, `coverage.py`, `markdownlint-cli2`, `yamllint`, `pip-audit`, `cargo audit`, `shellcheck`, plus `git` / `jq` / `python3`.
 
-Tools include `sst3-code-callers.sh`, `sst3-code-callees.sh`, `sst3-code-impact.sh` (blast radius), `sst3-code-large.sh` (refactor candidates), `sst3-code-orphans.sh`, `sst3-code-coverage.sh` (untested-py via `coverage.json`), plus doc / sec / dep / sync families. The `sst3-self-test.sh` orchestrator runs 32 frozen-fixture regressions to validate wrapper integrity.
+Tools include `sst3-code-callers.sh`, `sst3-code-callees.sh`, `sst3-code-impact.sh` (blast radius), `sst3-code-large.sh` (refactor candidates), `sst3-code-orphans.sh`, `sst3-code-coverage.sh` (untested-py via `coverage.json`), plus doc / sec / dep / sync families. The `sst3-self-test.sh` orchestrator runs 30 frozen-fixture regressions to validate wrapper integrity.
 
 Replaces the upstream `better-code-review-graph` MCP server we previously adopted (deprecation tracked in #445 R4). The custom-built wrappers solve recall and correctness gaps in the upstream graph — `callers_of` returning empty results, `large` functions silently truncated, the daemon post-handshake-disconnect class. PATH bootstrap via `scripts/sst3-bash-utils.sh` makes wrappers reachable from non-interactive shells (the `bash --noprofile --norc -c '...'` shape Claude Code's Bash tool spawns; #456 closed that gap and surfaced this exact public-mirror coverage gap during Stage 5 audit). Install the inner engines per the [Prerequisites](#prerequisites) section below (each via its own package manager).
 
 ### Claude Code Statusline
 
-A custom statusline (`claude/statusline.js`, 343 lines) that parses JSONL session transcripts in real-time, displaying token usage, git status, session duration, and CI/CD status. Provides the orchestrator with continuous situational awareness during long sessions.
+A custom statusline (`claude/statusline.js`, 342 lines) that parses JSONL session transcripts in real-time, displaying token usage, git status, session duration, and CI/CD status. Provides the orchestrator with continuous situational awareness during long sessions.
 
 ## Addressing the "Solo Project" Question
 
@@ -290,7 +293,7 @@ If you don't write code, you don't need to install anything to start. Open ChatG
 
 > *"Read the README at https://github.com/hoiung/sst3-ai-harness and walk me through setting it up for my work. I'm not a developer. Explain each step in plain English, tell me what to install, and flag anything that needs a paid plan before I start."*
 
-The AI will do the reading and hand you back a plain-English setup plan. If you want the full SST3 experience (the `/Leader 1-6` stage commands running end-to-end), continue with the Prerequisites below.
+The AI will do the reading and hand you back a plain-English setup plan. If you want the full SST3 experience (the `/Leader 1-5` stage commands running end-to-end), continue with the Prerequisites below.
 
 ### Prerequisites
 
@@ -344,11 +347,29 @@ The `/Leader` command creates the GitHub Issue for you in Stage 3. Do NOT create
 1. **Invoke `/Leader 1`** (Research). A subagent swarm explores the codebase and confirms the typo location and scope. Findings go to `/tmp`.
 2. **Invoke `/Leader 2`** (Issue Draft). Main orchestrator drafts the Issue body against [`templates/issue-template.md`](templates/issue-template.md); subagents verify coverage.
 3. **Invoke `/Leader 3`** (Sanity Check + Issue Creation). Subagents triple-check the draft against the research, then `gh` creates the Issue. You will receive the Issue number (e.g. `#42`).
-4. **Create the solo branch NOW that you know the Issue number**: `git checkout -b solo/issue-42-readme-typo`.
+4. **Enter an isolated worktree on the solo branch NOW that you know the Issue number.** In Claude Code use the `EnterWorktree` tool named `solo/issue-42-readme-typo` (or, manually, `git worktree add .claude/worktrees/solo-issue-42 -b solo/issue-42-readme-typo`). Work inside the isolated worktree — do **not** `git checkout -b` in the shared clone: a second concurrent agent's checkout would move the first agent's HEAD and muddle its work. This worktree-isolation model is the canonical branch-safety rule (see `workflow/WORKFLOW.md` / your `CLAUDE.md`).
 5. **Invoke `/Leader 4`** (Implement). Main orchestrator applies the fix, commits per file, pushes, runs the Verification Loop (Gate 1), then runs the 3-tier Ralph Review (Haiku, Sonnet, Opus), then merges to main (Gate 2) after Ralph passes, and posts the user-review-checklist (Gate 3).
 6. **Invoke `/Leader 5`** (Post-Implementation Review). Subagent swarm audits the implementation end-to-end. Fix any findings, close the Issue.
 
 Commands live at [`claude/commands/Leader.md`](claude/commands/Leader.md) and [`claude/commands/SST3-solo.md`](claude/commands/SST3-solo.md). Either user-scope them by copying to `~/.claude/commands/` or keep them repo-scoped under `.claude/commands/` in your own project.
+
+### Slash Commands
+
+| Command | What it does |
+|---------|--------------|
+| `/Leader 1`…`/Leader 5` | Drive the 5-stage workflow (Research → Issue → Triple-Check → Implement → Post-Implementation Review). |
+| `/SST3-solo` | Load STANDARDS + your `CLAUDE.md` and execute a task with the full guardrails. |
+| `/handover` | Write a pre-compact AI-to-AI handover so a post-compact session resumes with no context loss. |
+| `/sync-check` | Run the code + doc + sync wrapper-lane audit (`scripts/sst3-check.sh --all`) over the repo. |
+
+### Recent Capabilities
+
+The mirror tracks the latest canonical features:
+
+- **Verifier-led chat reconciliation** — a neutral 3-model panel (Haiku + Sonnet + Opus) reads the operator's raw chat messages and reconciles them against the drafted scope to catch invented / dropped / inverted requirements before Issue creation.
+- **Stage-5 drain gate (D1-D6)** — before sign-off, a gate verifies no residue is left behind (uncommitted task files, self-created stash/worktree, un-pushed commits, unfinished propagation tail, un-synced feedback).
+- **Manifest completeness gate** — an on-disk sweep that fails when any framework script/doc is undeclared in the drift manifest (the gate that keeps this mirror's script set honest).
+- **The Workflow tool as the default swarm engine** — `/Leader` research / review swarms run as a single deterministic Workflow-tool orchestration rather than hand-dispatched subagents.
 
 ### Branching for Your Use Case
 
@@ -371,11 +392,11 @@ Want a domain-specific skill (marketing, HR, finance, R&D, etc.) that plugs into
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
 | `workflow/` | WORKFLOW.md | The 5-stage delivery lifecycle specification |
-| `standards/` | STANDARDS.md, ANTI-PATTERNS.md, stage-4/ (9 procedure extracts) | Engineering principles + documented failure patterns + per-stage procedure libraries |
+| `standards/` | STANDARDS.md, ANTI-PATTERNS.md, stage-4/ (12 procedure extracts) | Engineering principles + documented failure patterns + per-stage procedure libraries |
 | `templates/` | 6 templates | Issue creation, review, handover, config propagation |
 | `reference/` | tool-selection, lane-selection, building-skills, failed-experiments, quality-metrics + research guides | Self-healing, tool selection, quality validation |
-| `ralph/` | 6 files | 3-tier review checklists (Haiku/Sonnet/Opus) + plugin config |
-| `scripts/` | 73 scripts (31 Python + 42 bash incl. 40 wrapper-lane sst3-*.sh) | Enforcement hooks, automation, code-awareness wrapper-lane |
+| `ralph/` | 10 files | 3-tier review checklists (Haiku/Sonnet/Opus) + plugin config |
+| `scripts/` | 82 scripts (37 Python + 45 bash incl. 40 wrapper-lane sst3-*.sh) | Enforcement hooks, automation, code-awareness wrapper-lane |
 | `tests/` | 14 test files + regression suite runner | Regression testing across 8 quality dimensions |
 | `mcp-servers/` | Custom MCP server | Evidence-enforced GitHub checkbox operations |
 | `claude/` | Statusline + commands (Leader, SST3-solo) + 9 PreToolUse/session hooks | Claude Code customisation, runtime safety guards, session bootstrap |

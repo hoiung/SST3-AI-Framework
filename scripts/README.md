@@ -13,7 +13,7 @@ Automation scripts for SST3 workflow validation and enforcement.
 | check-mirror-drift.py | Mirror-side drift check. Vendored to SST3-AI-Harness, hoiboy-uk, ebay-seller-tool. Runs pre-commit. Issue #418. |
 | sst3_mirror_utils.py | Shared module: 7 transforms + manifest loader + schema validator + drift comparator. Byte-identical across canonical and 3 mirrors. Issue #418. |
 | [check-crossrepo-paths.py](check-crossrepo-paths.py) | Pre-commit hook for cross-repo path validation |
-| [check-retrospective-location.py](check-retrospective-location.py) | Validates retrospective file locations |
+| check-retrospective-location.py _(operator-only — not shipped in this mirror)_ | Validates retrospective file locations (operator-side) |
 | check-discoverability.py | Validates CLAUDE.md → SST3 chain (4 hops max). Pre-commit + Verification Loop. Exit 0 = clean, 1 = chain broken. |
 | check-issue-body-vs-comments.py | Detects scope content placed in issue comments instead of issue body. Required by user-review-checklist Section 5. Exit 0 = clean, 1 = violations. |
 | check-issue-checkboxes.py | Parses issue body+comments for checkbox state. Used by Verification Loop and MCP checkbox tools. |
@@ -89,6 +89,8 @@ python check-hardcoded-params.py --allowlist .hardcoded-allowlist <path>
 **Exit codes**: 0 (no temp files staged), 1 (temp files found, commit blocked with guidance).
 
 ## meta-test-validator.py
+
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
 
 **Purpose**: Validates that SST3 workflow changes were tested on themselves ("test the tester").
 
@@ -430,6 +432,8 @@ When SST3 docs reference other SST3 files using repo-relative paths (e.g., `` `S
 
 ## check-retrospective-location.py
 
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
+
 **Purpose**: Validate that retrospectives are saved to the correct location (SST3-metrics/retrospectives/) and not scattered in wrong directories.
 
 **Usage**:
@@ -549,6 +553,8 @@ Scripts for cross-repo Stage Assignment checkbox rollout automation (Issue #305)
 
 ### migrate-stage-assignment-marker.py
 
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
+
 **Purpose**: One-time migration from old `## Stage Assignment` marker to new `## Stage Assignment (SST3 Automated)` marker.
 
 **Usage**:
@@ -617,6 +623,8 @@ python SST3/scripts/backup-issue-bodies.py --repos all --state all
 
 ### rollout-issue-assignment.py
 
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
+
 **Purpose**: Main rollout script - updates Solo/Stage Assignment checkboxes across repos.
 
 **Usage**:
@@ -649,6 +657,8 @@ python SST3/scripts/rollout-issue-assignment.py --execute --repos all --section 
 ---
 
 ### verify-issue-rollout.py
+
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
 
 **Purpose**: Verify rollout correctness - confirm only assignment sections changed.
 
@@ -684,6 +694,8 @@ python SST3/scripts/check-issue-assignment-change.py
 ---
 
 ### test_rollout_core.py
+
+> **Operator-only** — not shipped in this public mirror; lives in the canonical dotfiles clone. Listed for reference.
 
 **Purpose**: Unit tests for core rollout logic.
 
@@ -722,9 +734,9 @@ Lives in canonical dotfiles repo only. Not vendored here.
 
 **Usage** (from canonical repo):
 ```bash
-python scripts/propagate-mirrors.py --dry-run                  # default — print diffs
-python scripts/propagate-mirrors.py --apply                    # atomic temp+rename writes
-python scripts/propagate-mirrors.py --validate <file...>       # pre-commit hook mode
+python <your-dotfiles-clone>/SST3/scripts/propagate-mirrors.py --dry-run                  # default — print diffs
+python <your-dotfiles-clone>/SST3/scripts/propagate-mirrors.py --apply                    # atomic temp+rename writes
+python <your-dotfiles-clone>/SST3/scripts/propagate-mirrors.py --validate <file...>       # pre-commit hook mode
 ```
 
 ### check-mirror-drift.py (vendored here)

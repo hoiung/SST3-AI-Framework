@@ -6,6 +6,45 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/)
 each entry references the canonical-side Issue number where the change
 originated.
 
+## 2026-06-08 — Mirror sync: missing scripts + completeness gate + adopter docs (#523)
+
+Brings the mirror current with the latest canonical SST3 and fixes the gate that
+let scripts go undeclared.
+
+### Newly mirrored framework scripts
+
+- Mirrored 9 framework scripts the docs/hooks referenced but were absent:
+  `check-ap22-cross-repo-cd.sh`, `check-phase-ac-cadence.py`,
+  `check-stage1-research-fields.py`, `sst3-privacy-scan-issue-body.py`,
+  `load-stage-rules.sh`, `setup-worktree-deps.sh`, `check-ai-writing-tells.py`,
+  `voice_rules.py`, plus `extract-chat-agreements.py` (the verifier-led
+  chat-reconciliation tool, hand-scrubbed as a divergent entry).
+- This resolves the previously-dangling `sst3-issue-body-privacy-gate.sh` hook
+  dependency (its `sst3-privacy-scan-issue-body.py` now ships here).
+
+### De-referenced operator-only tooling
+
+- Operator-only scripts (the propagation pipeline, per-stage-feedback tooling,
+  `install.sh`, migration/rollout one-offs) now read as operator-side
+  (`<your-dotfiles-clone>/…`) rather than as broken mirror-local paths — fixed at
+  the transform layer so canonical stays clean. New `MIRROR-CONTRACT.md` note
+  explains the `<your-dotfiles-clone>/` placeholder.
+
+### Completeness gate hardened
+
+- `check-manifest-completeness.sh` now enumerates `*.sh` (not just `*.md|*.py`)
+  and requires every `SST3/scripts/*` to be explicitly declared — the blanket
+  `SST3/` prefix no longer auto-classifies them (the false-clean bug). New
+  `tests/SST3/test_manifest_completeness_gate.py` asserts it fails what it guards.
+
+### Adopter docs refreshed
+
+- README counts corrected (stage-4 extracts 9→12, ralph 6→10, scripts 73→82,
+  self-test fixtures 32→30, statusline 343→342, `/Leader 1-6`→`1-5`, framework
+  files →272); branch-safety now describes the worktree-isolation model; added
+  Slash Commands (`/handover`, `/sync-check`) + Recent Capabilities (drain gate
+  D1-D6, completeness gate, chat reconciliation, Workflow-tool default engine).
+
 ## 2026-05-24 — Public mirror sync hardening (#501)
 
 Brings the public mirror into a clean post-revamp state. Closes 13 distinct

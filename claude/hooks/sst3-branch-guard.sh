@@ -111,12 +111,12 @@ raw_stdin="$(cat 2>/dev/null || true)"
 if ! command -v jq >/dev/null 2>&1; then
   # AC2: jq missing — WARN degraded-advisory (fail-open), DENY fail-CLOSED.
   if [[ "$MODE" == "DENY" ]]; then
-    printf 'SST3 branch-safety: jq not found — fail-CLOSED in DENY mode (cannot verify command safety). Install jq (scripts/install.sh) or use WARN.\n' >&2
+    printf 'SST3 branch-safety: jq not found — fail-CLOSED in DENY mode (cannot verify command safety). Install jq (<your-dotfiles-clone>/scripts/install.sh) or use WARN.\n' >&2
     exit 2
   fi
   # jq is absent here — cannot use emit_json (jq-based). Emit JSON via printf
   # with a guaranteed double-quote-free message so the JSON stays valid.
-  printf '{"systemMessage":"%s"}\n' 'SST3 branch-safety: jq not found — classifier degraded, command not inspected. Verify branch safety manually (CLAUDE.md Branch Safety section). Install jq via scripts/install.sh.'
+  printf '{"systemMessage":"%s"}\n' 'SST3 branch-safety: jq not found — classifier degraded, command not inspected. Verify branch safety manually (CLAUDE.md Branch Safety section). Install jq via <your-dotfiles-clone>/scripts/install.sh.'
   exit 0
 fi
 

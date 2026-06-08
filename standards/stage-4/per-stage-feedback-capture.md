@@ -7,7 +7,7 @@
 
 Canonical telemetry mechanism for the SST3 5-stage `/Leader` workflow. Each `/Leader` stage close writes a 10-field feedback record so we accumulate observed patterns across runs (which stage routinely catches what bug class, which subagent angles are wasted, which corrections came from the user vs the agent self-caught).
 
-**Write-time template (use it — do not hand-roll the structure)**: copy `../../templates/leader-feedback-template.md` when creating a new `feedback-<repo>-<issue>.md`. It carries the canonical frontmatter (8 fields) + the `## Stage N — <Title>` H2 headings (matching `feedback_parser.py` `STAGE_HEADING_RE`) + the 10 per-stage `**field**:` lines. Authoring a feedback file from memory is the root of the bare-`## Stage N` malformed-heading halt (dotfiles#486/#488) — the strict parser rejects a heading without `— <Title>`, and pre-fix that hard-failed every concurrent committer.
+**Write-time template (use it — do not hand-roll the structure)**: copy `<your-dotfiles-clone>/SST3/templates/leader-feedback-template.md` when creating a new `feedback-<repo>-<issue>.md`. It carries the canonical frontmatter (8 fields) + the `## Stage N — <Title>` H2 headings (matching `feedback_parser.py` `STAGE_HEADING_RE`) + the 10 per-stage `**field**:` lines. Authoring a feedback file from memory is the root of the bare-`## Stage N` malformed-heading halt (dotfiles#486/#488) — the strict parser rejects a heading without `— <Title>`, and pre-fix that hard-failed every concurrent committer.
 
 **Storage convention** (literal path lives in unmirrored CLAUDE.md only): one `feedback-<repo>-<issue>.md` per issue under the `SST3-metrics/leader-feedback/` runtime telemetry directory. Filename encodes repo to prevent cross-repo collision (e.g. `dotfiles#449` vs `project-a#449`). Pre-commit hook `sst3-metrics-feedback-present` validates filename regex `^feedback-([a-z][a-z0-9_]*(?:-[a-z0-9_]+)*)-([1-9]\d*)\.md$` AND filename↔frontmatter parity. The repo-segment grammar disallows trailing hyphens, double hyphens, and digit-prefix names; the issue segment is a positive int with no leading zeros (rejects `0`, `007`, `00` collisions). All 5 stages append `## Stage <N>` blocks to the same file. Index NDJSON co-located in the same directory.
 
@@ -86,7 +86,7 @@ Inline per-bullet markers go AFTER the bullet text using HTML comments — e.g. 
 
 **Auto-archive**: after 90 days of inactivity, records auto-archive to a `_archive/` subfolder.
 
-**Index**: `feedback-index.ndjson` regenerated post-commit (incremental — mtime-vs-files check; full rebuild via `--rebuild`). Queryable via `../../scripts/leader-feedback-aggregate.sh --summarize | --report | --shape-match | --staleness`.
+**Index**: `feedback-index.ndjson` regenerated post-commit (incremental — mtime-vs-files check; full rebuild via `--rebuild`). Queryable via `<your-dotfiles-clone>/SST3/scripts/leader-feedback-aggregate.sh --summarize | --report | --shape-match | --staleness`.
 
 **Enforcement (3 layers)**:
 - **Layer A**: pre-commit hook `sst3-metrics-feedback-present` (compact-resilient — survives context loss). Bypass for genuine emergencies: `SKIP=sst3-metrics-feedback-present git commit ...`.

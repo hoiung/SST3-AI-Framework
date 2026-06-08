@@ -28,7 +28,7 @@
 #                        "post_compact_directive":"…"}}
 #       Both forms always exit 0 — this hook is informational, never blocking.
 #
-# CONTRACT  jq must be available (install via scripts/install.sh). gh may be
+# CONTRACT  jq must be available (install via <your-dotfiles-clone>/scripts/install.sh). gh may be
 #       absent — graceful-degrade to a placeholder string for field (b).
 #       ~/handover/current-task.txt may be absent — graceful-degrade likewise.
 #

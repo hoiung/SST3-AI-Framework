@@ -322,16 +322,11 @@ _DOTFILES_GH_RE = re.compile(r"\.\.?/dotfiles/\.github/")
 # and bare `$HOME/DevProjects/dotfiles` (env-var default form).
 _DOTFILES_HOME_PATH_RE = re.compile(r"\$HOME/DevProjects/dotfiles\b")
 _MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
-# #501 AC 3.1 — rewrite canonical-only `load-stage-rules.sh <N>` invocations in
-# mirrored Leader.md / SST3-solo.md to adopter-facing inline notes. The script
-# itself lives in `unmirrored_canonical_files`; adopters following the unmodified
-# directive hit ENOENT. The regex matches the POST-path_scrub form (path_scrub
-# strips the `SST3/` prefix before this transform fires), so the live mirror
-# content is `bash scripts/load-stage-rules.sh <N>` not the canonical
-# `bash SST3/scripts/load-stage-rules.sh <N>`.
-_LOAD_STAGE_RULES_RE = re.compile(
-    r"`bash scripts/load-stage-rules\.sh ([a-z0-9]+)`"
-)
+# dotfiles#523 AC 2.1 — load-stage-rules.sh is now MIRRORED (vendored_files), so
+# the #501 AC 3.1 `_LOAD_STAGE_RULES_RE` rewrite (which turned its invocations
+# into a "[canonical-only — read … directly]" note) was REMOVED: adopters now
+# have scripts/load-stage-rules.sh and can run `bash scripts/load-stage-rules.sh
+# <N>` directly, exactly as the post-path_scrub mirror form already reads.
 # Drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN` block in
 # WORKFLOW.md (operator GitHub-secret rotation procedure not applicable to
 # public consumers). DOTALL so `.` spans newlines. Lazy `.*?` stops at the next
@@ -352,19 +347,51 @@ _DOTFILES_READ_TOKEN_BLOCK_RE = re.compile(
 # Each match rewrites to a `<your-dotfiles-clone>/SST3/scripts/<name>` prefix
 # so adopters with a canonical clone can invoke directly; adopters without a
 # canonical clone see the placeholder + know to consult MIRROR-CONTRACT.md.
+# dotfiles#523 Ralph Tier-2 F2: the set is GENUINELY-ABSENT canonical-only scripts
+# only. propagate-template.py / sst3-check.sh / sst3-self-test.sh were removed
+# because they ARE present in the public mirror (wrapper-lane + propagation
+# infra) — de-referencing a present script mis-told adopters it was operator-only
+# (pre-existing mis-de-ref this Issue's de-ref work surfaced; fixed here since the
+# util already propagates to all mirrors). Their `bash scripts/<name>` refs now
+# stay runnable mirror-local. Keep ONLY scripts absent from the mirror.
 _CANONICAL_ONLY_SCRIPT_RE = re.compile(
     r"\b(bash|python3?)\s+scripts/("
     r"propagate-mirrors\.py"
-    r"|propagate-template\.py"
     r"|leader-stage5-completeness-check\.sh"
     r"|leader-stage5-drain-check\.sh"
     r"|leader-feedback-aggregate\.sh"
     r"|sweep-parked-feedback\.sh"
-    r"|sst3-check\.sh"
-    r"|sst3-self-test\.sh"
-    r"|check-stage1-research-fields\.py"
     r"|feedback_parser\.py"
     r")\b"
+)
+# dotfiles#523 AC 2.1 — install.sh is operator-side (dotfiles repo-ROOT scripts/,
+# NOT shipped in the public mirror); after path_scrub the mirror reads a bare
+# mirror-local install.sh path that adopters cannot resolve. Rewrite to the
+# operator-clone form so it reads as "operator-side, not in this mirror". The
+# negative lookbehind `(?<![/\w-])` skips paths that already carry a directory
+# segment (`../dotfiles/scripts/install.sh`, and the rewritten
+# `<your-dotfiles-clone>/scripts/install.sh`) — making the substitution idempotent.
+_INSTALL_SH_REF_RE = re.compile(r"(?<![/\w-])scripts/install\.sh")
+# dotfiles#523 AC 2.3 — unmirrored-by-design feedback template (schema is inline).
+_FEEDBACK_TEMPLATE_REF_RE = re.compile(
+    r"(?<![\w/>-])(?:\.\./)+templates/leader-feedback-template\.md"
+)
+# dotfiles#523 AC 2.1 — PROSE references (not `bash|python`-prefixed runnable
+# invocations, which `_CANONICAL_ONLY_SCRIPT_RE` already handles) to genuinely
+# canonical-ONLY scripts (absent from the public mirror). After path_scrub these
+# read as a bare/`../`-relative mirror-local `scripts/<name>` an adopter cannot
+# resolve. Rewrite to the operator-clone form. NAMES here MUST be the absent set
+# only — present-in-mirror scripts (load-stage-rules.sh, check-stage1-research-
+# fields.py, sst3-check.sh, sst3-self-test.sh, propagate-template.py) are
+# deliberately EXCLUDED so their refs stay runnable mirror-local. Lookbehind
+# `(?<![\w/>-])` makes it idempotent (the rewritten `…/SST3/scripts/<name>` and
+# the `bash <clone>/SST3/scripts/<name>` form both have `/` before `scripts/`).
+_CANONICAL_ONLY_PROSE_RE = re.compile(
+    r"(?<![\w/>-])(?:\.\./)*scripts/("
+    r"propagate-mirrors\.py|leader-stage5-completeness-check\.sh|"
+    r"leader-stage5-drain-check\.sh|leader-feedback-aggregate\.sh|"
+    r"sweep-parked-feedback\.sh|mark-improvements-applied\.sh|"
+    r"sst3-tier-a-auto-tick\.py|feedback_parser\.py)"
 )
 
 
@@ -401,20 +428,25 @@ def dotfiles_reference_scrub(text: str, ctx: dict) -> str:
     out = _DOTFILES_SST3_METRICS_RE.sub("SST3-metrics/", out)
     out = _DOTFILES_HOME_PATH_RE.sub("<your-dotfiles-clone>", out)
     out = _MEMORY_REF_RE.sub("`<auto-memory ref>`", out)
-    out = _LOAD_STAGE_RULES_RE.sub(
-        lambda mt: (
-            "`[canonical-only — read standards/STANDARDS.md + "
-            "standards/ANTI-PATTERNS.md + workflow/WORKFLOW.md "
-            f"{mt.group(1)}-tagged sections directly via "
-            f"`<!-- stages: {mt.group(1)} -->` markers]`"
-        ),
-        out,
+    out = _INSTALL_SH_REF_RE.sub("<your-dotfiles-clone>/scripts/install.sh", out)
+    # dotfiles#523 AC 2.3 — leader-feedback-template.md is unmirrored-by-design
+    # (the per-stage feedback schema is described inline in the prose that cites
+    # it). After path_scrub the mirror reads a bare `(../)+templates/…` an adopter
+    # cannot resolve; rewrite to the operator-clone form. Idempotent via the same
+    # `/`-before lookbehind class as the script de-refs.
+    out = _FEEDBACK_TEMPLATE_REF_RE.sub(
+        "<your-dotfiles-clone>/SST3/templates/leader-feedback-template.md", out
     )
     out = _CANONICAL_ONLY_SCRIPT_RE.sub(
         lambda mt: (
             f"{mt.group(1)} <your-dotfiles-clone>/SST3/scripts/{mt.group(2)}"
         ),
         out,
+    )
+    # PROSE refs run AFTER the bash/python form so already-rewritten runnable
+    # invocations (now `… /SST3/scripts/<name>`) are not re-matched.
+    out = _CANONICAL_ONLY_PROSE_RE.sub(
+        lambda mt: f"<your-dotfiles-clone>/SST3/scripts/{mt.group(1)}", out
     )
     return out
 

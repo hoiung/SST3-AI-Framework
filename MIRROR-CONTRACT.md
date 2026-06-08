@@ -54,6 +54,13 @@ The transform registry handles, broadly:
 - **Operator-only block drops** — multi-line blocks of operator-only content
   (e.g. credential rotation runbooks, internal-secret rotation procedures) are
   dropped entirely from the mirror
+- **`<your-dotfiles-clone>/…` placeholders** — a path beginning
+  `<your-dotfiles-clone>/` points at a script or template that lives **only in the
+  operator's private dotfiles clone and is NOT shipped in this public mirror**
+  (e.g. the propagation pipeline, the per-stage-feedback tooling, the operator
+  `install.sh`). You do **not** need a dotfiles clone to use SST3: these refs are
+  operator-side workflow plumbing, and where a command's behaviour matters to an
+  adopter the relevant rule/schema is described inline next to the reference.
 
 The complete transform implementations are in `scripts/sst3_mirror_utils.py`.
 Adopters do not need to mirror the literal canonical drift manifest — the

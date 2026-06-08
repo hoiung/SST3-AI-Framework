@@ -6,7 +6,7 @@ Layer-2 orchestrator that composes the SST3 wrapper-lane to surface code+doc+syn
 
 ## What this skill does
 
-When invoked, this skill runs `bash <your-dotfiles-clone>/SST3/scripts/sst3-check.sh` in the current repo and reports findings as a structured table. By default it runs all three areas (code, doc, sync); pass an arg to narrow scope.
+When invoked, this skill runs `bash scripts/sst3-check.sh` in the current repo and reports findings as a structured table. By default it runs all three areas (code, doc, sync); pass an arg to narrow scope.
 
 ## Usage
 
@@ -66,7 +66,7 @@ The terminator is the canonical "done" marker. Consumers that detect the orchest
 NDJSON to stdout, one finding per line, each tagged with `kind: "<area>"`. Pipe to `jq` for filtering:
 
 ```bash
-bash <your-dotfiles-clone>/SST3/scripts/sst3-check.sh --all 2>/dev/null | jq -c 'select(.kind | startswith("doc-"))'
+bash scripts/sst3-check.sh --all 2>/dev/null | jq -c 'select(.kind | startswith("doc-"))'
 ```
 
 ## Exit codes
