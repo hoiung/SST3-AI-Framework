@@ -37,12 +37,15 @@ case "$STAGE_ARG" in
     ;;
 esac
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [[ -z "$REPO_ROOT" ]]; then
-  # Fallback when invoked outside a git worktree (e.g. via symlink).
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-fi
+# Resolve the canon root from THIS script's own location — the canon files live
+# next to the script (scripts/ -> repo root is ../..) regardless of CWD.
+# Do NOT use `git rev-parse --show-toplevel` as primary: when /Leader runs from a
+# DIFFERENT git repo's working directory it succeeds but returns THAT repo's root,
+# so the loader looks for <other-repo>/standards/… (absent) and exits 1 —
+# silently defeating the per-stage subset (#498). The script's own dirname is the
+# only reliable anchor for the canon files.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 STANDARDS_MD="$REPO_ROOT/standards/STANDARDS.md"
 ANTIPATTERNS_MD="$REPO_ROOT/standards/ANTI-PATTERNS.md"
@@ -59,7 +62,7 @@ done
 # Extraction logic lives in _load_stage_rules.py — single source of truth for
 # the per-stage section-extraction algorithm. The .py shares regex constants
 # with check-stage-tags.py via sst3_stage_tag_parser (#498 Stage 5 L1C F3).
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# SCRIPT_DIR is already resolved above (canon-root anchor).
 python3 "$SCRIPT_DIR/_load_stage_rules.py" "$STAGE_ARG" "$STANDARDS_MD" "$ANTIPATTERNS_MD" "$WORKFLOW_MD"
 
 # Per-stage cluster files: any standards/stage-N/ directory is loaded for
