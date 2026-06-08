@@ -13,14 +13,20 @@ let scripts go undeclared.
 
 ### Newly mirrored framework scripts
 
-- Mirrored 9 framework scripts the docs/hooks referenced but were absent:
+- Mirrored 7 framework scripts the docs/hooks referenced but were absent:
   `check-ap22-cross-repo-cd.sh`, `check-phase-ac-cadence.py`,
   `check-stage1-research-fields.py`, `sst3-privacy-scan-issue-body.py`,
-  `load-stage-rules.sh`, `setup-worktree-deps.sh`, `check-ai-writing-tells.py`,
-  `voice_rules.py`, plus `extract-chat-agreements.py` (the verifier-led
-  chat-reconciliation tool, hand-scrubbed as a divergent entry).
+  `load-stage-rules.sh`, `setup-worktree-deps.sh`, plus
+  `extract-chat-agreements.py` (the verifier-led chat-reconciliation tool,
+  hand-scrubbed as a divergent entry).
 - This resolves the previously-dangling `sst3-issue-body-privacy-gate.sh` hook
   dependency (its `sst3-privacy-scan-issue-body.py` now ships here).
+- The voice-guard tools (`check-ai-writing-tells.py`, `voice_rules.py`) are
+  **deliberately not mirrored**: they target the operator's private
+  `cv-linkedin/` content tree (dead code for adopters) and were removed for that
+  reason in an earlier cleanup. The Voice Content Protection feature is
+  documented as a pattern to adapt to your own voice — bring your own
+  implementation.
 
 ### De-referenced operator-only tooling
 

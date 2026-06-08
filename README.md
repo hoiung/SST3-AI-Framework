@@ -154,7 +154,7 @@ Automate the repeatable. Spend your edge where humans still win: creativity, int
 | Quality gate pass rate | 3-tier Ralph Review on every merge |
 | Pre-commit hooks | 16 enforcement hooks (mirror drift, secret scan, hardcoded params, etc.) |
 | Methodology generations | 3 (SST1 → SST2 → SST3), each driven by real failures |
-| Framework components | 272 tracked files: standards (incl. 12 stage-4 extracts), templates, scripts, tests, hooks, MCP server |
+| Framework components | 270 tracked files: standards (incl. 12 stage-4 extracts), templates, scripts, tests, hooks, MCP server |
 | Last verified | 2026-06-08 (#523 — framework-component counts re-verified; operator stats above per #501 2026-05-24) |
 
 ## Architecture
@@ -167,7 +167,7 @@ SST3-AI-Harness/
 ├── templates/             # Issue, review, handover templates
 ├── reference/             # Tool selection, lane selection, building-skills, failed-experiments
 ├── ralph/                 # 3-tier automated review system (Haiku/Sonnet/Opus)
-├── scripts/               # 82 enforcement + automation scripts (40 are wrapper-lane sst3-*.sh)
+├── scripts/               # 80 enforcement + automation scripts (40 are wrapper-lane sst3-*.sh)
 ├── tests/                 # 14 test files + regression suite runner
 ├── mcp-servers/           # Custom MCP server (github-checkbox)
 ├── claude/                # Statusline + commands (Leader/SST3-solo) + 9 PreToolUse/session hooks
@@ -396,7 +396,7 @@ Want a domain-specific skill (marketing, HR, finance, R&D, etc.) that plugs into
 | `templates/` | 6 templates | Issue creation, review, handover, config propagation |
 | `reference/` | tool-selection, lane-selection, building-skills, failed-experiments, quality-metrics + research guides | Self-healing, tool selection, quality validation |
 | `ralph/` | 10 files | 3-tier review checklists (Haiku/Sonnet/Opus) + plugin config |
-| `scripts/` | 82 scripts (37 Python + 45 bash incl. 40 wrapper-lane sst3-*.sh) | Enforcement hooks, automation, code-awareness wrapper-lane |
+| `scripts/` | 80 scripts (35 Python + 45 bash incl. 40 wrapper-lane sst3-*.sh) | Enforcement hooks, automation, code-awareness wrapper-lane |
 | `tests/` | 14 test files + regression suite runner | Regression testing across 8 quality dimensions |
 | `mcp-servers/` | Custom MCP server | Evidence-enforced GitHub checkbox operations |
 | `claude/` | Statusline + commands (Leader, SST3-solo) + 9 PreToolUse/session hooks | Claude Code customisation, runtime safety guards, session bootstrap |
