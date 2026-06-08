@@ -67,7 +67,7 @@ See: `reference/research-reference-guide.md` for complete guide
 
 **See STANDARDS.md** — Never Assume (read source before concluding), Fix Everything (no scope/language excuses, no priority deferrals), Critical Thinking (challenge with evidence). Only valid skip reason: confirmed false positive (document why).
 
-**Voice Content Protection** (optional, opt in per project): when editing voice-sensitive prose (CV, LinkedIn, cover letters, blogs, marketing copy), wrap new prose in voice-guard markers your team uses so pre-commit and CI can scan only tagged regions. Canonical rules in `standards/STANDARDS.md` "Voice Content Protection" + AP #15. See `scripts/voice_rules.py` for the banned-word pattern to adapt to your own voice.
+**Voice Content Protection** (optional, opt in per project): when editing voice-sensitive prose (CV, LinkedIn, cover letters, blogs, marketing copy), wrap new prose in voice-guard markers your team uses so pre-commit and CI can scan only tagged regions. Canonical rules in `standards/STANDARDS.md` "Voice Content Protection" + AP #15. The reference implementation (a `voice_rules.py` banned-word list + a marker-driven scanner) is operator-specific and not shipped in this public mirror — adapt the pattern to your own voice and wire it into your pre-commit/CI.
 
 ## Ralph Review Loop (MANDATORY)
 
