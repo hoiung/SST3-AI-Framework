@@ -1,6 +1,6 @@
 # SST3 Anti-Patterns
 
-> 27 documented failure modes (#1–#27; #5 and #11 are subsumed stubs — their content merged into #3+#6 and #13+#14c respectively — retained so cross-reference numbering stays stable). Origin: Issue #79.
+> 28 documented failure modes (#1–#30; #5 and #11 are subsumed stubs — their content merged into #3+#6 and #13+#14c respectively — retained so cross-reference numbering stays stable). Origin: Issue #79.
 
 <!-- stages: 4 -->
 ## Anti-Pattern #1: Propagation Failures
@@ -635,7 +635,18 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 
 **Prevention**: before asserting any contract / param mode / endpoint behaviour / file absence / tool availability — run a live probe command and capture its output inline. Treat absence as an unverified hypothesis (a `grep` returning nothing proves your grep, not the world). For "X is done / deployed / met" claims at Stage 5: read the live state (ledger row, log line, DB value, CI conclusion), not just the diff. Endpoint probes use non-side-effecting verbs (`OPTIONS` / `GET /openapi.json` / `--head`), NEVER a live `POST` against a side-effecting route. Worked-example catalogue + the per-target probe recipes: `../standards/stage-5/probe-before-assert.md`.
 
-**Enforcement**: Leader.md Stage 5 step 1 (production-state verification L1 angle — read live state post-deploy, not just code-written); WORKFLOW.md Stage 5 CI pre-flight (`gh run list`); cluster `../standards/stage-5/probe-before-assert.md`; dotfiles#516 AC 5.2. Companion: AP #28 (source-of-intent — probe the source before consolidating); AP #14c (verify against source, not subagent memory).
+**Enforcement**: Leader.md Stage 5 step 1 (production-state verification L1 angle — read live state post-deploy, not just code-written); WORKFLOW.md Stage 5 CI pre-flight (`gh run list`); cluster `../standards/stage-5/probe-before-assert.md`; dotfiles#516 AC 5.2. Companion: AP #28 (source-of-intent — probe the source before consolidating); AP #14c (verify against source, not subagent memory). For Postgres row-count / row-existence claims specifically: `n_live_tup` / `reltuples` are planner ESTIMATES (0 or stale on bulk-loaded-without-ANALYZE tables) — use an exact `COUNT(*)`, never the estimate (dotfiles#528 AC 6.2; per-target recipe in the cluster file).
+
+---
+
+<!-- stages: 2, 3, 4, 5 -->
+## Anti-Pattern #30: Producer-Surface Enumeration (paired emit surfaces that share no token)
+
+**The pattern**: changing one surface of a multi-surface contract while a SEMANTICALLY PAIRED producer surface — one that shares NO literal token with it — is silently left stale. A backend value is published to two consumers by two different mechanisms (an SSE push beside a Redis `HSET`, a websocket frame beside a DB column, a JSON response field beside an emitted log/metric); an AP #24 literal-marker grep and an AP #14e regex/glob pattern-class sweep BOTH miss the pair, because the two producers share no common substring to grep for. The change ships, one surface updates, the paired surface keeps emitting the old shape, and a consumer reads divergent values depending on which producer it hit.
+
+**Prevention**: when a change touches any value that crosses a process / serialisation boundary (HTTP body, websocket/SSE frame, cache key/field, DB column, emitted log/metric), enumerate EVERY producer of that value by CONCEPT — ask "what else emits this fact?" — not by shared token. List each producer surface and confirm each is updated or deliberately exempt. This is a subagent / author reasoning angle with NO programmatic detector (a token-blind pairing cannot be grepped) — the same author-only shape as Voice-Frame-Preservation (AP #25). Distinct from AP #24 (literal emit-marker enumeration) and AP #14e (regex/glob pattern-class): both are token-anchored; this is their token-blind complement.
+
+**Enforcement**: Leader.md Stage 3 sanity angle (producer-surface enumeration for any cross-boundary value change); sonnet-review.md "Cross-Boundary Contracts" producer-surface bullet; no programmatic gate (author / subagent-only — same as AP #25). Companion: AP #24 (literal markers), AP #14e (pattern-class), AP #29 (probe the live emitted value). Origin: dotfiles#528 AC 6.1.
 
 ---
 

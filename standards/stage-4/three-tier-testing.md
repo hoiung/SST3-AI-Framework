@@ -1,24 +1,24 @@
 <!-- stages: 4 -->
 # Three-Tier Testing Framework — Stage-4 Canonical (#498 AC 4.1)
 
-BUILD-vs-USE testing model: the canonical (BUILD) requires all 3 tiers to EXIST; the per-issue USE clause scope-matches which tier(s) fire on this change. Project test suite ("no regressions") = the union of checked-in Unit + Workflow + E2E tests.
+BUILD-vs-USE testing model: the canonical (BUILD) requires all 3 tiers to EXIST; the USE clause requires all 3 tiers to RUN (fire & pass) on EVERY change (operator directive dotfiles#528 — supersedes the prior scope-matched fire), the only non-run being a documented `structural-inapplicable: <reason>`. Project test suite ("no regressions") = the union of checked-in Unit + Workflow + E2E tests.
 
 ## Tiers
 
-| Tier | Scope | Fire condition |
+| Tier | Scope | Runs (all 3 every change — dotfiles#528) |
 |------|-------|----------------|
-| Unit     | Single function / class / module | Always — every change. |
-| Workflow | Cross-module CLI invocation / state propagation | When change affects CLI / pipeline / SL1 / SL2 / cross-module function-arg propagation (AP #18). |
-| E2E      | Real-system end-to-end against real DB / real services | When change affects entire system, persistence, or live-trade safety. |
+| Unit     | Single function / class / module | Every change. |
+| Workflow | Cross-module CLI invocation / state propagation | Every change — AP #18 real-CLI sample when the change touches CLI / pipeline / SL1 / SL2 / cross-module function-arg propagation; else its workflow/integration coverage. |
+| E2E      | Real-system end-to-end against real DB / real services | Every change, sized to scope — full real-system when the change affects entire system / persistence / live-trade safety; else a small backtest or an actual execution change + cleanup. |
 
 ## BUILD vs USE
 
-- **BUILD** (always required): all 3 tiers' tests EXIST in repo. Pre-commit gates verify presence.
-- **USE** (scope-matched on this Issue):
-  - entire-system change → all 3 tiers fire
-  - workflow change → Unit + Workflow tiers fire
-  - single-unit change → Unit tier fires
-- "Tests pass" means the USE subset PASS, not that all three tiers ran on every change.
+- **BUILD** (always required): all 3 tiers' tests EXIST in repo. **No pre-commit gate verifies test presence** — the BUILD-existence enumeration at the Verification Loop (WORKFLOW.md three-tier gate) plus the Ralph `sonnet-review.md` per-tier sections are the gate.
+- **USE** (operator directive dotfiles#528 — all 3 RUN every change; supersedes scope-matched fire):
+  - Unit AND Workflow AND E2E each RUN (fire & pass) for this change.
+  - E2E may be *sized* to the change — a small backtest, or an actual execution change + cleanup — but it still RUNS.
+  - The ONLY non-run is a tier recorded `structural-inapplicable: <reason>` (rare; e.g. a pure-doc diff has no Unit surface).
+- "Tests pass" means all 3 tiers RAN and PASS (or are documented `structural-inapplicable`), recorded in the required tier-evidence line (canonical: STANDARDS.md "Three-Tier Testing Framework"): `tiers: U=.. W=.. E2E=.. | BUILD-evidence:<file:line per tier>`.
 
 ## AP #18 sample-invocation = the Workflow Tier USE clause
 

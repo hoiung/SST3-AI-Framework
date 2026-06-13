@@ -298,6 +298,7 @@ grep -rEn "^\s+\w+:" config/*.yaml
 ### Technical Completion
 - [ ] All file changes implemented per issue plan
 - [ ] All checkboxes in Issue marked complete with evidence
+- [ ] Agent-posted closing-summary comment present (sentinel `<!-- sst3-closing-summary -->`), verified by completeness-check C18
 - [ ] Commit-per-file discipline followed
 - [ ] Merged to main BEFORE user review (protects work)
 - [ ] Pre-commit hooks pass

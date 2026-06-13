@@ -38,7 +38,7 @@ Write to `~/handover/current-task.txt` (the file the `SessionStart` compact hook
 Post-compact: READ ~/handover/handover_<slug>_<date>.md IN FULL before resuming — it holds the goal/state/next-action.
 ```
 
-The hook re-surfaces this text and a fixed "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue" directive, but it does NOT itself read the handover body — so the imperative above is what closes the loop. (The hook resolves `~/handover/current-task.txt` by default; `/handover` always writes the pointer there, so the hook never needs to read anywhere else.)
+The hook re-surfaces this text and a fixed re-read directive — "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue", PLUS (since dotfiles#528) "read the named handover file in full" and "re-read the active /Leader stage line-by-line" — but it does NOT itself read the handover body, so the imperative above is what closes the loop. (The hook resolves `~/handover/current-task.txt` by default; `/handover` always writes the pointer there, so the hook never needs to read anywhere else.)
 
 (If another live session may also be compacting, note that `~/handover/current-task.txt` is a single shared file — overwriting it points the hook at THIS session's handover. That is correct for the session being compacted now; just be aware it is not per-session.)
 

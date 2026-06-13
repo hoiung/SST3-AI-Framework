@@ -34,6 +34,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 - [ ] Every new public function/method: name test file importing + invoking it (`grep -rnE 'from <new-module> import|<new-module>\\.<callable>' tests/`). Empty grep on new public callable = FAIL.
 - [ ] Every new response-payload field (API/JSON/dict key): name test asserting field presence + value (`grep -rnE '<field-name>' tests/`). Field with no test = FAIL.
 - [ ] Every new config key (YAML/env/dict): name test exercising read path (`grep -rnE '<config-key>' tests/`). Config read with no test = FAIL.
+- [ ] **All-3-RUN gate — Unit Tier (dotfiles#528)**: the Unit Tier test EXISTS (file:line) **AND RAN (pass evidence) this change — not scope-skipped**. Record `U=<pass|fail|structural-inapplicable:reason>` in the required tier-evidence line (canonical: STANDARDS.md "Three-Tier Testing Framework"). When unsure whether the tier is structural-inapplicable, RUN it (escalate-on-doubt, mirrors STANDARDS.md run-procedure step 5).
 
 ### Code Reuse / Codebase Hygiene
 - [ ] Searched codebase before creating new modules (Glob/Grep/Explore) — **evidence required**: 2-3 grep patterns or Glob queries actually run + result counts
@@ -57,6 +58,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 - [ ] **Lifecycle wiring**: each recovery/drain/replay function called at EACH lifecycle entry point (startup, reconnect, restart) — verified separately, not assumed.
 - [ ] **Data correction completeness**: bugs corrupting data → repair step covers ALL existing affected rows; count query confirms zero remaining bad rows.
 - [ ] **Cross-function contracts**: every try/except in diff → confirm wrapped function has reachable `raise` path (sentinel returns = dead code). Hot paths: count DB round-trips, flag duplicate-table-same-row queries.
+- [ ] **Producer-surface enumeration (AP #30)**: for any value the diff changes that crosses a process/serialisation boundary (HTTP body, websocket/SSE frame, cache key/field, DB column, emitted log/metric), enumerate EVERY producer of that value by CONCEPT ("what else emits this fact?") — not by shared token — and confirm each paired emit-surface is updated or deliberately exempt. A token-blind producer pair (e.g. an SSE push beside a Redis `HSET`) is invisible to an AP #24 literal-marker grep AND an AP #14e pattern-class sweep; this is the manual reasoning angle that catches it. Skip-clean if the diff changes no cross-boundary value.
 
 ### Bash Output Discipline
 > Canonical: [`_bash-output-discipline.md`](_bash-output-discipline.md). Apply checkbox here.
@@ -65,7 +67,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 
 > Workflow Tier — assembled engine runs, wiring/cross-module propagation works. Canonical: STANDARDS.md "Three-Tier Testing Framework" → Workflow Tier; AP #18.
 
-- [ ] Scope check: touches pipeline / backtest / SL1 / SL2 / orchestration / CLI-wiring / cross-module function-arg propagation? If yes → next mandatory. If no → document scope-skip reason.
+- [ ] **All-3-RUN gate — Workflow Tier (dotfiles#528)**: the Workflow Tier test EXISTS (file:line) **AND RAN (pass evidence) this change — not scope-skipped**. A change touching pipeline / backtest / SL1 / SL2 / orchestration / CLI-wiring / cross-module function-arg propagation → the AP #18 real-CLI sample below IS the Workflow Tier (next two checkboxes mandatory); a change with no such surface still RUNS its workflow/integration coverage. Record `W=<pass|fail|structural-inapplicable:reason>` — `structural-inapplicable` only when there is genuinely no cross-unit surface (rare), never the superseded "just a unit fix, skip it".
 - [ ] If in-scope: real-CLI sample invocation evidence — log file path (e.g. `logs/sample_<issue>_validation.log`) OR Issue comment with exit code + DB row-count + contamination-audit verdict. Exit code 0 alone NOT sufficient (exit-0 with zero rows is a known regression). Proof: rows landed + downstream consumers succeeded.
 - [ ] If in-scope: mocks use explicit `call_args.kwargs["<key>"] == <expected>` assertions — NOT `**kwargs`-swallowing mocks that pass regardless of propagation.
 
@@ -73,7 +75,7 @@ Medium-depth validation. Catches 30% of issues missed by Haiku.
 
 > E2E Tier — whole system passes a driving test end-to-end. Canonical: STANDARDS.md "Three-Tier Testing Framework" → E2E Tier; AP #26.
 
-- [ ] Scope check: affects end-to-end system path (multiple components / cross-repo contract / orchestration / persistent-state spanning pipeline / real downstream consumer)? If yes → next mandatory. If no → "N/A — Unit/Workflow-Tier-only change".
+- [ ] **All-3-RUN gate — E2E Tier (dotfiles#528)**: the E2E Tier test EXISTS (file:line) **AND RAN (pass evidence) this change — not scope-skipped**; *sized* to scope (whole-system / cross-repo contract / orchestration / persistent-state spanning pipeline / real downstream consumer → real-system verification, next checkbox mandatory; unit/workflow-scoped change → a small backtest or an actual execution change + cleanup that drives the changed path end-to-end). Record `E2E=<pass|fail|structural-inapplicable:reason>` — `structural-inapplicable` only when there is genuinely no end-to-end surface, never the superseded "Unit/Workflow-only, skip it".
 - [ ] If in-scope: E2E/system verification evidence — exercised against real system (real DB + real downstream consumer + live invocation), not component-isolated sample. Proof: downstream consumer accepted real contract; system produced intended result end-to-end.
 
 ### Voice-Frame Preservation (semantic) — Conditional, #484 V2.2

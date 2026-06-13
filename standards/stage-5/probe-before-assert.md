@@ -38,6 +38,18 @@ endpoint (a probe must not mutate the system it is probing):
 - Pre-flight the repo's CI before dispatching the Stage-5 swarm: `gh run list --limit 5 --json conclusion`
   — surface any FAILURE first (a red pipeline invalidates "the change is green").
 
+### Row-count / row-existence (Postgres)
+For "the table has N rows" / "no rows remain in the bad state" / "the data is gone" claims, the
+planner statistics `pg_stat_user_tables.n_live_tup` and `pg_class.reltuples` are ESTIMATES — they
+read 0 or stale on a bulk-loaded-without-`ANALYZE` table and drift between autovacuum runs, so they
+are NEVER load-bearing for a row-existence or row-count assertion. Use an exact `COUNT(*)` (with the
+`WHERE` predicate that defines the claim) and read its value:
+- `psql -At -c "SELECT COUNT(*) FROM <table> WHERE <predicate>;"` — the authoritative count.
+- A row-existence check can stop early: `SELECT EXISTS (SELECT 1 FROM <table> WHERE <predicate>);`.
+- An estimate that "looks like zero" is not zero. (Provenance: a Stage-5 subagent concluded "442K
+  rows gone, only 16K left" from `n_live_tup=0`; a main-agent `COUNT(*)` then read 1,032,756 — the
+  universe was intact. dotfiles#528 AC 6.2.)
+
 ### Tool / contract availability inside a swarm
 - A subagent asserting "the graph/wrapper is unavailable" must show the probe (`wrapper --version`,
   exit code, stderr) — `mcp_graph_available: no` + evidence is a PASS; `no` + no-evidence is a FAIL.

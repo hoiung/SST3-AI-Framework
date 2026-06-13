@@ -48,5 +48,43 @@ for dep in .venv node_modules; do
   linked=$((linked + 1))
 done
 
+# Nested node_modules (dotfiles#528 AC 5.1): a multi-package repo (e.g. a `frontend/`
+# subdir) keeps its node_modules one level down, which the top-level loop misses. Link
+# each immediate-subdir node_modules too. Iterate only the depth-1 subdirs (never descend
+# INTO the huge top-level node_modules) so this stays fast.
+for sub in "$main_worktree"/*/; do
+  [[ -d "${sub}node_modules" ]] || continue
+  rel="$(basename "$sub")/node_modules"
+  nested_dst="$worktree_root/$rel"
+  if [[ -e "$nested_dst" || -L "$nested_dst" ]]; then
+    log "SKIP $rel already present in worktree"
+    continue
+  fi
+  mkdir -p "$(dirname "$nested_dst")"
+  ln -s "${sub}node_modules" "$nested_dst"
+  log "LINK $rel -> ${sub}node_modules"
+  linked=$((linked + 1))
+done
+
+# .env (dotfiles#528 AC 5.1): provision into the worktree as a COPY, NOT a symlink —
+# env files legitimately differ per worktree (a symlink would force the worktree to
+# share the parent's secrets) — chmod 600. HARD GUARD: copy ONLY if `.env` is gitignored
+# in the worktree, so a secrets file can never become committable. `git check-ignore`
+# is the authoritative test (honours the worktree's own .gitignore + the global excludes).
+env_src="$main_worktree/.env"
+env_dst="$worktree_root/.env"
+if [[ -e "$env_dst" || -L "$env_dst" ]]; then
+  log "SKIP .env already present in worktree"
+elif [[ ! -f "$env_src" ]]; then
+  log "SKIP .env absent in main clone — nothing to copy"
+elif ! git -C "$worktree_root" check-ignore -q .env; then
+  log "SKIP .env is NOT gitignored in the worktree — refusing to copy a committable secrets file (add .env to .gitignore first)"
+else
+  cp "$env_src" "$env_dst"
+  chmod 600 "$env_dst"
+  log "COPY .env -> $env_dst (mode 600, gitignored — never a symlink)"
+  linked=$((linked + 1))
+fi
+
 log "DONE linked $linked dependency dir(s)"
 exit 0

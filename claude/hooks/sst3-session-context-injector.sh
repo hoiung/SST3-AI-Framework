@@ -70,16 +70,26 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 # (c) Reading Confirmation Checklist — literal text per CLAUDE.md.
+# 7 items (dotfiles#528 AC 1.2): the post-compact full-re-read mandate (handover + active
+# /Leader stage line-by-line) is the operator's #1-emphasis fix — it must appear in the
+# checklist the agent re-enters with, not only in the prose directive (d).
 READ_CHECKLIST_JSON="$(jq -nc '[
   "Read STANDARDS.md",
   "Read ANTI-PATTERNS.md",
   "Read WORKFLOW.md",
   "Read project CLAUDE.md",
-  "Read active Issue body line-by-line"
+  "Read active Issue body line-by-line",
+  "Read the handover file IN FULL (if ~/handover/current-task.txt present) — the whole file, not a skim",
+  "Re-read the active /Leader stage section of .claude/commands/Leader.md LINE-BY-LINE — a pre-compact read does not count"
 ]')"
 
 # (d) Post-compact directive — fires at every resume, not just startup.
-POST_COMPACT_DIRECTIVE="Post-compact recovery: re-read CLAUDE.md + STANDARDS.md + ANTI-PATTERNS.md + WORKFLOW.md + active Issue. Do NOT resume from memory. Memory of prior reads is NOT a substitute — files change."
+# dotfiles#528 AC 1.1: two explicit clauses added (handover-in-full + active /Leader stage
+# line-by-line) — the operator's #1-emphasis fix. Multi-line so each clause is its own line:
+# clause (a) matches `handover.*full`, clause (b) matches `line-by-line` (AC-1.1 verify >=2).
+POST_COMPACT_DIRECTIVE="Post-compact recovery: re-read CLAUDE.md + STANDARDS.md + ANTI-PATTERNS.md + WORKFLOW.md + active Issue. Do NOT resume from memory — a pre-compact read does NOT survive a compact; memory is diluted and files change.
+If ~/handover/current-task.txt is present, read the named handover file in full (the whole handover, line-by-line) before the first action — do not skim, do not assume it is already read.
+Re-read the active /Leader stage section of .claude/commands/Leader.md line-by-line; only then resume, having re-read it."
 
 # Build the additionalContext object.
 CTX_OBJ="$(jq -nc \

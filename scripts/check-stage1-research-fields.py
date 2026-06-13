@@ -13,6 +13,12 @@ Accepted (AC 2.7): `graph_applicable: false` / `graph_applicable: hybrid` /
   `graph_applicable: true`. REJECTED: backtick-wrapped values, freeform synonyms,
   inline YAML comments inside a scalar value.
 
+Optional corpus-coverage fields (dotfiles#528 AC 6.3): a research file MAY also
+  declare `corpus_glob:` + `files_read:` / `files_total:`. When present, a
+  PARTIAL read (files_read < files_total) without a `sampling_justification:`
+  fails. files_total = COMMITTED file count (`git ls-files <corpus_glob> | wc -l`),
+  never the dirty worktree. Absent => skipped (backward-compatible).
+
 Exits 0 on all-valid; exits 1 with one actionable message per failure.
 
 Issue: hoiung/dotfiles#460 Phase 4 (Track W6 — surfaced by Layer-2 audit).
@@ -100,6 +106,78 @@ def _find_field(content: str, key: str) -> tuple[int, str] | None:
     return lineno, ""
 
 
+def _validate_corpus_coverage(content: str, path: Path) -> list[str]:
+    """dotfiles#528 AC 6.3 — optional Stage-1 corpus-coverage gate.
+
+    A research file MAY declare it swept a corpus via `corpus_glob:` plus
+    `files_read:` / `files_total:`. When it does, a PARTIAL read
+    (files_read < files_total) MUST carry a non-empty `sampling_justification:`
+    — otherwise the gate fails (the pass-1-overflowed-6/8-slices failure this
+    prevents). `files_total` is the COMMITTED file count
+    (`git ls-files <corpus_glob> | wc -l`), NEVER the dirty worktree — an
+    untracked parallel-session file would otherwise inflate the count and
+    false-fail the gate.
+
+    All three coverage fields absent => skip (the fields are optional and
+    backward-compatible; pre-AC-6.3 research files are unaffected).
+    """
+    read_found = _find_field(content, "files_read")
+    total_found = _find_field(content, "files_total")
+    glob_found = _find_field(content, "corpus_glob")
+
+    # No coverage claim signalled at all — nothing to gate.
+    if read_found is None and total_found is None and glob_found is None:
+        return []
+
+    failures: list[str] = []
+
+    def _as_int(found: tuple[int, str] | None, key: str) -> int | None:
+        if found is None:
+            failures.append(
+                f"{path}: corpus-coverage declared (corpus_glob / files_read / "
+                f"files_total) but `{key}` is missing — declare BOTH files_read "
+                f"and files_total as integers (count files_total via "
+                f"`git ls-files <corpus_glob> | wc -l`, committed files only)."
+            )
+            return None
+        lineno, raw = found
+        token = _strip_md_bold(raw).split()[0].rstrip(",;.") if raw.strip() else ""
+        try:
+            return int(token)
+        except ValueError:
+            failures.append(
+                f"{path}:{lineno}: `{key}` value {token!r} is not an integer."
+            )
+            return None
+
+    files_read = _as_int(read_found, "files_read")
+    files_total = _as_int(total_found, "files_total")
+    if files_read is None or files_total is None:
+        return failures  # missing/non-int already reported
+
+    just_found = _find_field(content, "sampling_justification")
+    has_justification = (
+        just_found is not None
+        and _strip_md_bold(just_found[1]).lower() not in ("", "none", "n/a", "[]")
+    )
+
+    if files_read > files_total:
+        failures.append(
+            f"{path}: files_read ({files_read}) > files_total ({files_total}) — "
+            f"impossible; count files_total from COMMITTED files "
+            f"(`git ls-files <corpus_glob> | wc -l`), not the dirty worktree "
+            f"(an untracked parallel-session file inflates the worktree count)."
+        )
+    elif files_read < files_total and not has_justification:
+        failures.append(
+            f"{path}: corpus coverage is partial (files_read {files_read} < "
+            f"files_total {files_total}) but no `sampling_justification:` is "
+            f"declared — read the full corpus, or add a `sampling_justification:` "
+            f"field explaining why the sample is representative (dotfiles#528 AC 6.3)."
+        )
+    return failures
+
+
 def validate(path: Path) -> list[str]:
     """Return list of human-readable failure messages; empty list on full pass."""
     if not path.exists():
@@ -165,6 +243,10 @@ def validate(path: Path) -> list[str]:
             f"operator-agreement bullet, sourced from "
             f"`scripts/extract-chat-agreements.py`)"
         )
+
+    # dotfiles#528 AC 6.3: optional corpus-coverage assertion (skips cleanly
+    # when the corpus_glob/files_read/files_total fields are absent).
+    failures.extend(_validate_corpus_coverage(content, path))
 
     return failures
 

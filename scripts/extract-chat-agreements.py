@@ -183,6 +183,21 @@ def _slug_for_cwd(cwd: Path) -> str:
     return str(cwd.resolve()).replace("/", "-")
 
 
+# A worktree project-dir slug embeds the solo branch (solo/issue-N or the
+# EnterWorktree-renamed solo+issue-N) — both flatten to `solo[-+]issue-N` once the
+# slug's `/`→`-` transform runs. A slug carrying this marker is unambiguous (it is
+# ONE issue's worktree); a slug WITHOUT it is a bare-parent (canonical-clone) dir
+# that can accumulate many issues' sessions (dotfiles#528 AC 5.3). KEEP IN SYNC with
+# sst3_utils.SOLO_BRANCH_RE.
+_SOLO_ISSUE_SLUG_RE = re.compile(r"solo[-+]issue-(\d+)")
+
+
+def _issue_of_slug(name: str) -> int | None:
+    """Issue number embedded in a worktree project-dir slug, else None."""
+    m = _SOLO_ISSUE_SLUG_RE.search(name)
+    return int(m.group(1)) if m else None
+
+
 def resolve_sessions(args) -> list[Path]:
     """Resolve the ordered list of session JSONL files to read.
 
@@ -196,8 +211,37 @@ def resolve_sessions(args) -> list[Path]:
             raise FileNotFoundError(f"--session file not found: {p}")
         return [p]
 
+    issue = getattr(args, "issue", None)
+
     if args.project_dir:
         proj = Path(args.project_dir)
+    elif issue is not None:
+        # dotfiles#528 AC 5.3: --issue N selects the issue's OWN worktree project dir
+        # (slug carries solo[-+]issue-N), so a bare-parent CWD slug cannot silently pick
+        # another issue's session by mtime.
+        base = Path(args.projects_root).expanduser()
+        candidates = sorted(
+            d for d in base.glob("*")
+            if d.is_dir() and _issue_of_slug(d.name) == issue
+        )
+        if len(candidates) == 1:
+            proj = candidates[0]
+        elif len(candidates) > 1:
+            raise ValueError(
+                f"--issue {issue} matches {len(candidates)} worktree project dirs "
+                f"({[c.name for c in candidates]}); pass --project-dir or --session."
+            )
+        else:
+            # No worktree dir for issue N — fall back to the CWD slug, but VERIFY it is
+            # not a different issue's worktree (fail-loud, never silently wrong).
+            slug = _slug_for_cwd(Path(args.cwd) if args.cwd else Path.cwd())
+            proj = base / slug
+            proj_issue = _issue_of_slug(proj.name)
+            if proj_issue is not None and proj_issue != issue:
+                raise ValueError(
+                    f"--issue {issue} but the resolved project dir '{proj.name}' is for "
+                    f"issue {proj_issue}; pass --project-dir or --session."
+                )
     else:
         base = Path(args.projects_root).expanduser()
         slug = _slug_for_cwd(Path(args.cwd) if args.cwd else Path.cwd())
@@ -211,7 +255,17 @@ def resolve_sessions(args) -> list[Path]:
         raise FileNotFoundError(f"no .jsonl session files in {proj}")
     if args.all_sessions:
         return sessions
-    return [sessions[-1]]  # latest only
+    # dotfiles#528 AC 5.3: fail-loud on an ambiguous bare-parent slug. A non-worktree
+    # project dir (slug carries no solo[-+]issue-N marker) with >1 session would otherwise
+    # silently `return [sessions[-1]]` — latest-by-mtime — which can be a DIFFERENT issue's
+    # session and corrupt the agreements log. Refuse; require an explicit disambiguator.
+    if _issue_of_slug(proj.name) is None and len(sessions) > 1:
+        raise ValueError(
+            f"ambiguous: project dir '{proj.name}' is a non-worktree (bare-parent) slug "
+            f"with {len(sessions)} sessions; pass --issue N, --session FILE, or "
+            f"--all-sessions (refusing to silently pick latest-by-mtime — dotfiles#528 AC 5.3)."
+        )
+    return [sessions[-1]]  # unambiguous: a worktree slug, or a single session
 
 
 def render_markdown(messages: list[str], sources: list[Path]) -> str:
@@ -259,6 +313,11 @@ def main() -> int:
         help="Read ALL sessions in the project dir (oldest-first), not just the "
              "latest — use when the Issue spans a compaction/`/clear` boundary.",
     )
+    parser.add_argument("--issue", metavar="N", type=int, default=None,
+        help="Select the worktree project dir for issue N (slug carries "
+             "solo[-+]issue-N) instead of the CWD slug — disambiguates a bare-parent "
+             "project dir that accumulates many issues' sessions (dotfiles#528 AC 5.3).",
+    )
     parser.add_argument(
         "--json", action="store_true",
         help="Emit a JSON object instead of the `## Agreements Log` markdown.",
@@ -267,7 +326,8 @@ def main() -> int:
 
     try:
         sessions = resolve_sessions(args)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
+        # ValueError = ambiguous bare-parent slug / --issue mismatch (dotfiles#528 AC 5.3).
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

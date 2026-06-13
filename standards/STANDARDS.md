@@ -860,6 +860,7 @@ ToolSearch(query="select:mcp__<server>__<tool>")
 - **InputValidationError on direct call** (schema not loaded) → invoke `ToolSearch` first, then retry the call. This is the canonical path; not a failure, just an unloaded schema.
 - **ToolSearch returns no match** → retry ONCE with short backoff (transient harness issue). On second no-match, STOP and surface the error. Do NOT fall back to comment-only progress — that is AP #20.
 - **ToolSearch succeeds but tool still errors** → normal tool-error handling; fix the call, do not silently skip.
+- **`gh issue edit --body-file` fallback clobber (AC 5.5)** → the 401 / MCP-down fallback path (`gh issue edit --body-file`) OVERWRITES the ENTIRE issue body, clobbering MCP-set checkbox `[x]` state. Before using it, re-fetch the CURRENT body (or the `get_issue_checkboxes` state) and preserve every `[x]` mark in the file you pass — otherwise the MCP-ticked ACs silently revert to `[ ]`.
 
 **Canonical scope boundary**: this section is THE canonical source for the ToolSearch / deferred-tool rule. `../reference/tool-selection-guide.md` "Example 2: Stage 4 Checkbox Update" is THE canonical source for per-deliverable evidence-quality patterns. The two are separate concerns — do not duplicate content between them; cross-link by section header only.
 
@@ -900,7 +901,7 @@ Every Stage-5 task close must verify residue drained or waived — `bash <your-d
 <!-- stages: 4 -->
 ## Per-Stage Feedback Capture (Canonical)
 
-> Canonical: `../standards/stage-4/per-stage-feedback-capture.md` (extracted for de-bloat, dotfiles#516 AC 6.2). The section-name anchor "Per-Stage Feedback Capture (Canonical)" is preserved here; the full mechanism + 10-field spec + write-time template rules live in the cluster file (loaded by `load-stage-rules.sh 4`).
+> Canonical: `../standards/stage-4/per-stage-feedback-capture.md` (extracted for de-bloat, dotfiles#516 AC 6.2). The section-name anchor "Per-Stage Feedback Capture (Canonical)" is preserved here; the full mechanism + 10-field spec + write-time template rules live in the cluster file (loaded by `load-stage-rules.sh 4`). Note (dotfiles#528 AC 3.5): the Stage-5 `friction` field carries a `closing_comment_posted: <yes:url|no:reason>` SUB-value inside its value body (NOT an 11th top-level field) — full spec in the cluster file's 10-field schema. Note (dotfiles#528 AC 5.2 — stub-first): the commit-msg presence hook (`check-sst3-metrics-feedback.py`) validates with `allow_placeholder=True`, so a fresh template stub (frontmatter filled, field values still `<to-be-filled>`) does NOT block the first phase commit; the strict close-gate stays `allow_placeholder=False` and rejects placeholders — populate every field before Stage-5 sign-off.
 
 **Commit + push the feedback file (cross-repo sync — #522)**: the per-issue feedback file lives in dotfiles `SST3-metrics/leader-feedback/feedback-<repo>-<issue>.md` EVEN WHEN the work repo is a different repo (auto_pb, consumer-private-A, …). It MUST be committed AND pushed to dotfiles `origin/master` before Stage-5 sign-off — a consumer-repo session that drains only its own work repo leaves the dotfiles-side feedback orphaned and un-aggregated (the recurring "feedbacks just sitting uncommitted" failure). Stage-5 drain-check class **D6** gates this (present + committed + pushed to `origin/master`). Use `mark-improvements-applied.sh` for closure marks so `applied_in` lands on its own field line, never crammed into `improvement_status`.
 
@@ -1115,22 +1116,26 @@ SST3 **builds and uses three co-equal test tiers** that work together (they comp
 - **SST3 enforcement primitive**: ANTI-PATTERNS.md AP #26 "E2E System Verification".
 
 <!-- stages: 4 -->
-### BUILD vs USE (load-bearing — preserve BOTH halves; do not collapse into one phrase)
+### BUILD vs USE (load-bearing — both halves required: all 3 tiers EXIST *and* all 3 RUN every change)
 - **BUILD: always all 3 tiers.** Every change ships with Unit + Workflow + E2E tests. The tests must EXIST. There is no "this is only a unit, skip tier 2/3" exemption at authoring time.
-- **USE: situational, scope-matched.** Which tiers are *required to fire / pass* at the Verification Loop matches the change's scope: entire-system change → all 3; workflow-component change → Unit + Workflow (E2E may confirm); single-unit change → Unit (Workflow/E2E fire if they exercise the affected unit). Tiers **compose, never substitute** — a higher tier passing does not excuse a missing lower-tier test, and a lower tier passing does not prove the system.
-- **Why both halves**: building all 3 means the E2E Tier is THERE the day a future "small" change unexpectedly impacts the whole system. Using situationally means a one-line unit fix is not blocked by an unrelated E2E-tier flake. Drop BUILD → the safety net is absent when suddenly needed. Drop USE → every trivial fix drags the whole suite and people start skipping tests entirely.
+- **USE: all 3 tiers RUN (fire & pass) on EVERY change** (operator directive 2026-06-13, dotfiles#528 — this SUPERSEDES the prior "situational / scope-matched fire" rule, of which the operator is the authority). At the Verification Loop, Unit AND Workflow AND E2E each RUN and PASS for this change. The E2E Tier may be *sized* to the change — a small backtest, or an actual execution change + cleanup, where a full whole-system E2E does not apply — but it still RUNS. The ONLY permitted non-run is a tier explicitly recorded `structural-inapplicable: <reason>` (rare — e.g. a pure-doc diff has no Unit surface). Tiers **compose, never substitute** — a higher tier passing does not excuse a missing lower-tier test, and a lower tier passing does not prove the system.
+- **Why both halves**: BUILD (all 3 exist) means the E2E Tier is THERE the day a "small" change unexpectedly impacts the whole system; RUN (all 3 fire every change) means a mis-wired or system-breaking change is caught at the commit that introduced it, not in a later incident — the operator's named failure mode: "it always does unit tests and nothing more … so workflow and E2E tests are never done", and "simple broken implementations that isn't wired properly" slip through. Drop BUILD → the safety net is absent when suddenly needed. Drop the all-3-RUN rule → exactly that: only the Unit Tier ever fires and un-wired implementations ship.
 
 <!-- stages: always -->
-### Scope-decision procedure (operationalises BUILD-vs-USE — which tiers must FIRE for this change)
+### Run procedure (operationalises BUILD-vs-USE — all 3 tiers RUN; blast radius only SIZES the E2E tier)
 Run this at authoring time AND again at the Verification Loop:
-1. **Identify the blast radius.** One unit only? The wiring of a component? Cross-component / schema / contract / environment?
-2. **BUILD is unconditional**: regardless of the answer, all 3 tiers' tests must EXIST for the affected surface — write the missing ones in this change. No "unit-only, skip the rest" at authoring time.
-3. **USE is scope-matched** — which tiers are REQUIRED to fire & pass before close:
-   - **Single-unit change** → Unit Tier must pass. Workflow/E2E fire only if they exercise the changed unit (they stay GREEN, just are not the gating signal).
-   - **Workflow-component change** (wiring, multi-unit, cross-module arg propagation) → Unit + Workflow must pass. E2E confirms if the component sits on a whole-system path.
-   - **Whole-system change** (schema, contract, environment, cross-component) → all 3 must pass, E2E against the real environment.
-4. **When unsure, escalate one tier up.** Under-scoping the USE decision is the failure mode — a "small unit fix" that was really a contract change ships a regression the Unit Tier can never catch. Over-running a tier is cheap; missing one is the incident.
-5. **Record the tier decision** in the Verification-Loop evidence (which tiers fired, which were N/A + why). "All tests pass" without naming the tier scope is not evidence.
+1. **BUILD is unconditional**: all 3 tiers' tests must EXIST for the affected surface — write the missing ones in this change. No "unit-only, skip the rest" at authoring time.
+2. **RUN is unconditional**: all 3 tiers RUN (fire & pass) for this change. No scope-skip — a tier that exists but never fires catches nothing.
+3. **Identify the blast radius** — this no longer decides WHICH tiers run (all 3 do); it SIZES the E2E tier: whole-system change (schema, contract, environment, cross-component) → full E2E against the real environment; workflow- or unit-scoped change → E2E may be a small backtest or an actual execution change + cleanup that exercises the changed path end-to-end. Either way the E2E tier RUNS.
+4. **The ONLY non-run is `structural-inapplicable: <reason>`** — a tier with genuinely no surface for this change (rare; e.g. a pure-doc diff has no Unit surface). Record the reason inline; never silently skip a tier.
+5. **When unsure whether a tier is structural-inapplicable, RUN it** — running a tier is cheap; a wrongly-skipped tier is the incident. Under-claiming inapplicability is the safe direction.
+6. **Record the required evidence line** (defined ONCE, immediately below) in the Verification-Loop evidence. "All tests pass" without the per-tier line is not evidence.
+
+**Required tier-evidence line (defined ONCE here — `WORKFLOW.md` Verification Loop + `issue-template.md` PREREQUISITE CHECKPOINT point to this definition, never redefine it):**
+```
+tiers: U=<pass|fail|structural-inapplicable:reason> W=<pass|fail|structural-inapplicable:reason> E2E=<pass|fail|structural-inapplicable:reason> | BUILD-evidence:<file:line of the checked-in test per tier>
+```
+All 3 tiers must show `pass` (or a documented `structural-inapplicable:<reason>`). A `fail` blocks the Verification Loop; a bare "tests pass" without this line does not satisfy the gate.
 
 <!-- stages: 4 -->
 ### Tier composition — never substitute (worked illustration, general)
@@ -1138,7 +1143,7 @@ A change adds a new calculation, used by a pipeline step, consumed by a downstre
 - Unit GREEN, Workflow + E2E absent → the calculation is correct in isolation but nothing proves the step calls it right or the downstream accepts the result. **Not done.**
 - Workflow GREEN, Unit absent → the pipeline runs on sample input but a boundary input the sample missed is mis-calculated. **Not done.**
 - E2E GREEN, Unit + Workflow absent → the system worked for the one path E2E hit; a sibling path is silently broken with no cheap signal to localise it. **Not done.**
-- All 3 BUILT, USE scoped to the change → the correct tier gates the merge; the others stand ready for the day the blast radius grows. **Done.**
+- All 3 BUILT and all 3 RUN (E2E sized to the change) → every failure surface is exercised at the change that introduced it; nothing waits for a later incident. **Done.**
 Higher tiers do NOT substitute for lower (a passing system does not prove every unit); lower do NOT substitute for higher (correct units do not prove the wired system). They COMPOSE.
 
 <!-- stages: 4 -->
@@ -1155,11 +1160,11 @@ Three is canonical because it maps to the three real failure surfaces: a part is
 - **Skip the Workflow Tier** → every unit is correct in isolation but the component is mis-wired (a step that silently no-ops, an arg dropped across a module boundary, a contract mismatch between parts). Unit tests are structurally blind to this — it is exactly the #1424 class (component tests passed; the wiring did not).
 - **Skip the E2E Tier** → the component bench-tests fine but the live system rejects it: real-DB schema drift, a downstream consumer's real contract, an environment assumption only production encodes. Only the assembled system against the real environment reveals it — by then it is an incident, not a test failure.
 - **Compounding**: a skipped lower tier also makes a higher-tier failure harder to localise (an E2E failure with no Unit/Workflow coverage gives no narrowing signal — you bisect the whole system by hand).
-- **The asymmetry**: building a tier costs minutes once; the absent tier costs an incident at the worst possible time, plus the localisation tax above. That asymmetry is precisely why BUILD is unconditional and USE (not BUILD) is the part that is scope-matched.
+- **The asymmetry**: building a tier costs minutes once; the absent tier costs an incident at the worst possible time, plus the localisation tax above. That asymmetry is why BUILD is unconditional — and why USE is now unconditional too: all 3 tiers RUN every change, because a tier that exists but never fires catches nothing (the operator's "workflow and E2E are never done" failure mode). The only non-run is a documented `structural-inapplicable:<reason>`.
 
 <!-- stages: 4 -->
 ### Where this is enforced
-- **WORKFLOW.md Verification Loop** — the three named tier checkboxes, each encoding BUILD (tests exist) + USE (scope-matched fire). Canonical; this is where the gate actually lives.
+- **WORKFLOW.md Verification Loop** — the three named tier checkboxes, each encoding BUILD (tests exist) + USE (all 3 RUN this change — the required tier-evidence line above). Canonical; this is where the gate actually lives.
 - **Leader.md Gate 1 + SST3-solo.md Verification Loop** — reference the WORKFLOW.md tiers; they do NOT re-define them (single-source).
 - **issue-template.md PREREQUISITE CHECKPOINT** — splits into three tier bullets so every Issue scopes all three at draft time.
 - **Ralph `sonnet-review.md`** — per-tier test sections + the E2E-Tier system gate (review-time verification).

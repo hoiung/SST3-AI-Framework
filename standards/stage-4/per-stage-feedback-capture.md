@@ -31,7 +31,7 @@ Canonical telemetry mechanism for the SST3 5-stage `/Leader` workflow. Each `/Le
 - `improvement` — concrete next-run change suggestion
 - `improvement_status` — enum (see below)
 - `evidence` — file:line / commit hash / command output / subagent RESULT comment-id
-- `friction` — token cost, wall-clock, restart count, per-Ralph-tier outcomes (Stage 4 sub-structure)
+- `friction` — token cost, wall-clock, restart count, per-Ralph-tier outcomes (Stage 4 sub-structure); at Stage 5 the friction value body additionally carries the `closing_comment_posted: <yes:url|no:reason>` SUB-value (inside the friction value, NOT an 11th top-level `**field**:` marker line — keeps the 10-field schema + `feedback_parser.validate_record` strict-schema intact; dotfiles#528 AC 3.5, records whether the mandatory closing-summary comment was posted)
 - `rule_self_caught` — agent-self-caught violations of an existing canonical rule
 - `rule_user_caught` — user-caught corrections (attribution wording is FINE — see channel-separation rule)
 

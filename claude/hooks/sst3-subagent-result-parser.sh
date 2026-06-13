@@ -50,6 +50,7 @@ RESULT_BLOCK="$(printf '%s' "$RESPONSE" | awk '
 ')"
 
 if [[ -z "${RESULT_BLOCK//[[:space:]]/}" ]]; then
+  # shellcheck disable=SC2016  # the backticks around `## RESULT` are literal markdown in the advisory text, not a command substitution — single quotes are intended.
   printf 'F-7 subagent-result-parser: subagent emitted no `## RESULT` block (AP #14 / RC-4).\n' >&2
   exit 0   # WARN-only.
 fi
@@ -73,5 +74,27 @@ if printf '%s' "$RESULT_BLOCK" | grep -qiE 'graph|mcp_graph|callers_of|sst3-code
     printf 'F-7 subagent-result-parser: RESULT block discusses graph queries but mcp_graph_available is not the first line (AP #19).\n' >&2
   fi
 fi
+
+# B2 review-subagent write-bypass detector (dotfiles#528 AC 4.3). Review subagents
+# are PLANNING-ONLY — they must not write code (CLAUDE.md Ralph loop). The Claude Code
+# permission layer blocks their Write/Edit tools, but a Bash redirect (`cat > f`,
+# `tee f`, `>> f`) is an escape hatch the permission block does not cover. PreToolUse
+# CANNOT prevent it (no subagent discriminator on the Bash event — AC 4.3); this is the
+# buildable POST-HOC form: scan the transcript's Bash commands and WARN if any redirects
+# or tees to a tracked-looking (code/doc-extension) file. WARN-only — the SubagentStop
+# fires after the subagent stopped, so the write (if any) already happened; this is the
+# audit signal, not a block. Bounds against false positives: only `"command"` (Bash
+# tool-input) lines are scanned (never prose / the RESULT block — so the `tee_log:` field
+# never trips it); fd-redirects (`2>`, `&1`) and scratch targets (`/dev/null`, `.log`,
+# `.txt`) are excluded by the non-digit lead + the code/doc extension filter.
+flag_write_bypass() {
+  local transcript="$1" cmds
+  cmds="$(printf '%s' "$transcript" | grep -oE '"command"[[:space:]]*:[[:space:]]*"[^"]*"' 2>/dev/null || true)"
+  [[ -z "$cmds" ]] && return 0
+  if printf '%s' "$cmds" | grep -qE '((^|[^0-9])>>?[[:space:]]*|(^|[^A-Za-z0-9_])tee[[:space:]]+(-a[[:space:]]+)?)["'"'"']?[A-Za-z0-9_./-]+\.(py|js|jsx|ts|tsx|sh|md|json|ya?ml|toml|rs|sql|cfg|ini)([^A-Za-z0-9]|$)'; then
+    printf 'F-7 subagent-result-parser: WRITE-BYPASS-DETECTED — a Bash redirect/tee to a tracked-looking file appears in the subagent transcript. Review subagents are PLANNING-ONLY (no code writes); a shell redirect bypasses the Write/Edit permission block. Verify no canonical file was mutated (AP #14 / CLAUDE.md Ralph loop).\n' >&2
+  fi
+}
+flag_write_bypass "$RESPONSE"
 
 exit 0
