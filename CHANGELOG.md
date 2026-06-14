@@ -6,6 +6,54 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/)
 each entry references the canonical-side Issue number where the change
 originated.
 
+## 2026-06-14 — Harness hardening: mechanical doctrine enforcement (#528, #529)
+
+Records the harness-hardening doctrine already reflected in the mirrored
+`standards/`, `workflow/`, `ralph/`, and `claude/commands/` files — a set of
+rules that make the framework enforce itself instead of relying on the honor
+system.
+
+### Three-tier testing — all-3-RUN gate
+
+- The Verification Loop (`workflow/WORKFLOW.md`) and `standards/STANDARDS.md` now
+  require all three tiers — Unit / Workflow / E2E — to be BUILT (a checked-in
+  test at `file:line`) **and** RUN (pass/fail recorded) for every change. The old
+  "scope-matched USE" skip is superseded; the only exception is a documented
+  `structural-inapplicable: <reason>`. `ralph/sonnet-review.md` tier gates now
+  demand RAN-this-change evidence, and `standards/stage-4/three-tier-testing.md`
+  drops a false "pre-commit gates verify presence" claim.
+
+### Post-compact re-read enforcement
+
+- The session directive and reading checklist now mandate re-reading the handover
+  in full and the active workflow stage line-by-line after a context compact —
+  "a pre-compact read does not count". `claude/commands/Leader.md` and
+  `claude/commands/handover.md` carry the expanded directive.
+
+### Mandatory closing-summary comment
+
+- Closing an Issue now requires a closing-summary comment carrying the
+  `<!-- sst3-closing-summary -->` sentinel; the Stage-5 completeness gate (C18)
+  fails closed without it. Documented in `templates/user-review-checklist.md` §10
+  and `claude/commands/Leader.md` Stage 5.
+
+### New anti-pattern
+
+- **AP #30 (Producer-Surface Enumeration — paired emit surfaces that share no
+  token)** added to `standards/ANTI-PATTERNS.md` — when a value is produced on
+  two surfaces that share no common token (e.g. an SSE push beside a Redis
+  write), enumerate **both** producers, not just the literal-marker emit sites.
+
+### Note on enforcement hooks
+
+- #528/#529 also added operator-side `PreToolUse`/`SubagentStop` enforcement hooks
+  (a foreign-stash contamination guard, a deploy-before-Stage-5 order gate, and a
+  post-compact ack guard hardened to DENY-by-default in #529). These remain
+  canonical-side and are **deliberately not mirrored** — they back the doctrine
+  above mechanically but carry operator-specific deploy targets and path context
+  with no adopter analogue. The doctrine itself is fully documented in the files
+  listed above; adapt the enforcement to your own environment.
+
 ## 2026-06-08 — Mirror sync: missing scripts + completeness gate + adopter docs (#523)
 
 Brings the mirror current with the latest canonical SST3 and fixes the gate that
