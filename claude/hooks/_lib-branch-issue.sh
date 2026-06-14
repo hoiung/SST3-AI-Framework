@@ -3,20 +3,34 @@
 # the active Issue number from the worktree's branch name (#498 Stage 5 L1C F2).
 #
 # Defines:
-#   derive_issue_num_from_branch  echoes the issue number (digits only) for
-#                                 branch names of the form `solo/issue-N-...`
-#                                 or `worktree-solo+issue-N-...`. Echoes empty
-#                                 string when not in a git repo, no branch, or
+#   derive_issue_num_from_branch [BRANCH]
+#                                 echoes the issue number (digits only) for a
+#                                 branch name of the form `solo/issue-N-...` or
+#                                 `worktree-solo+issue-N-...`. With no argument it
+#                                 derives from the current HEAD; with an explicit
+#                                 BRANCH string it extracts from that (e.g. a
+#                                 stash's non-HEAD origin branch). Echoes empty
+#                                 string when not in a git repo, no branch, or the
 #                                 branch doesn't match the convention.
 #
-# Sourced by: sst3-session-context-injector.sh, sst3-tier-a-ac-binding-gate.sh.
+# Sourced by: sst3-session-context-injector.sh, sst3-tier-a-ac-binding-gate.sh,
+#             sst3-stage-order-gate.sh, sst3-stash-guard.sh (#528 Stage-5 dedup).
 # Mirrors the canonical solo-branch convention (sst3_utils.SOLO_BRANCH_RE /
 # sst3-bash-utils.sh::sst3_solo_branch_alt, #509 AC6.5) — keep the anchored
 # pattern below in sync with that canonical if the convention changes.
 
 derive_issue_num_from_branch() {
   local branch issue_num
-  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')"
+  # Optional $1 = an explicit branch string (e.g. a stash's "WIP on <branch>"
+  # origin branch, which is NOT the current HEAD); with no arg, derive from the
+  # current HEAD. (#528 Stage-5 dedup: generalised so the stash-guard can extract
+  # from a non-HEAD stash branch and the stage-order-gate can drop its duplicated
+  # local regex — the load-bearing solo-branch pattern lives in exactly one place.)
+  if [[ $# -ge 1 ]]; then
+    branch="$1"
+  else
+    branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')"
+  fi
   # Anchored to the solo / worktree-solo convention ONLY (the `^...solo[/+-]issue-`
   # prefix mirrors SOLO_BRANCH_RE). A bare `issue-N` on a non-solo branch
   # (e.g. `feature/issue-42`) must NOT yield a spurious issue number — that
