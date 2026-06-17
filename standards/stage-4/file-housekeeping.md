@@ -1,7 +1,7 @@
 <!-- stages: 4 -->
 # File Housekeeping — Stage-4 Canonical (#498 AC 4.1)
 
-Per-Issue housekeeping invariants. Originated in Issue #108 + cumulative cleanup discipline.
+Per-Issue housekeeping invariants (#108).
 
 ## Per-Issue housekeeping
 
@@ -9,9 +9,9 @@ Per-Issue housekeeping invariants. Originated in Issue #108 + cumulative cleanup
 - Code Hygiene: remove dead code touched by this Issue; remove commented-out blocks; remove `print()` debug-leftovers; remove unused imports; remove "TODO: later" without owner.
 - File Housekeeping: delete files this Issue obsoletes; remove duplicate fixtures; delete temp scripts in `/tmp/` if they were committed; delete `_drafts/` files migrated upstream.
 
-## Issue #108 lesson: repetition is intentional
+## Repetition is intentional (#108)
 
-The same housekeeping checklist appears in EVERY Issue body, not in a "global housekeeping doc". Reason: per-Issue scoping is what makes the cleanup actionable; a global doc is a wishlist, a per-Issue scope is a contract. Cleanup-as-acceptance-criterion is the discipline.
+The housekeeping checklist appears in EVERY Issue body, not a global doc — a per-Issue scope is a contract, a global doc is a wishlist. Cleanup is an acceptance criterion, not a separate doc.
 
 ## What does NOT belong in housekeeping
 

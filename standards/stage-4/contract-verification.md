@@ -1,7 +1,7 @@
 <!-- stages: 4 -->
 # Contract Verification — Stage-4 Canonical (#498 AC 4.1)
 
-Three contracts every component MUST honour. Originated in Issue #1407 post-mortem.
+Three contracts every component MUST honour (Issue #1407 post-mortem).
 
 ## The three contracts
 
@@ -18,9 +18,7 @@ Three contracts every component MUST honour. Originated in Issue #1407 post-mort
 
 ## Failure mode this prevents
 
-Pre-contract: a downstream consumer reads `record["status"]` but the writer renamed the field to `record["state"]`. Tests pass because the writer's own tests use mocks that accept anything; the downstream consumer silently reads `None`. Surfaces only at production observation.
-
-Contract verification catches this at write time: schema tests force the writer-reader pair to agree on the exact field name.
+Writer renames a persisted field; reader silently gets `None`; the writer's mocks accept anything so tests stay green; surfaces only in prod. Schema tests force the writer-reader pair to agree on the exact field name at write time.
 
 ## Cross-references
 

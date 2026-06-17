@@ -1,9 +1,8 @@
 # Stage 4 — Source-of-Intent Verification (AP #28 worked examples)
 
-> Cluster file loaded by `load-stage-rules.sh 4`. Verbose worked-example catalogue for
-> ANTI-PATTERNS.md AP #28 "Acting on Appearance or Memory Rather Than Source of Intent".
-> The canonical rule lives in ANTI-PATTERNS.md; this file holds the worked examples
-> (Append-vs-Extend). dotfiles#516 AC 4.1.
+> Loaded by `load-stage-rules.sh 4`. Worked examples for ANTI-PATTERNS.md AP #28
+> "Acting on Appearance or Memory Rather Than Source of Intent" (canonical rule lives
+> there; Append-vs-Extend). dotfiles#516 AC 4.1.
 
 ## The three recurring instances
 

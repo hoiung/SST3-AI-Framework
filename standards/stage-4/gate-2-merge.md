@@ -22,7 +22,7 @@ This is the dotfiles#488 chokepoint. The shared-clone branch-switch class moves 
 
 ## When the rebase race fires
 
-Operator-evidenced: `origin/master` advances between step 2 and step 3 (typically when another solo branch landed in the same multi-second window). The fetch + rebase + retry handles this deterministically; the bound of 3 attempts prevents indefinite spin if something else is wrong (e.g. protected-branch rule, server-side reject).
+`origin/master` advances between step 2 and step 3 (another solo branch landed in the same window). Fetch + rebase + retry handles it; the 3-attempt bound prevents indefinite spin on a real fault (protected-branch rule, server-side reject).
 
 ## Cross-references
 

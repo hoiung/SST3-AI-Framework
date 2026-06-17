@@ -1,6 +1,3 @@
-**⚠️ READ IN FULL - DO NOT SKIP SECTIONS ⚠️**
-**This document contains critical procedures that must be followed sequentially. Selective reading causes execution failures.**
-
 # Self-Healing Validation Protocol
 
 ## 3-Issue Observation Period

@@ -2,7 +2,7 @@
 
 > **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings.
 
-Medium-depth validation. Catches 30% of issues missed by Haiku.
+Medium-depth logic validation.
 
 **Completion Promise**: `<promise>SONNET_PASS</promise>`
 

@@ -1,10 +1,8 @@
 # Stage 1 — Domain-Class & Situational Angle Catalogue
 
-> Cluster file loaded by `load-stage-rules.sh 1` (#516 AC 1.1 generalised loader).
-> Verbose catalogue of named Stage-1 research angles. `.claude/commands/Leader.md`
-> Stage 1 Step 2 carries a one-line pointer here (Append-vs-Extend; the canon stays
-> concise, the catalogue lives here). Dispatch the angles that apply to the task's
-> domain class; they are additive to the generic Layer-1 coverage, not a replacement.
+> Cluster file loaded by `load-stage-rules.sh 1` (#516 AC 1.1). `.claude/commands/Leader.md`
+> Stage 1 Step 2 points here (Append-vs-Extend). Dispatch the angles that match the task's
+> domain class — additive to the generic Layer-1 coverage, not a replacement.
 
 ## Required domain-class angles (dispatch the ones that match the task)
 

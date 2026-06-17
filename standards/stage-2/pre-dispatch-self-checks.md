@@ -4,7 +4,7 @@
 > `.claude/commands/Leader.md` Stage 2 step 3.5 carries a concise pointer here. This is
 > the MANDATORY author self-check the Leader runs on the `/tmp/issue_draft_<topic>.md`
 > BEFORE dispatching any Layer-1/2 subagent (#516 AC 2.1). Zero unresolved items required
-> before dispatch. Each item is a falsifiable author-time gate, not a vibe-check.
+> before dispatch.
 
 ## The nine sub-checks (a)–(i)
 

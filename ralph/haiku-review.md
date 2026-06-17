@@ -2,7 +2,7 @@
 
 > **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings.
 
-Fast, cheap surface validation. Catches 60% of issues.
+Fast surface validation.
 
 **Completion Promise**: `<promise>HAIKU_PASS</promise>`
 

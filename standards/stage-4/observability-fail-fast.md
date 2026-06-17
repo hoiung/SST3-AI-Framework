@@ -19,7 +19,7 @@ Every new component MUST land with:
 
 ## Why coupled
 
-Observability without fail-fast: failures are silent, observability data shows everything-green even mid-incident. Fail-fast without observability: failures are loud but the operator has no context (which call site, which input class). Both invariants together = loud failure with diagnosable context.
+Observability without fail-fast = silent failures showing all-green mid-incident. Fail-fast without observability = loud failures with no context (which call site, which input class). Together = loud failure with diagnosable context.
 
 ## Cross-references
 

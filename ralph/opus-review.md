@@ -2,7 +2,7 @@
 
 > **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings.
 
-Thorough architectural review. Catches 10% of issues missed by Haiku+Sonnet.
+Thorough architectural review.
 
 **Completion Promise**: `<promise>OPUS_PASS</promise>`
 

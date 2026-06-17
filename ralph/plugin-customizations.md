@@ -28,9 +28,7 @@ touch ~/.claude/ralph-disabled
 
 ## Customization 1: Kill Switch
 
-**Purpose**: Disable ralph hook without restarting Claude Code.
-
-**Why**: The hook runs globally (user scope) and spawns bash on every stop. This adds overhead even with fast-exit checks.
+**Purpose**: Disable ralph hook without restart — the hook runs user-scope and spawns bash on every stop (overhead even with fast-exit).
 
 **Location**: Top of stop-hook.sh (after comments, before anything else)
 
@@ -45,9 +43,7 @@ fi
 
 ## Customization 2: Fast Exit (State File Check First)
 
-**Purpose**: Exit immediately if no ralph loop is active.
-
-**Why**: Avoids expensive stdin read and jq parsing when ralph isn't being used.
+**Purpose**: Exit immediately if no ralph loop is active — avoids stdin read + jq parsing when unused.
 
 **Location**: Right after kill switch, before reading stdin
 
@@ -66,8 +62,6 @@ fi
 ```
 
 ## Customization 3: Windows .cmd Wrapper (Windows ONLY - NOT needed for WSL/Linux)
-
-**Purpose**: Enable hook execution on Windows where .sh files don't run directly.
 
 **WSL/Linux**: Skip this customization entirely. The stock `hooks.json` pointing to `.sh` works correctly.
 
@@ -108,7 +102,7 @@ REM Wrapper to run bash script on Windows
 
 ## Customization 4: Standards.md Reminder + Violation Checklist
 
-**Purpose**: Each iteration reminds Claude to check implementation against standards.md and common violations.
+**Purpose**: Each iteration reminds Claude to check against STANDARDS.md + common violations.
 
 **Location**: SYSTEM_MSG construction (~line 159-163 in stock plugin)
 
@@ -147,12 +141,3 @@ After plugin update:
 
 **Final step**:
 9. Restart Claude Code
-
-## Version History
-
-| Date | Change |
-|------|--------|
-| 2026-01-18 | Added WSL note (Customization 3 not needed), expanded Customization 4 with 5 violation categories (fallbacks, hardcoding, overengineering, reuse, modularity) |
-| 2026-01-16 | Added Windows .cmd wrapper fix (Customization 3), removed subagent-only restriction (Ralph runs on ALL agents) |
-| 2026-01-09 | Added kill switch, fast-exit, updated subagent detection to use transcript path |
-| 2026-01-09 | Initial documentation of subagent-only and standards.md customizations |

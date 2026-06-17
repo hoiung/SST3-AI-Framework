@@ -1,7 +1,7 @@
 <!-- stages: 4 -->
 # Cross-Repo Cohabitation Protocol — Stage-4 Canonical (#498 AC 4.1)
 
-Multi-repo + multi-worktree + multi-agent concurrency contract. Originated in #469 Phase 4 closing dotfiles#449 stage 5.
+Multi-repo + multi-worktree + multi-agent concurrency contract (orig. #469 Phase 4 / dotfiles#449 stage 5).
 
 ## Single-concurrent-session-per-issue rule
 

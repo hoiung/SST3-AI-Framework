@@ -1,18 +1,18 @@
 # /handover — pre-compact AI-to-AI handover
 
-Invoke this right before you compact a long session. It writes ONE structured handover that the **next** (post-compact) context will read to resume cleanly, with no information loss. The handover is **AI-to-AI**: the writer is this context, the reader is post-compact Claude — so it is terse, evidence-anchored, and optimised against drift, not written as human prose.
+Invoke this right before you compact a long session. It writes ONE structured handover the next (post-compact) context reads to resume with no loss. AI-to-AI: terse, evidence-anchored, not human prose.
 
 Optional argument: `/handover <one-line note>` — a free-text hint folded into the summary.
 
 ## Why this exists
 
-Compaction drops the conversation and keeps only a summary. Anthropic's own compaction schema keeps **state + next-steps + learnings** and preserves the latest user turn **verbatim** — because paraphrasing the goal is where post-compact drift starts. This command writes that, plus evidence anchors, to a file the post-compact context is then commanded to re-read.
+Compaction keeps only a summary; this command writes **state + next-steps + learnings** + the operator goal **verbatim** (paraphrase = drift), plus evidence anchors, to a file the post-compact context is commanded to re-read.
 
-**Handovers live in `~/handover`, NOT in auto-memory.** A handover is a session-scoped resume aid — relevant only until the work it describes is resumed, then eligible for auto-cleanup. It lives in `~/handover` (a WSL-native `$HOME` directory, outside every git repo so it is never synced to GitHub) precisely because that survives **both** a compaction **and** a full WSL VM restart / idle-reap — unlike `/tmp`, which a VM teardown wipes (the one event a handover most needs to outlive). The `SessionStart` compact hook re-injects `~/handover/current-task.txt`, which points the post-compact context at the handover file. That closes the loop without writing anything to permanent memory.
+**Handovers live in `~/handover`, NOT auto-memory** — a session-scoped resume aid, not durable. `~/handover` (WSL `$HOME`, outside every git repo) survives compaction AND a WSL VM restart — unlike `/tmp`, which a VM teardown wipes. The `SessionStart` compact hook re-injects `~/handover/current-task.txt`, pointing the post-compact context at the handover file.
 
-**Do NOT write the handover to the auto-memory directory or add a `MEMORY.md` index bullet.** That was the old behaviour and it caused unbounded accumulation — every session's handover piling into permanent memory forever, bloating the auto-loaded index for no resume value. Auto-memory is for *durable* facts (user/feedback/project/reference). A per-session resume snapshot is not durable — it belongs in `~/handover`. If this session produced a durable lesson, capture THAT as a normal `feedback_*` / `project_*` memory, separately — not as a handover.
+**Do NOT write the handover to auto-memory or add a `MEMORY.md` index bullet** — it bloats the auto-loaded index for no resume value. Auto-memory is for *durable* facts (user/feedback/project/reference); a per-session resume snapshot belongs in `~/handover`. A durable lesson from this session → a separate `feedback_*` / `project_*` memory, not a handover.
 
-**Three-tier state model**: durable facts → auto-memory; session-resume snapshot (survives reboot, auto-pruned after 7 days) → `~/handover`; throwaway scratch with no resume value → `/tmp`. `~/handover` is self-cleaning: a daily `systemd-tmpfiles` rule prunes anything older than 7 days, so old handovers do not accumulate and `$HOME` stays tidy. (A file that is read during resume has its access time bumped, so an in-use handover is not pruned mid-flight.)
+**Three-tier state model**: durable facts → auto-memory; session-resume snapshot → `~/handover`; throwaway scratch → `/tmp`. A daily `systemd-tmpfiles` rule prunes `~/handover` after 7 days (access-time is bumped on read, so an in-use handover is not pruned mid-flight).
 
 ## What to do when invoked (in order)
 

@@ -19,10 +19,6 @@ Default — wrapper-lane is the right call for these query classes:
 - ANY case where the question + answer fits inside the wrapper's
   documented NDJSON schema and the engine is installed.
 
-The wrapper-lane gives you: schema-stable NDJSON output, three-signal
-contract enforcement, request-scoped statelessness (no cache to refresh),
-and a self-test gate that catches regressions before ship.
-
 ## When to use raw tools
 
 Drop to raw tools (grep / ast-grep direct / find / git log) for:
@@ -70,18 +66,9 @@ The Phase 4 self-test gate enforces (4) at every commit + CI run; the
 Phase 5 raw-tool cross-validation enforces (4) at runtime on every
 load-bearing wrapper invocation.
 
-## Effort calibration (research carry-forward)
+## Effort calibration
 
-For estimation: structural queries via wrapper-lane are typically
-30-60s per call (cold cache, includes engine startup). Raw equivalents
-are similar speed but require crafting the regex / AST pattern, which
-adds 1-3 minutes of agent time. The wrapper-lane wins on agent-time
-amortisation — you write the pattern ONCE in the wrapper, every future
-call is one bash line.
-
-When the agent-time-to-craft beats the wrapper coverage gap (e.g. for
-one-off queries no wrapper covers), raw is correct. For repeated
-queries against the same query class, write a wrapper.
+Repeated queries against the same query class → write a wrapper (pattern written once, every future call is one bash line). One-off queries no wrapper covers → raw is correct.
 
 ## See also
 

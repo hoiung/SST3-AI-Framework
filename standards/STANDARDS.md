@@ -81,6 +81,18 @@ See: `ANTI-PATTERNS.md` for top 5 recurring problems (Issue #79)
 
 **Compression, not deletion** (Issue #124): preserve all functional content.
 
+<!-- stages: 2 -->
+### Skill Authoring
+
+Skills are AI-for-AI. A skill (`.claude/skills/*/SKILL.md` + companions, `.claude/commands/*`) and the SST3 harness canonical (STANDARDS / ANTI-PATTERNS / WORKFLOW / CLAUDE.md / templates / ralph / reference / stage-extracts) are "Internal AI-to-AI" artifacts — write them lean per the Three-Category rule above. **STRIP THE STORY, keep the RULE.**
+- Beyond the "Remove from AI-to-AI" list above, also **remove**: backstories, incident narratives ("this broke X", "made the operator angry"), and the operator's words requoted as a story to justify a rule.
+- Beyond the "Always Keep" list above, also **keep**: the mechanic/how, verify-commands, and a SHORT load-bearing why (the guardrail that prevents recurrence).
+- A short provenance tag (issue/AC ref) that prevents future-audit re-litigation stays; the narrative around it goes.
+- **Voice carve-out**: preserve voice-guards (`<!-- iamhoi -->`) and operator/business-voice prose verbatim — never strip voice content as "backstory".
+- **Impact-ROI carve-out**: sections marked `<!-- impact-roi-carve-out -->` (privacy-leak / force-push / data-deletion / secret-exposure / voice-contamination guards, per LMCE) KEEP their cited incident — compress wording, never delete the cite.
+- **Operator-facing carve-out**: a companion doc read by the operator (User-Touchpoint / Hybrid per the Decision Rule above, e.g. a "reading notes" reference) keeps its human-readable voice — the AI-for-AI lean rule does not flatten it.
+- Exemplar: dotfiles `ca887503` (verbose→lean blog social-card — dropped the quote + incident, kept the directive + `head.html` mechanic + cache-bust steps).
+
 <a id="quality-mantras"></a>
 
 <!-- stages: 2 -->
@@ -373,7 +385,7 @@ See also `../reference/tool-selection-guide.md` "Decision Tree: Code-Understandi
 
 **Principle**: every `/Leader` invocation verifies work against BOTH guardrails — the cross-cutting SST3 canonical (STANDARDS.md + ANTI-PATTERNS.md + WORKFLOW.md + project CLAUDE.md) AND the invoked-skill's domain canonical. Skill-specific rules are NOT suggestions; they are load-bearing canonical, equal in authority to SST3 standards within the skill's domain. Single-guardrail `/Leader` runs on non-SST3-infrastructure work operate with half their guardrails missing.
 
-**Failure mode**: `/Leader 1-6` on a blog / CV / eBay / claude-api task passes every SST3 check but silently violates the skill's domain canonical — banned voice words slip through, Seagate series HARD CONTRACT breached, prompt-caching not wired, claude-api model ID stale. Deliverable looks clean against SST3; fails against skill.
+**Failure mode**: `/Leader 1-6` passes every SST3 check but silently violates the invoked skill's domain canonical (banned voice words, Seagate HARD CONTRACT, prompt-caching, stale claude-api model ID) — clean against SST3, broken against the skill.
 
 **Invoked-skill canonical by domain** (load-bearing references — see skill definitions for the full rules; this table is a pointer, not a restate):
 
@@ -395,7 +407,7 @@ See also `../reference/tool-selection-guide.md` "Decision Tree: Code-Understandi
 
 **Enforcement**: Leader.md Guardrails block (all stages) + Stage 3 subagent angle list + Stage 4 Gate 1 checkbox + Stage 5 Post-Implementation Review appendix. Absence of skill-canonical checking on a non-SST3-infrastructure task = violation.
 
-**Evidence**: round-5 user observation N32 (2026-04-20) — "Leader 1-6 should incorporate checking against the workflow of the skills that been invoked too, otherwise it just checks SST3 workflow and standard and anti-patterns ... The SST3 should also have this integrated, so it's like a double guardrail." Pre-existing research: `docs/research/LEADER_SKILL_ENGINEERING_2026_04_12.md` (AI-to-AI prompt engineering + Stage-4 conflation fix + Ralph tier design).
+**Evidence**: round-5 user observation N32 (2026-04-20) — operator directed /Leader to also check the invoked skill's workflow, not just SST3 ("a double guardrail"). Pre-existing research: `docs/research/LEADER_SKILL_ENGINEERING_2026_04_12.md`.
 
 <!-- stages: 2,3,5 -->
 #### Skill-Canonical Audit Template (Comprehensive Walk)
@@ -540,7 +552,7 @@ AP #12 builds the observability surfaces; AP #16 enforces reading them.
 3. **Discovery**: Project's \ documents where each type goes
 
 **Error Format** (from pre-commit hook):
-**Impact**: Issue #383 identified 309 hardcoded values in frontend code. Pre-commit hook prevents future violations.
+**Impact**: Issue #383 — 309 hardcoded values found in frontend code (pre-commit hook now prevents recurrence).
 
 <!-- impact-roi-carve-out -->
 
@@ -624,7 +636,7 @@ AP #12 builds the observability surfaces; AP #16 enforces reading them.
 
 **Enforcement**: Pre-commit hook `check-public-repo-secrets.py` (BLOCKING, `--staged-only` mode) + CI step (full repo scan, no `continue-on-error`). Vendored to consumer repos with drift-check hooks.
 
-**Evidence**: Issue #410. eBay store username, private-cloud-folder paths, and business strategies leaked in ebay-seller-tool (2026-04-11), required manual scrub + force-push.
+**Evidence**: Issue #410 — private business identifiers leaked into a public-facing repo (2026-04-11), required manual scrub + force-push.
 
 **Mirror propagation transform tiers** (#497 A.5 / E.2.1): the canonical-side propagator (`../scripts/sst3_mirror_utils.py`) exposes the following named transforms; each canonical-mirrored entry in `SST3/drift-manifest.json:vendored_files` declares which transforms apply to which mirror:
 
@@ -714,7 +726,7 @@ The opaque-token mechanism for hash-redacting literal business identifiers in pu
 
 **Python ↔ Rust parallel implementations**: any change to a Python file under `src/data/adapters/` (or a parallel Rust port in `rust/pb-data-service/src/`) MUST also check the Rust file. Apply equivalent change OR: `Rust equivalent: N/A — <reason>` or `Rust equivalent: <file:line> — <commit hash>`.
 
-**Evidence**: Issue #1416 — three manifestations in one session (silent 23-day crash, bug fixed in dead copy, live Rust path broken 45+ days). All three skipped the grep.
+**Evidence**: Issue #1416 — three manifestations in one session (silent 23-day crash, fix landed in a dead copy, live Rust path broken 45+ days), all from skipping the grep.
 
 ---
 

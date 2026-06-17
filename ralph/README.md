@@ -11,7 +11,7 @@ Automated 3-tier quality review for SST3 workflow.
 
 ## What
 
-Main agent spawns 3 review subagents that each use the Ralph plugin to iterate until passing:
+Main agent spawns 3 review subagents, each iterating until passing:
 - **Tier 1 (Haiku)**: Surface checks - files, checkboxes, commits
 - **Tier 2 (Sonnet)**: Logic checks - evidence, scope, fallbacks
 - **Tier 3 (Opus)**: Deep checks - architecture, standards, review
@@ -28,20 +28,9 @@ Every tier scans for these STANDARDS.md violations at increasing depth:
 | **Obsolete/Dead Code** | Old code that should have been deleted | LMCE |
 | **Silent Fallbacks** | Defaults that hide errors | Fail Fast |
 
-## Get
+## Setup
 
-Ralph plugin already installed (user scope, cross-repo).
-
-```bash
-# Verify installation
-/help  # Look for ralph-loop in available commands
-```
-
-## Install
-
-No additional installation. Uses existing:
-- `Task` tool with model parameter
-- `/ralph-loop` command from ralph-loop plugin
+Ralph plugin pre-installed (user scope, cross-repo); verify via `/help` (look for `ralph-loop`). Uses the existing `Task` tool (model param) + `/ralph-loop` command — no extra install.
 
 ## Usage
 

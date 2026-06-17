@@ -1,8 +1,6 @@
 # /sync-check Skill
 
-Layer-2 orchestrator that composes the SST3 wrapper-lane to surface code+doc+sync findings in one command. Wraps `dotfiles/scripts/sst3-check.sh`.
-
-**Per Issue #445 Phase D** — single-command entry point to the wrapper-lane (Phases A + B + C).
+Layer-2 orchestrator that composes the SST3 wrapper-lane (Phases A + B + C) to surface code+doc+sync findings in one command. Wraps `dotfiles/scripts/sst3-check.sh`.
 
 ## What this skill does
 
@@ -44,7 +42,7 @@ Each invocation of `sst3-check.sh` emits, in addition to per-phase findings:
   - `status`: `complete | timeout | engine-missing | skipped | error`
 - One terminating `{kind:"orchestrator-complete", mode, phases:[...], findings:N}` via EXIT trap (fires on SIGTERM / `set -e` / clean exit)
 
-The terminator is the canonical "done" marker. Consumers that detect the orchestrator-complete sentinel can distinguish "all phases done" from "killed mid-stream" — silence is no longer ambiguous. Per-phase 90s timeout configurable via `$SST3_CHECK_PHASE_TIMEOUT`.
+The orchestrator-complete sentinel is the canonical done marker — its absence = killed mid-stream. Per-phase 90s timeout via `$SST3_CHECK_PHASE_TIMEOUT`.
 
 ## What it composes
 
@@ -96,4 +94,3 @@ If any engine is missing, the relevant wrapper exits 127 with a documented stder
 
 - `docs/guides/code-query-playbook.md` — operational guide for the wrapper-lane
 - `standards/wrapper-lane-tools.txt` — authoritative allow-list
-- Issue #445 — the migration that introduced this lane

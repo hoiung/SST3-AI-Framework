@@ -218,7 +218,7 @@ python scripts/check-fallbacks.py --severity warning .
 
 **Problem**: Code that runs without structured logs, metrics, or audit trails. (Silent fallbacks → AP #7. This is about *absence of instrumentation*.) Every silent decision boundary is a future incident.
 
-**Evidence**: Recurring "it just stopped working" incidents. State transitions with no audit trail. Decisions in loops with no log of which branch fired. Production bugs taking days because nothing was instrumented at write time.
+**Evidence**: Recurring "it just stopped working" incidents — state transitions, loop branches, and decision boundaries with no write-time instrumentation; production bugs taking days to trace.
 
 **Prevention**:
 - ✓ DO: Log every decision boundary, state transition, and external call AT WRITE TIME (structured key=value or JSON). Metrics on counts/durations/ratios. Append-only audit trail for production/money/user-visible state changes. Treat "no log here" as a code smell.
@@ -265,7 +265,7 @@ python scripts/check-fallbacks.py --severity warning .
 
 **14e — Stage 5 angle sub-instruction (operationalisation)** (dotfiles#516 AC 5.3): in Leader.md Stage 1 and Stage 5 angle prompts, every subagent prompt for function-X findings MUST include the sub-instruction: "for any finding about function X, enumerate ALL callers/branches/sibling-files that could share the same defect class before returning verdict — use concept-based grep (extract the concept, grep for it), not literal-pattern grep." A literal-pattern grep finds only the exact spelling you already know; a concept-based grep (decompose the finding into its underlying concept, then grep every synonym/variant of that concept) is what surfaces the sibling site spelled differently. A parked finding with no assigned angle owner is a dropped finding (AP #14c failure mode) — re-assign it to a named angle or close it with evidence, never leave it parked.
 
-**Evidence**: 2026-04-07/08 — Quality DO List deleted based on ONE sonnet subagent's duplication finding; false-positive sweep later restored it. **2026-05-05 (#477 research)** — initial 8-theme scope from Stage 1 swarm missed 6 candidate themes (9-14, ~31-42% pending-entry coverage gap); C1 false-negative sweep subagent recovered the gap and surfaced themes 9+10 for inclusion. Without C1 (Layer-2-style gap-finder), the rollup would have shipped covering only themes 1-8 of the 10 needed. **2026-05-19 (dotfiles#495)** — pattern class `^(?:solo/|worktree-solo\+)issue-(\d+)-` was extended across 4 files (cadence-gate BRANCH_RE + branch-guard `is_solo()` + metrics-feedback SOLO_BRANCH_RE) but missed `sst3-tier-a-auto-tick.py:82 parse_issue_from_branch` (Ralph Tier 3 caught after Verification Loop) + missed `.github/workflows/tier-a-auto-tick.yml:20 branches:` GHA trigger (Stage 5 L1-G caught post-merge). Two distinct sites missed in one Issue = 14e (sibling-fix-pattern enumeration discipline) instantiation. Both fixes landed: `35669c1` (parse_issue_from_branch) + `464c6be` (GHA trigger).
+**Evidence**: 2026-04-07/08 — Quality DO List deleted on ONE subagent's duplication finding, restored by the false-positive sweep (grounds 14c). **#477 research** — Stage-1 swarm's initial 8-theme scope missed 6 themes (~31-42% gap); a Layer-2 gap-finder (C1) recovered themes 9+10 (grounds 14d). **dotfiles#495** — pattern class `^(?:solo/|worktree-solo\+)issue-(\d+)-` extended across 4 files but missed 2 sites: `sst3-tier-a-auto-tick.py:82 parse_issue_from_branch` (Ralph Tier 3) + `.github/workflows/tier-a-auto-tick.yml:20` GHA trigger (Stage 5 L1-G) — two sites in one Issue = 14e; both fixed (`35669c1` + `464c6be`).
 
 **The rule**: MANY subagents, LAYERS, different angles per layer. Main agent verifies every finding against source. Document proof method inline.
 
@@ -408,12 +408,7 @@ Phase checkpoints post a comment to the Issue — they DO NOT pause work. Post t
 - Model regressions — commit `b9cf036` (2026-04-08, Opus 4.6) cut the canonical `Example 1` + `Example 2` blocks from `../reference/tool-selection-guide.md`, removing the copy-paste template agents relied on. Restored in #429.
 - 1M-context "Keep Going Until Done" (AP #17) paradigm encouraged batched narrative over per-deliverable governance updates — the failure mode this AP documents explicitly.
 
-**Evidence (measurable governance drift — 2026-04-21 audit)**:
-- `hoiung/project-a#1346` (closed): 209 checkboxes, 0 checked, no body-PATCH events
-- `hoiung/project-a#1353` (closed): 100 checkboxes, 0 checked, 6 comment checkpoints only
-- `hoiung/project-a#1359` (closed): 137 checkboxes, 0 checked
-- `hoiung/project-a#1364` (closed): 143 checkboxes, 0 checked
-- **589 unchecked acceptance criteria across completed work** — no per-checkbox evidence trail.
+**Evidence** (2026-04-21 governance-drift audit): **589 unchecked acceptance criteria across 4 closed project-a issues** (#1346 / #1353 / #1359 / #1364) — 0 checked, no per-checkbox evidence trail.
 
 **Relationship to AP #17 (Keep Going Until Done)**:
 
