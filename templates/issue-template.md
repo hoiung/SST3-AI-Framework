@@ -53,13 +53,13 @@
 ## Acceptance Criteria
 
 ### [Phase 1: Description]
-> **PHASE CHECKPOINT**: After this phase, post a checkpoint comment to the issue and CONTINUE to the next phase. Do NOT pause for user. Stop only if context is 80%+ used, a destructive action needs consent, you are genuinely stuck, or the task is complete.
+> **PHASE CHECKPOINT**: After this phase, post a checkpoint comment to the issue and CONTINUE to the next phase. Do NOT pause for user. Stop only if remaining nears ~50% (then auto-`/handover` + compact + CONTINUE on long work; never below 50% remaining), a destructive action needs consent, you are genuinely stuck, or the task is complete.
 
 - [ ] [Specific acceptance criterion]
 - [ ] [Specific acceptance criterion]
 
 ### [Phase 2: Description]
-> **PHASE CHECKPOINT**: After this phase, post a checkpoint comment to the issue and CONTINUE to the next phase. Do NOT pause for user. Stop only if context is 80%+ used, a destructive action needs consent, you are genuinely stuck, or the task is complete.
+> **PHASE CHECKPOINT**: After this phase, post a checkpoint comment to the issue and CONTINUE to the next phase. Do NOT pause for user. Stop only if remaining nears ~50% (then auto-`/handover` + compact + CONTINUE on long work; never below 50% remaining), a destructive action needs consent, you are genuinely stuck, or the task is complete.
 
 - [ ] [Specific acceptance criterion]
 - [ ] [Specific acceptance criterion]
@@ -186,14 +186,14 @@ Every Acceptance Criteria checkbox MUST have an explicit verification command/me
   - Files modified
   - Key changes made
   - Any blockers or scope changes
-- [ ] **Check context memory**: If 70%+ used, warn user. If 80%+, STOP and notify.
+- [ ] **Check context memory**: on long/multi-phase work, when remaining nears ~50% (~500K of 1M) the agent auto-runs `/handover` + compact + CONTINUE; never operate below 50% remaining.
 - [ ] **Commit after EACH file change**: `git add {file} && git commit -m "type: description (#issue)" && git push`
 - [ ] **NEVER use `git add -A` or `git add .`** — stage files individually by name only
 
 #### Context Management (For Long Issues)
-- [ ] **After each phase**: Check context usage — if 70%+, warn; if 80%+, stop
-- [ ] **At 70% context**: Warn user - "Context at ~70%, approaching stop threshold"
-- [ ] **At 80% context**: STOP immediately, post checkpoint, notify user
+- [ ] **After each phase**: Check context — on long work, when remaining nears ~50% (~500K of 1M) auto-`/handover` + compact + CONTINUE; never below 50% remaining
+- [ ] **At ~50% remaining (long work)**: auto-run `/handover`, post checkpoint, compact, then CONTINUE — do not stop to ask
+- [ ] **Below 50% remaining**: never operate here — the ~50%-remaining trigger should have fired first
 - [ ] **Before any risky operation**: Ensure checkpoint posted (compaction could happen anytime)
 
 **Checkpoint Content**:

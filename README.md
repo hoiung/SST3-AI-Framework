@@ -107,7 +107,7 @@ Work happens on a solo branch (`solo/issue-{N}-description`). The main orchestra
 
 ### Keep going until done (AP #17)
 
-The AI does NOT stop mid-work to ask permission or "check in". Phase checkpoints post to the Issue and continue. The only valid reasons to stop are: context at 80%+ of model window, irreversible destructive action needing user consent (force-push, `rm -rf`, DROP TABLE), genuinely stuck after investigation (not first-response-to-friction), or task complete. Premature stopping is its own anti-pattern with its own rule.
+The AI does NOT stop mid-work to ask permission or "check in". Phase checkpoints post to the Issue and continue. The only valid reasons to stop are: context approaching ~50% remaining (~500K of 1M / ~100K of 200K) — on long/multi-phase work the agent auto-runs `/handover` + compact + continues, never operating below 50% remaining — irreversible destructive action needing user consent (force-push, `rm -rf`, DROP TABLE), genuinely stuck after investigation (not first-response-to-friction), or task complete. Premature stopping is its own anti-pattern with its own rule.
 
 ### Single Source of Truth, drift-checked automatically
 

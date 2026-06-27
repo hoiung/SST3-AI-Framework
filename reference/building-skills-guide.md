@@ -43,7 +43,7 @@ This is a **recommended pattern, not a mandate**, but if you skip these, you los
 - **AP #14 Subagent Discipline**: for audits, research, or reviews, dispatch one subagent per angle, not a default of 2-3. Each subagent covers a different angle. Main agent verifies every finding against source.
 - **AP #15 Voice Prose Without Markers**: if the skill edits voice-sensitive content (CV, LinkedIn, blogs), wrap new prose in voice-guard markers so pre-commit catches AI tells.
 - **AP #16 Monitor, Don't Fire-and-Forget**: verify every command, test, commit, push end-to-end. "Started" is never "done".
-- **AP #17 Keep Going Until Done**: phase checkpoints post to the Issue and continue. Stop only at 80% context, destructive action needing consent, genuinely stuck, or task complete.
+- **AP #17 Keep Going Until Done**: phase checkpoints post to the Issue and continue. Stop only at ~50% remaining (on long work the agent auto-runs `/handover` + compact + continues; never below 50% remaining), destructive action needing consent, genuinely stuck, or task complete.
 
 Full detail in [`../standards/ANTI-PATTERNS.md`](../standards/ANTI-PATTERNS.md).
 
