@@ -334,28 +334,28 @@ python scripts/check-fallbacks.py --severity warning .
 
 **Evidence**: 2026-04-15 — subagents were stopping at 50%, 70%, 80% context REMAINING (far below the actual stop threshold) with self-commentary like *"old habit from earlier sessions, user-rule caution that doesn't apply here. Executing — no more stops until 80% context or done."* The agent catches itself, but only after wasting user time. User quote: *"they are stopping randomly for no reason... it's like 80%, 70%, 50% remaining, yet they keep stupidly stopping"*.
 
-**Rule — Keep Going Until Done:**
-Do not stop mid-phase for permission, confirmation, or a "check in". Stop only for:
-1. Context at 80%+ of the model window (800K of 1M, 160K of 200K) — the actual hard threshold
+**Rule — Keep Going Until Done (the never-give-up half is unchanged; only the compaction trigger flips):**
+Do not stop mid-phase for permission, confirmation, or a "check in". Never give up half-done and never re-ask a question the goal already answers. Stop only for:
+1. Context approaching ~50% remaining (~500K of 1M, ~100K of 200K) — on long / multi-phase work the agent AUTOMATICALLY runs `/handover`, posts a checkpoint, then compacts and CONTINUES post-compact; it does NOT wait for the operator to decide. Never operate below 50% remaining. Near-completion exemption: ~2-3 turns from done at ~51% remaining → finish it. Short tasks never reach 50% remaining.
 2. Irreversible destructive action needing user consent (force-push, rm -rf, drop table, branch deletion)
 3. Genuinely stuck after investigation (not as a first-response-to-friction reflex)
 4. Task actually complete
 
-Phase checkpoints post a comment to the Issue — they DO NOT pause work. Post the comment and continue. Warnings at 70% context are informational, not stop signals.
+Phase checkpoints post a comment to the Issue — they DO NOT pause work. Post the comment and continue. Compaction is a CONTINUATION mechanism, not premature stopping: `/handover` + compact + resume keeps quality high across long iterate-until-met work without ever giving up half-done.
 
-**Threshold update (2026-04-15):** previously documented as "80% warn / 90% stop" from the 200K era. Now 70% warn / 80% stop. Reason: 80%+ of 1M (>800K) is where degradation becomes severe; the 10-point earlier warning gives enough runway to wrap up cleanly.
+**Threshold update (2026-06-27):** the prior "compact only at ~80% used / burn the whole 1M window first" rule was 200K-era logic over-applied to 1M. At 200K, 50% remaining (~100K of 200K) was tight, so spending it made sense; at 1M, 50% remaining (~500K of 1M) is roomy, so dropping below it needlessly degrades quality on exactly the long iterative work where quality matters most. New rule: stay above 50% remaining; when remaining nears ~50%, `/handover` + compact, then CONTINUE. Supersedes the interim 2026-04-15 "70% warn / 80% stop" recalibration (itself a 200K-era note) — that pairing is history, not the live threshold.
 
 **Do / Don't:**
 - ✓ DO: post phase checkpoint to Issue, immediately start next phase
-- ✓ DO: warn at 70% context, keep working
+- ✓ DO: on long / multi-phase work, auto-`/handover` + compact + continue as remaining nears ~50%
 - ✓ DO: confirm before destructive actions only
 - ✗ DON'T: stop to ask "should I continue?" when nothing destructive is pending
 - ✗ DON'T: treat "transparently communicate the action" as "pause and wait"
-- ✗ DON'T: stop at 50% / 70% / 80% REMAINING — the 1M window exists to be used
+- ✗ DON'T: give up half-done or re-ask a question the goal already answers
 
 **Self-Healing**: If you catch yourself about to stop without hitting a real threshold → don't write the "I'll pause here" message, just do the next action. If you already stopped → resume immediately on the next turn, note the lapse in the next commit.
 
-**Enforcement**: STANDARDS.md "Keep Going Until Done". All phase templates (`issue-template.md`, `subagent-solo-template.md`) updated to 70%/80% thresholds.
+**Enforcement**: STANDARDS.md "Keep Going Until Done". All phase templates (`issue-template.md`, `subagent-solo-template.md`) carry the 50%-remaining compact-and-continue rule.
 
 ---
 

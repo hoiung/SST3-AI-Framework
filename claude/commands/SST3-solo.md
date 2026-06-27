@@ -66,7 +66,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 **Context Window**: 1M tokens (Opus 4.6/Sonnet 4.6), 200K (Haiku 4.5)
 **Content Budget**: per-stage loading (#498) — session start loads CLAUDE.md (~9K tok) + `load-stage-rules.sh always` subset (~4K tok / 16K bytes) + the Issue; each stage adds its `load-stage-rules.sh <N>` subset on entry
-**Handover at**: 80% of model window
+**Handover at**: ~50% remaining (~500K of 1M / ~100K of 200K) — on long work, auto-`/handover` + compact + continue; never below 50% remaining
 
 ## 5-Stage Sequential Workflow
 
@@ -85,7 +85,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 2 — Issue Creation (Main Agent from /tmp)
 - Create issue using `issue-template.md` from /tmp research
-- Add ALL before/after illustrations, compact breaks between phases
+- Add ALL before/after illustrations, phase checkpoints between phases
 - Author + run the draft-check swarm via the Workflow tool (DEFAULT) for scope-check vs audit; Agent/Task = the documented fallback only for a trivial single-angle check
 - Quality mantras VERBATIM: no inefficiencies, fix optimisations, reliable/robust, dedupe, no bottlenecks, fast/safe, no memory leaks, follows STANDARDS.md
 - No false positives. No priority levels. All must be fixed.
@@ -100,6 +100,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 4 — Implementation + Merge + User Review
 - Implement all phases, commit per file
+- **When-needed (NOT every run)**: for goal / discovery / analysis / iterate-until-met work, invoke `/goal-loop` (wraps native `/goal`, loops until every acceptance gate passes or an honest NO-GO is recorded)
 - Verification Loop (repeat until clean)
 - Ralph Review: Haiku → Sonnet → Opus (all 3 mandatory)
 - Merge to main BEFORE user review (Solo Branch Merge Safety: pull, diff, preserve both)
@@ -135,7 +136,7 @@ Describe the task you need to complete:
 ### During Work (At Each Phase Checkpoint)
 - [ ] Post checkpoint to Issue comment
 - [ ] **Close Tier A checkboxes via MCP** (AP #20 Layer 1 — MANDATORY in execute mode only, before moving to next phase): for every completed Tier A Acceptance Criteria in the just-finished phase, invoke `mcp__github-checkbox__update_issue_checkbox(issue_number, checkbox_text, evidence)` with canonical evidence (file:line / commit hash / command+output / subagent RESULT comment-id per `../reference/tool-selection-guide.md` Example 2). ToolSearch-bootstrap if deferred: `ToolSearch(query="select:mcp__github-checkbox__update_issue_checkbox,mcp__github-checkbox__get_issue_checkboxes")`. No phase boundary may be crossed with a Tier A `[ ]` box behind. See `../claude/commands/Leader.md` Stage 4 step 3a for the full rule.
-- [ ] Check context memory: If 70%+ used, warn user. If 80%+, STOP and run `/handover`.
+- [ ] Check context memory: on long/multi-phase work, when remaining nears ~50% (~500K of 1M) auto-run `/handover` + compact + continue; never operate below 50% remaining.
 - [ ] Commit after EACH file change — NEVER use `git add -A`
 
 ### After Compact (Context Recovery)

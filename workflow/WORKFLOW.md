@@ -40,8 +40,8 @@
 
 - [ ] Use `../templates/issue-template.md` — NEVER create issues from scratch
 - [ ] Add ALL before/after illustrations for comparison after implementation
-- [ ] Add compact breaks between phases in Acceptance Criteria
-- [ ] Check context memory — stop and allow compact before continuing if needed
+- [ ] Add phase checkpoints between phases in Acceptance Criteria
+- [ ] Check context memory — on long work, when remaining nears ~50% (~500K of 1M) auto-`/handover` + compact + continue; never operate below 50% remaining
 - [ ] Author + run the draft-check swarm via the Workflow tool (DEFAULT) — full-coverage scope-check vs audit, one subtask per coverage angle; Agent/Task is the documented fallback only for a trivial single-angle check
 - [ ] **Layer-2 correction-tag preservation (AC 2.5)**: keep Layer-2-introduced correction tags (e.g. `**Bootstrap ordering** (Layer-2 Angle A):`) in the final GitHub issue body for Stage-5 provenance.
 - [ ] **Multi-phase gating matrix (AC 2.8)**: for multi-phase drafts, author an explicit Phase N → Phase M dependency table (per Leader.md Stage 2 step 7.5) in the draft before Stage 3.
@@ -188,7 +188,7 @@ git push origin <solo-branch>
 <!-- stages: 4 -->
 ## Context Management
 
-**Context**: 1M window (Opus/Sonnet), 200K (Haiku). Handover at 80% (800K of 1M, 160K of 200K) — stop threshold, not routine. Warn at 70%, work until 80%. Content budget ~42K. Research budget <30% Stage 1. At the threshold (or any planned compact), run `/handover` to write the structured pre-compact handover to `~/handover/` (survives compaction AND a WSL VM reboot, auto-pruned after 7 days) — re-surfaced post-compact by the SessionStart hook, NOT persisted to auto-memory.
+**Context**: 1M window (Opus/Sonnet), 200K (Haiku). Handover at ~50% remaining (~500K of 1M / ~100K of 200K) — on long work, auto-`/handover` + compact + continue; never operate below 50% remaining. Content budget ~42K. Research budget <30% Stage 1. At the ~50%-remaining trigger (or any planned compact), run `/handover` to write the structured pre-compact handover to `~/handover/` (survives compaction AND a WSL VM reboot, auto-pruned after 7 days) — re-surfaced post-compact by the SessionStart hook, NOT persisted to auto-memory.
 
 <!-- stages: 4 -->
 ## Quality Standards

@@ -3,7 +3,7 @@
 
 # Session Handover Template
 
-Emergency-only. Use when context hits 80% of the model window (800K for 1M, 160K for Haiku). Do NOT use routinely. Phase checkpoints post to the Issue and keep working — see STANDARDS.md "Keep Going Until Done".
+Use when remaining nears ~50% of the model window (~500K of 1M, ~100K of 200K) — on long / multi-phase work the agent auto-runs this `/handover` + compact, then CONTINUES post-compact; never operate below 50% remaining. Phase checkpoints post to the Issue and keep working — see STANDARDS.md "Keep Going Until Done".
 
 ## Critical: Two-Step Process
 
@@ -165,7 +165,7 @@ That's it! The checkpoint in Issue #X has all details.
 ## When to Create Handover
 
 ### Automatic Triggers
-- Token usage reaches 80% of context limit (800K for 1M, 160K for Haiku) — the actual stop threshold, not a routine pause point
+- Remaining nears ~50% of the window (~500K of 1M, ~100K of 200K) — on long / multi-phase work the agent auto-`/handover` + compact + continues here; never operate below 50% remaining
 - System warning about approaching token limit
 
 ### Manual Triggers

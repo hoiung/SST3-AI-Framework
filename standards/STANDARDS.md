@@ -1485,19 +1485,17 @@ When you see `[Stage X]`, it's SST3 process work. `[Phase X]` is project feature
 <!-- stages: 4 -->
 ## Keep Going Until Done
 
-Do not stop mid-work to ask permission, wait for confirmation, or "check in" when there is no real blocker. With a 1M context window, the run-length is the work, not the session. Stop only when one of these is actually true:
+Do not stop mid-work to ask permission, wait for confirmation, or "check in" when there is no real blocker. The run-length is the work, not the session — keep going until the task is genuinely done; never give up half-way and never bounce a question the goal already answers. Stop only when one of these is actually true:
 
-1. **Context at 80%+** of the model window (800K of 1M, 160K of 200K). Warn at 70%, stop at 80%.
+1. **Context approaching ~50% remaining** (~500K of 1M, ~100K of 200K). On long / multi-phase work, when remaining nears ~50% the agent AUTOMATICALLY runs `/handover` (writes the resume snapshot), posts a checkpoint, then compacts and CONTINUES post-compact — it does NOT wait for the operator to decide. Never operate below 50% remaining. **Near-completion exemption:** if a task is ~2-3 turns from done at ~51% remaining, finish it rather than pay the reload to protect a floor it will never reach. Short tasks never reach 50% remaining, so the trigger is moot for them.
 <!-- impact-roi-carve-out -->
 2. **Irreversible destructive action** needs explicit user consent (force-push, `rm -rf`, `DROP TABLE`, branch deletion, overwrites of uncommitted work).
 3. **Genuinely stuck** after investigation — not as a first-response-to-friction reflex.
 4. **Task is complete.**
 
-Phase checkpoints post a comment to the Issue. They do NOT pause work. Post the comment, then immediately start the next phase. Warnings at 70% are informational; keep working until 80%.
+Phase checkpoints post a comment to the Issue. They do NOT pause work. Post the comment, then immediately start the next phase. Compaction is a CONTINUATION mechanism, not premature stopping — `/handover` + compact + resume sustains quality across long iterate-until-met work without ever giving up half-done.
 
-The 200K-era pattern of "stop at phase boundary to compact" no longer applies. The 1M window exists to be used. Stopping at 50%, 70%, or 80% REMAINING (i.e. only 20-50% used) is premature stopping — see ANTI-PATTERNS.md AP #17.
-
-**Threshold update (2026-04-15):** previously "80% warn / 90% stop" from the 200K era. Now **70% warn / 80% stop**. 80%+ of 1M (>800K) is where degradation becomes severe; the 10-point earlier warning gives enough runway to wrap up cleanly. User rationale: *"shit gets bad after that, it should warn at 70%"*.
+**Threshold update (2026-06-27):** the prior rule — compact only at ~80% used, on the logic that the full 1M window should be burned before compacting — was 200K-era thinking over-applied to 1M. At 200K, 50% remaining was a tight ~100K of 200K, so spending it made sense; at 1M, 50% remaining is a roomy ~500K of 1M, so dropping below it needlessly degrades quality on exactly the long iterative work where quality matters most. New rule: stay above 50% remaining; when remaining nears ~50%, `/handover` + compact, then CONTINUE. This also supersedes the interim 2026-04-15 "70% warn / 80% stop" recalibration (itself a 200K-era note) — that pairing is history, not the live threshold.
 
 <!-- stages: 4 -->
 ## Related Documentation
