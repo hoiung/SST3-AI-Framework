@@ -657,6 +657,21 @@ The opaque-token mechanism for hash-redacting literal business identifiers in pu
 
 ---
 
+<!-- impact-roi-carve-out -->
+
+<!-- stages: always -->
+### Local-Only Artifacts (claude.ai Artifact Tool Banned)
+
+**Principle**: Any HTML/data artifact is built LOCAL via the `artifact-branding` skill (`sst3_brand_html`) — carrying the hoiboy.uk brand — and saved into the owning repo under a findable path (e.g. `docs/`), so it is organised, versioned, and retrievable. If published, it goes only to the operator's own site by explicit choice. The built-in claude.ai `Artifact` tool — which renders to an ephemeral claude.ai-hosted URL — is **BANNED**. Never call it to render, preview, or publish anything.
+
+**Why**: claude.ai-hosted artifacts get lost — they are unbranded, indistinguishable from one another, and not in any repo, so the operator cannot find or attribute one later. Local artifacts are (1) branded (hoiboy.uk identity) and (2) organised in the owning repo (committed, versioned, findable). Findability + branding are the point; the local helper also leak-scans, but that is a secondary benefit, not the reason.
+
+**Enforcement**: PreToolUse hook `sst3-artifact-block-guard.sh` (fail-closed DENY exit 2 on the `Artifact` matcher; `SST3_ALLOW_ARTIFACT=1` operator escape hatch) + this always-load rule. Build local per `.claude/skills/artifact-branding/SKILL.md` and commit it to the repo.
+
+**Evidence**: dotfiles#538 — walkthrough diagrams rendered to claude.ai URLs got lost / indistinguishable; operator: artifacts must be local so they are "branded" and "organised in the repo" (findable again), not scattered on claude servers.
+
+---
+
 <!-- stages: 4 -->
 ### No Backwards-Compatibility Hacks
 
