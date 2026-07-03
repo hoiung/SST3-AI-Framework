@@ -25,16 +25,25 @@
 # Reaches engines under $HOME/{.cargo,.local,.npm-global}/bin from non-interactive
 # bash (.bashrc early-returns there). getent guard fixes SC2116 empty-HOME bug.
 # Self-test keeps an inline copy so it self-bootstraps if this helper breaks.
-: "${HOME:=$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)}"
-[[ -z "$HOME" ]] && { echo "ERROR: cannot resolve HOME for PATH bootstrap" >&2; exit 1; }
-# Each prepended only when missing from PATH (idempotent on repeat sourcing). Iteration-last wins lookup precedence: final order = /usr/local > npm-global > local > cargo > orig PATH.
-for extra in "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.npm-global/bin" "/usr/local/bin"; do
-    case ":$PATH:" in
-        *":$extra:"*) ;;
-        *) [[ -d "$extra" ]] && PATH="$extra:$PATH" ;;
-    esac
-done
-export PATH
+#
+# Test seam (#537): SST3_SKIP_PATH_BOOTSTRAP=1 skips ALL prepends (including the
+# unconditional /usr/local/bin). Engine-missing simulations (self-test fixture
+# sst3-check-paths-from-strict leg (c)) restrict PATH to prove --strict exit-2;
+# without the seam this bootstrap re-adds /usr/local/bin and defeats the
+# restriction on hosts where the engine lives there (CI installs ast-grep to
+# /usr/local/bin — validate.yml). Production callers never set it.
+if [[ -z "${SST3_SKIP_PATH_BOOTSTRAP:-}" ]]; then
+    : "${HOME:=$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)}"
+    [[ -z "$HOME" ]] && { echo "ERROR: cannot resolve HOME for PATH bootstrap" >&2; exit 1; }
+    # Each prepended only when missing from PATH (idempotent on repeat sourcing). Iteration-last wins lookup precedence: final order = /usr/local > npm-global > local > cargo > orig PATH.
+    for extra in "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.npm-global/bin" "/usr/local/bin"; do
+        case ":$PATH:" in
+            *":$extra:"*) ;;
+            *) [[ -d "$extra" ]] && PATH="$extra:$PATH" ;;
+        esac
+    done
+    export PATH
+fi
 # Reject anything other than a plain identifier with dots (Class.method allowed).
 # Exit 64 (EX_USAGE) consistent with the wrapper bad-args contract.
 # Closes the command-injection class on every wrapper that interpolates user-

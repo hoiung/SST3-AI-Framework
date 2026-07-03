@@ -90,7 +90,7 @@
     "sst3-check-paths-from-strict/expected.json": "87bfffa8b01e6e168155b385f71bda3d7e31baaba0a37cba70f80b8fac39e46d",
     "sst3-check-paths-from-strict/input/clean.py": "63d15932e380e8256340796334140df74e0a2ec8a5baaa3b014d9cd25e1156b3",
     "sst3-check-paths-from-strict/input/dirty.py": "373b2812343f16f65114b151d45febd1c4a05c513684183e8ce0385eb5b4efb7",
-    "sst3-check-paths-from-strict/run.sh": "80ad2e3d6a1cfbb4dd506ec3da9cae20c38623fa72eca9c6031ccc722e702656",
+    "sst3-check-paths-from-strict/run.sh": "a305ed03ec6e745124fd4185a0fec66b6121b851f04772b91bc65196fa88429b",
     "sync-related-code-drift/expected.json": "93c113b916262dca79daa161ff7861c90d1626f9ace45417c7537d359d56ef2c",
     "sync-related-code-drift/input/has-drift.md": "6cecfd374d7cdffb1a972ed7d330fc2cfc7557936de08ef1129e7694894ec667",
     "worktree-wiring-488/expected.json": "528eca01b5a5196c3874bdceb0c67373be14061ef280b025d3b08ae3349e8aa5",

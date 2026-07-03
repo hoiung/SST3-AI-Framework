@@ -173,7 +173,17 @@ run_or_skip() {
     fi
     rm -f "$stderr_tmp"
 
-    FINDINGS=$((FINDINGS + lines))
+    # Inventory phases (#537): their stdout rows are enumerations of what EXISTS
+    # (one row per dependency / a repo-status object), not defects — they must
+    # not drive the exit-1 "findings emitted" gate. Pre-#537 `--dep --strict`
+    # exited 1 on ANY repo with ≥1 dependency even with zero dep-cve advisories
+    # (the sec-dep-audit.yml chronic red). Gate-relevant rows (sec-*, dep-cve,
+    # doc-*, code-large, ...) still count. The per-phase progress sentinel below
+    # reports the raw line count either way.
+    case "$LABEL" in
+        dep-list|code-status) ;;  # inventory — excluded from the findings gate
+        *) FINDINGS=$((FINDINGS + lines)) ;;
+    esac
 
     local status
     case "$rc" in
