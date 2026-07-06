@@ -313,6 +313,14 @@ SCAN_EXTENSIONS: List[str] = [
     ".json", ".yaml", ".yml", ".toml",
     ".md", ".txt", ".html", ".css",
     ".sh", ".bash", ".ps1", ".cfg", ".ini", ".conf",
+    # Text PEM/PGP private-key containers: without these, a real key committed as
+    # a *.pem / *.key / *.asc / *.p8 / *.pk8 path evades the scanner entirely by
+    # extension, even though the PRIVATE_KEY patterns would match its body
+    # (dotfiles#540). Binary key stores (.p12/.pfx/.der/.cer) are intentionally
+    # omitted — is_binary_file null-byte-skips them, so listing them is inert.
+    # Legitimate committed test-fixture keys are suppressed per-repo via
+    # .secret-allowlist, not by excluding the extension.
+    ".pem", ".key", ".asc", ".p8", ".pk8",
 ]
 
 
