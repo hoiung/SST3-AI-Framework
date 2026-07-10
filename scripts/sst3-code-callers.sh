@@ -60,6 +60,30 @@ if ! command -v ast-grep >/dev/null 2>&1; then
     exit 127
 fi
 
-ast-grep run --pattern "${SYMBOL}(\$\$\$)" --lang "$LANG" --json=stream 2>/dev/null \
-    | jq -c '{file, line: .range.start.line, kind: "call"}' \
-    || true
+# Recall requires TWO complementary call-site shapes (#496). ast-grep matches
+# structurally, so a single pattern cannot cover both:
+#   1. free-function / associated call:  SYMBOL(...)       — identifier callee
+#   2. method / receiver call:           RECV.SYMBOL(...)  — field-expression callee
+# Pre-#496 only shape 1 ran, so method calls (Rust `redis.write_ohlcv(...)`,
+# Python `obj.method(...)`, JS `this.method(...)`) were a 100% recall miss.
+# The two shapes are structurally DISJOINT (a call's callee is either an
+# identifier or a field-expression, never both), so no call is matched by both
+# patterns and their outputs are simply concatenated with NO dedup step. Dedup
+# would be WRONG here: two distinct same-symbol calls on one physical line
+# render an identical {file,line,kind} record, and both must be preserved (as
+# the single pre-#496 pattern did) — collapsing them would silently drop a real
+# call site (recall regression). ast-grep also emits each match once per
+# pattern, so no intra-pattern duplication exists to collapse.
+#
+# KNOWN LIMITATION (#496): neither shape matches a call INSIDE a macro body
+# (Rust `assert!(SYMBOL(...))`, `assert_eq!(...)`) — tree-sitter represents
+# macro arguments as an opaque token-tree, not parsed expressions, so ast-grep
+# cannot descend into them. This is an inner-engine (tree-sitter) constraint,
+# not a pattern gap; the Leader.md raw-grep counter-query gate is the
+# compensating control for macro-heavy / test-assertion call sites.
+emit_call_sites() {
+    ast-grep run --pattern "$1" --lang "$LANG" --json=stream 2>/dev/null \
+        | jq -c '{file, line: .range.start.line, kind: "call"}' || true
+}
+emit_call_sites "${SYMBOL}(\$\$\$)"
+emit_call_sites "\$SST3_RECV.${SYMBOL}(\$\$\$)"
