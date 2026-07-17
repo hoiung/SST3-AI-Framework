@@ -170,11 +170,18 @@ case "$LANG" in
         # attribute is a SIBLING (which made the old 2-line tokio pattern
         # structurally dead: a pattern spanning sibling top-level nodes cannot
         # parse). 3 arms → 1.
+        # #547 Stage-5 finding D: exclude impl-methods — an `impl X { fn main }`
+        # method is a `function_item` too, but a struct method named `main` is
+        # NOT a program entry point. `not: {inside: {kind: impl_item, stopBy:
+        # end}}` drops it (stopBy:end is required — a method's immediate parent
+        # is `declaration_list`, so a bare `inside: impl_item` would never match).
         run_rule 'id: entry-points
 language: rust
 rule:
   kind: function_item
-  has: {field: name, regex: ^main$}' "main"
+  all:
+    - has: {field: name, regex: ^main$}
+    - not: {inside: {kind: impl_item, stopBy: end}}' "main"
         ;;
     javascript|typescript|tsx)
         run_pattern 'app.get($$$, $HANDLER)' "http_handler" "HANDLER"

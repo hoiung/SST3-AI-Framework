@@ -124,9 +124,17 @@ case "$LANG" in
         run_ast "$PACKAGE::\$SYM" "call_site" "SYM"
         ;;
     javascript|typescript|tsx)
+        # #547 Stage-5 finding G: ast-grep string literals are quote-significant,
+        # so a single-quoted specifier pattern never matches a double-quoted
+        # import. Prettier (the JS/TS default formatter) emits DOUBLE quotes, so
+        # the single-quote-only patterns missed the common case. Run both quote
+        # styles; a given import site is one style, so no double-emit.
         run_ast "import \$WHAT from '$PACKAGE'" "import" "WHAT"
+        run_ast "import \$WHAT from \"$PACKAGE\"" "import" "WHAT"
         run_ast "import { \$WHAT } from '$PACKAGE'" "from_import" "WHAT"
+        run_ast "import { \$WHAT } from \"$PACKAGE\"" "from_import" "WHAT"
         run_ast "require('$PACKAGE')" "import"
+        run_ast "require(\"$PACKAGE\")" "import"
         ;;
     *)
         echo "ERROR: dep-usage supports python|rust|javascript|typescript|tsx (got: $LANG)" >&2
