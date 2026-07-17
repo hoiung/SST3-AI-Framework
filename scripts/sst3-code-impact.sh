@@ -60,22 +60,47 @@ if [[ -z "$CHANGED" ]]; then
     exit 0
 fi
 
-# Count repo-wide call sites matching one ast-grep pattern (#544 Stage-5
-# dedup — shared by the bare + receiver-qualified shapes in the loop below,
-# mirroring callers.sh's emit_call_sites split). Uses the caller's $LANG.
-# Zero-caller case: `wc -l` exits 0 with `0` output, but pipe SIGPIPE on
-# ast-grep failure can yield `0\n0` via `|| echo 0` fallback — strip non-digits
-# so subsequent arithmetic doesn't fail with "syntax error in expression".
-# Stage 5 fix L1.I (Issue #12 post-impl review) — `set -o pipefail` at the
-# top propagates ast-grep's nonzero exit (it returns non-zero on certain
-# zero-match patterns) through the pipe, silently under-counting impact
-# records. Disable pipefail in this subshell only; the `${n:-0}` + non-digit
-# strip already handle the empty output case safely.
-count_call_sites() {
-    local n
-    n=$( (set +o pipefail; ast-grep run --pattern "$1" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
-    n=${n//[^0-9]/}
-    printf '%s\n' "${n:-0}"
+# #546 Phase 4 (operator-reported crawl): the previous per-symbol repo-wide
+# scan helper made the composed sst3-code-review.sh appear to
+# HANG on real repos — each scan cost ~0.3s wall / ~3s CPU on a 1000-file
+# repo, and a 34-file diff demanded ~800 of them (bare + `$SST3_RECV.` +
+# rust `$SST3_PATH::` / ts-js `$SST3_RECV?.` shapes per symbol). Standalone
+# the records stream progressively so it looks fine; nested inside
+# review.sh:119's command substitution NOTHING appears until every scan
+# finishes — the reported 5+min zero-output "pipe hang" (bash reader at ~0
+# CPU while ast-grep children grind invisibly).
+# Ported fix = sst3-code-orphans.sh:125-139 (its #544 Stage-5 D1 batch
+# index): ONE `$NAME($$$)` pass per changed-set language binds the FULL
+# callee node for EVERY call shape — identifier (`f()`), field-expression
+# (`obj.f()` / `this.f()`), scoped_identifier path (`crate::lib::f()`),
+# optional-chain (`w?.f()`). Normalizing the callee text (`?`→``, `::`→`.`)
+# and keying by the last dotted component merges the shapes into per-name
+# totals, preserving the #496/#544/#546 recall exactly (the three impact
+# fixtures lock the counts: rust 4, ts 3, python 3/0). Same-name symbols on
+# different classes/modules merge — safe over-count for an impact advisory,
+# the same documented orphans.sh trade-off. Cost: ≤4 index passes (<1s each)
+# instead of ~800 scans (~minutes).
+declare -A CALLER_IDX
+INDEX_TMPFILES=()
+trap 'rm -f "${INDEX_TMPFILES[@]}"' EXIT
+build_caller_index() {
+    local lang="$1" idx
+    idx=$(mktemp -t sst3_impact_idx.XXXXXX)
+    INDEX_TMPFILES+=("$idx")
+    # pipefail disabled in this subshell only: ast-grep exits non-zero on
+    # zero matches, grep on empty input — neither is an error here.
+    # shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
+    ( set +o pipefail
+      ast-grep run --pattern '$NAME($$$)' --lang "$lang" --json=stream 2>/dev/null \
+        | jq -r '.metaVariables.single.NAME.text // empty' \
+        | awk '{ gsub(/\?/,""); gsub(/::/,"."); n=split($0,a,"."); print a[n] }' \
+        | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
+        | sort | uniq -c | awk '{print $2"\t"$1}' > "$idx" ) || true
+    CALLER_IDX[$lang]="$idx"
+}
+# O(1)-ish lookup, exact key match, 0 when absent (orphans.sh:142-144 shape).
+caller_count() {
+    awk -F'\t' -v k="$1" '$1 == k { print $2; found=1; exit } END { if (!found) print 0 }' "${CALLER_IDX[$LANG]}"
 }
 
 while IFS= read -r FILE; do
@@ -151,35 +176,16 @@ rule:
             | jq -r '.metaVariables.single.NAME.text // empty' \
             | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
             | sort -u )
+    [[ -z "${CALLER_IDX[$LANG]:-}" ]] && build_caller_index "$LANG"
     COUNT=0
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue
         assert_safe_identifier "$SYM"
-        # #544: count BOTH call-site shapes, mirroring the #496 fix in
-        # sst3-code-callers.sh — the bare pattern alone is a 100% recall miss
-        # on receiver-qualified calls (field-expression callee: `self.method()`
-        # / `obj.method()`). The two shapes are structurally disjoint
-        # (identifier vs field-expression callee), so summing never
-        # double-counts a call site. Extraction above is kind-based (#546),
-        # so method/pub symbols now reach these queries in every language.
-        N=$(count_call_sites "${SYM}(\$\$\$)")
-        N2=$(count_call_sites "\$SST3_RECV.${SYM}(\$\$\$)")
-        COUNT=$((COUNT + N + N2))
-        # #546: language-specific THIRD shapes — each a structurally distinct
-        # callee node the first two cannot match (disjointness empirically
-        # verified both directions, so summing never double-counts):
-        #   rust — scoped-path calls `lib::f()` / `crate::lib::f()` /
-        #   `self::f()` (scoped_identifier callee — the dominant Rust call
-        #   style); one pattern matches every segment depth.
-        #   ts/tsx/js — optional-chain calls `obj?.m()`; the plain-dot
-        #   receiver pattern does NOT match them (and `?.` does not match
-        #   plain-dot calls).
-        case "$LANG" in
-            rust)                      N3=$(count_call_sites "\$SST3_PATH::${SYM}(\$\$\$)") ;;
-            typescript|tsx|javascript) N3=$(count_call_sites "\$SST3_RECV?.${SYM}(\$\$\$)") ;;
-            *)                         N3=0 ;;
-        esac
-        COUNT=$((COUNT + N3))
+        # Per-symbol count = one batch-index lookup. The index already merged
+        # every call shape (#496/#544 bare+receiver, #546 scoped + optional-
+        # chain) by last-component key — see the Phase-4 block above.
+        N=$(caller_count "$SYM")
+        COUNT=$((COUNT + N))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
 done <<< "$CHANGED"
