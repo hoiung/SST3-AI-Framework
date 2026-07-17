@@ -141,12 +141,23 @@ if [[ -f .coverage ]] && command -v coverage >/dev/null 2>&1; then
         else
             # #520 (item-3): same guard — untested-py returns empty rc 0 when all
             # changed .py are tested; no-match `grep -v` exit 1 must not abort.
+            # #544: untested-py deliberately exits 0 with a structured
+            # {kind:"untested-py-error"} record on unusable coverage data
+            # (#445 R4 Bug E contract — cross-host paths / corrupt data file).
+            # That record has no `.file`, so the file-membership select below
+            # silently dropped it and the review read as "all changed Python
+            # covered". Route error records through as review-error (same
+            # field names as the rc!=0 branch above).
             printf '%s\n' "$UNTESTED_OUT" | { grep -v '^$' || true; } \
                 | jq -c --arg changed "$CHANGED" '
                     . as $u |
                     ($changed | split("\n")) as $files |
-                    select($u.file as $f | $files | index($f)) |
-                    $u + {section: "untested-in-diff"}
+                    if ($u.kind // "") == "untested-py-error" then
+                        $u + {section: "review-error", source: "sst3-code-untested-py"}
+                    else
+                        ( select($u.file as $f | $files | index($f)) |
+                          $u + {section: "untested-in-diff"} )
+                    end
                   ' >> "$OUT"
         fi
     fi
