@@ -9,8 +9,10 @@
 #            {section:"impact", changed_file, impacted_callers}
 #            {section:"untested-in-diff", file, untested:[names]}
 #            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 changed files; exit 0 no-op)
+#            {section:"empty-impact-scope", base, note} (changed files exist, none impact-scoped; #547 AC 6.2b)
 #            {section:"review-error", source, exit, stderr}            (engine exited non-zero; #447 Phase 3)
 #            {section:"review-error", source, kind, reason, detail}    (untested-py exit-0 error record passed through; #544)
+#            {section:"review-error", source, kind, reason, rc}        (impact-leg *-error record rerouted by endswith; #547 AC 6.2a)
 # Engines: composes sst3-code-impact.sh + sst3-code-untested-py.sh.
 
 set -euo pipefail
@@ -122,12 +124,32 @@ set -e
 if [[ $IMPACT_RC -ne 0 ]]; then
     jq -nc --arg s "$IMPACT_OUT" --argjson rc "$IMPACT_RC" \
         '{section:"review-error", source:"sst3-code-impact", exit:$rc, stderr:$s}' >> "$OUT"
+elif [[ -z "$(printf '%s' "$IMPACT_OUT" | tr -d '[:space:]')" ]]; then
+    # #547 AC 6.2(b): the outer diff is non-empty but the impact leg produced
+    # ZERO records (all changed files outside impact's 5-ext filter) — append
+    # the symmetric record; the empty-diff-range record above covers only the
+    # empty-outer-diff case.
+    jq -nc --arg b "$BASE" \
+        '{section:"empty-impact-scope", base:$b,
+          note:"changed files exist but none match the impact extension filter (py/ts/tsx/js/rs)"}' >> "$OUT"
+    echo "empty-impact-scope: no impact-scoped files in ${BASE}...HEAD" >&2
 else
     # #520 (item-3): `grep -v` exits 1 on empty-but-successful impact output;
     # under pipefail+set -e that aborts the script. No-match is NOT an error
     # here (rc 0 + empty is a valid "nothing impacted") — guard with `|| true`.
+    # #547 AC 6.2(a): impact exits 0 while carrying {kind:"<wrapper>-error"}
+    # records (#544 convention via ast_grep_check_rc — broken engine). Route
+    # any kind ending in "-error" to section:"review-error" keeping its own
+    # fields — endswith (unlike the untested-py leg's exact match) covers every
+    # wrapper's error kind arriving through the impact composition.
     printf '%s\n' "$IMPACT_OUT" | { grep -v '^$' || true; } \
-        | jq -c '. + {section: "impact"}' >> "$OUT"
+        | jq -c '
+            if ((.kind // "") | endswith("-error")) then
+                . + {section: "review-error", source: "sst3-code-impact"}
+            else
+                . + {section: "impact"}
+            end
+          ' >> "$OUT"
 fi
 
 if [[ -f .coverage ]] && command -v coverage >/dev/null 2>&1; then

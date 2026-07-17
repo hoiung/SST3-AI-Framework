@@ -3,6 +3,7 @@
 #
 # Usage:   sst3-sec-secret-touchpoints.sh [--paths-from <ndjson>]
 # Output:  NDJSON, one object per touchpoint: {file, line, kind, identifier}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          kind: env_read | dotenv_load | password_literal | aws_access_key | aws_secret_key
 #          identifier: the env-var name, dotenv path, or token (truncated)
 # Engines: ast-grep (Python env_read / dotenv_load) + ripgrep (regex literals)
@@ -91,17 +92,22 @@ PY_PATTERNS=(
     "dotenv_load|load_dotenv(\$\$\$)"
 )
 
+AG_OUT=$(mktemp)
 for spec in "${PY_PATTERNS[@]}"; do
     IFS='|' read -r kind pattern <<< "$spec"
+    AG_RC=0
+    ast-grep run --pattern "$pattern" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-sec-secret-touchpoints" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         ident=$(jq -r '.metaVariables.single.KEY.text // ""' <<< "$record")
         [[ -z "$file" ]] && continue
         emit_record "$file" "$line" "$kind" "$ident"
-    done < <(ast-grep run --pattern "$pattern" --lang python --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 # 2) ripgrep — literal patterns. We enumerate matches with --json so we get
 # file + line. Each pattern gets its own kind.

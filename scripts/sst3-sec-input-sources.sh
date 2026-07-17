@@ -4,6 +4,7 @@
 # Usage:   sst3-sec-input-sources.sh [--paths-from <ndjson>]
 # Output:  NDJSON, one object per source:
 #          {file, line, source_kind, snippet}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          source_kind: http_body | http_query | http_form | cli_argv | stdin | file_open
 #          snippet: best-effort 60-char window of the match
 # Engines: ast-grep (Python only — Phase 8 ships Python; Rust + JS in follow-up)
@@ -91,16 +92,21 @@ PATTERNS=(
     "file_open|open(\$\$\$)"
 )
 
+AG_OUT=$(mktemp)
 for spec in "${PATTERNS[@]}"; do
     IFS='|' read -r kind pattern <<< "$spec"
+    AG_RC=0
+    ast-grep run --pattern "$pattern" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-sec-input-sources" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         text=$(jq -r '.text // ""' <<< "$record")
         [[ -z "$file" ]] && continue
         emit_record "$file" "$line" "$kind" "$text"
-    done < <(ast-grep run --pattern "$pattern" --lang python --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 exit 0

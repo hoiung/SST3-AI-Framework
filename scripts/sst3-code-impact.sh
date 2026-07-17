@@ -94,20 +94,43 @@ fi
 # wrapper's wall time); lookups are now fork-free (index shape still the
 # orphans.sh:125-139 port, lookup upgraded from its :142-144 awk scan).
 declare -A CALLER_CNT INDEX_BUILT
+# #547 AC 5.4 (CX): typescript/tsx/javascript share ONE `jsfam` index bucket,
+# built from all three language scans on first encounter — a `.ts` def called
+# from `.tsx`/`.js` now counts (probe-confirmed false negative under the old
+# per-$LANG buckets). Same-name merges stay the accepted safe over-count.
+lang_family() {
+    case "$1" in
+        typescript|tsx|javascript) echo "jsfam" ;;
+        *) echo "$1" ;;
+    esac
+}
 build_caller_index() {
-    local lang="$1" n c
-    # pipefail disabled inside the process substitution only: ast-grep exits
-    # non-zero on zero matches, grep on empty input — neither is an error here.
-    # shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
-    while IFS=$'\t' read -r n c; do
-        CALLER_CNT["$lang:$n"]=$c
-    done < <( set +o pipefail
-      ast-grep run --pattern '$NAME($$$)' --lang "$lang" --json=stream 2>/dev/null \
-        | jq -r '.metaVariables.single.NAME.text // empty' \
-        | awk '{ gsub(/\?/,""); gsub(/::/,"."); n=split($0,a,"."); print a[n] }' \
-        | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
-        | sort | uniq -c | awk '{print $2"\t"$1}' )
-    INDEX_BUILT[$lang]=1
+    local fam="$1" lang n c langs
+    case "$fam" in
+        jsfam) langs="typescript tsx javascript" ;;
+        *) langs="$fam" ;;
+    esac
+    for lang in $langs; do
+        # #547 AC 6.1: buffer-then-check — the rc gate runs BEFORE jq sees the
+        # stream (rc 1 = zero-matches stays benign; rc >= 2 = broken engine →
+        # -error record + exit 0). pipefail stays off in the filter chain only
+        # for grep-on-empty-input.
+        local ag_tmp ag_rc
+        ag_tmp=$(mktemp)
+        ag_rc=0
+        # shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
+        ast-grep run --pattern '$NAME($$$)' --lang "$lang" --json=stream > "$ag_tmp" 2>/dev/null || ag_rc=$?
+        ast_grep_check_rc "sst3-code-impact" "$ag_rc" || { rm -f "$ag_tmp"; exit 0; }
+        while IFS=$'\t' read -r n c; do
+            CALLER_CNT["$fam:$n"]=$(( ${CALLER_CNT["$fam:$n"]:-0} + c ))
+        done < <( set +o pipefail
+          jq -r '.metaVariables.single.NAME.text // empty' < "$ag_tmp" \
+            | awk '{ gsub(/\?/,""); gsub(/::/,"."); n=split($0,a,"."); print a[n] }' \
+            | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
+            | sort | uniq -c | awk '{print $2"\t"$1}' )
+        rm -f "$ag_tmp"
+    done
+    INDEX_BUILT[$fam]=1
 }
 
 while IFS= read -r FILE; do
@@ -178,12 +201,18 @@ rule:
     # pre-#546 the same symbols exit-64'd the WHOLE run; silent-drop is the
     # milder failure mode, and the raw counter-query lane (playbook #484
     # W6.4) is the recall backstop.
+    # #547 AC 6.1: buffer-then-check per changed file (same gate as the index).
+    AG_TMP=$(mktemp)
+    AG_RC=0
+    ast-grep scan --inline-rules "$EXTRACT_RULE" --json=stream "$FILE" > "$AG_TMP" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-code-impact" "$AG_RC" || { rm -f "$AG_TMP"; exit 0; }
     SYMBOLS=$( set +o pipefail
-        ast-grep scan --inline-rules "$EXTRACT_RULE" --json=stream "$FILE" 2>/dev/null \
-            | jq -r '.metaVariables.single.NAME.text // empty' \
+        jq -r '.metaVariables.single.NAME.text // empty' < "$AG_TMP" \
             | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
             | sort -u )
-    [[ -z "${INDEX_BUILT[$LANG]:-}" ]] && build_caller_index "$LANG"
+    rm -f "$AG_TMP"
+    FAM=$(lang_family "$LANG")
+    [[ -z "${INDEX_BUILT[$FAM]:-}" ]] && build_caller_index "$FAM"
     COUNT=0
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue
@@ -191,7 +220,7 @@ rule:
         # Per-symbol count = one fork-free assoc lookup. The index already
         # merged every call shape (#496/#544 bare+receiver, #546 scoped +
         # optional-chain) by last-component key — see the Phase-4 block above.
-        COUNT=$((COUNT + ${CALLER_CNT[$LANG:$SYM]:-0}))
+        COUNT=$((COUNT + ${CALLER_CNT[$FAM:$SYM]:-0}))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
     SST3_EMITTED_COUNT=$((SST3_EMITTED_COUNT + 1))

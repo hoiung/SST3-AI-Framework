@@ -5,6 +5,7 @@
 #          (lang optional; default scans python+rust+javascript)
 # Output:  NDJSON, one object per call site:
 #          {file, line, function, args_shape}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          function: subprocess.run|subprocess.Popen|subprocess.call|os.system|os.popen|Command::new|child_process.exec|child_process.execSync|child_process.spawn
 #          args_shape: "literal" | "interpolated" | "var" (best-effort static eyeball)
 # Engines: ast-grep (Python + Rust + JS pattern set)
@@ -135,17 +136,22 @@ infer_args_shape() {
     fi
 }
 
+AG_OUT=$(mktemp)
 for spec in "${SELECTED[@]}"; do
     IFS='|' read -r lang func pattern <<< "$spec"
+    AG_RC=0
+    ast-grep run --pattern "$pattern" --lang "$lang" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-sec-subprocess" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         text=$(jq -r '.text // ""' <<< "$record")
         [[ -z "$file" ]] && continue
         shape=$(infer_args_shape "$text")
         emit_record "$file" "$line" "$func" "$shape"
-    done < <(ast-grep run --pattern "$pattern" --lang "$lang" --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 exit 0

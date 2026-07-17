@@ -5,6 +5,7 @@
 # Example: sst3-code-search.sh '$F($$$)' python
 #          sst3-code-search.sh 'voice_rules' python --literal
 # Output:  NDJSON, one object per match: {file, range:{start,end}, text}
+#          range.start / range.end are 1-indexed editor lines (#547 AC 7.1).
 # Engines: ripgrep (--literal mode); ast-grep --json=stream (structural, default).
 #          Missing engine → stderr contract + exit 127 (per Phase 5 hook + Ralph).
 
@@ -86,7 +87,11 @@ else
     # `run --pattern X --lang L` defaults to walking cwd, but only when stdin
     # is a TTY; under subprocess invocation it reads file paths from stdin.
     # `--globs` would also work; bare `.` is the smaller change.
-    ast-grep run --pattern "$PATTERN" --lang "$LANG" --json=stream . 2>/dev/null \
-        | jq -c '{file, range: {start: .range.start.line, end: .range.end.line}, text}' \
-        || true
+    # #547 AC 6.1: buffer-then-check — rc gate before jq sees the stream.
+    AG_OUT=$(mktemp)
+    AG_RC=0
+    ast-grep run --pattern "$PATTERN" --lang "$LANG" --json=stream . > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-code-search" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+    jq -c '{file, range: {start: (.range.start.line + 1), end: (.range.end.line + 1)}, text}' < "$AG_OUT"  # #547 AC 7.1: 1-indexed (start AND end)
+    rm -f "$AG_OUT"
 fi

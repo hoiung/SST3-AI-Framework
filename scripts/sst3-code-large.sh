@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# sst3-code-large.sh — Refactoring candidate scan: functions exceeding line threshold.
+# sst3-code-large.sh — Refactoring candidate scan: functions meeting-or-exceeding
+# (>=) the line threshold — a block of exactly <min_lines> lines IS reported.
 #
 # Usage:   sst3-code-large.sh <min_lines> <lang>
 # Example: sst3-code-large.sh 200 python
-# Output:  NDJSON, one object per oversized function: {file, name, lines}
+# Output:  NDJSON, one object per oversized function: {file, name, lines, kind}
+#          kind: "large-fn" (ast path) | "large-md" (markdown path). `lines` is a
+#          span COUNT (end - start + 1), not a line index.
 # Engines: ast-grep scan --inline-rules + jq end-line minus start-line filter.
 #
 # #445 R4 fix: switched from `--pattern 'def $NAME($$$): $$$'` to
@@ -75,7 +78,7 @@ if [[ "$LANG" == "md" || "$LANG" == "markdown" ]]; then
             awk -v file="$FILE" -v min="$MIN_LINES" '
                 /^#{1,6} / {
                     if (last_heading_line && (NR - last_heading_line) >= min) {
-                        printf "{\"file\":\"%s\",\"name\":\"%s\",\"lines\":%d}\n",
+                        printf "{\"file\":\"%s\",\"name\":\"%s\",\"lines\":%d,\"kind\":\"large-md\"}\n",
                             file, last_heading_text, NR - last_heading_line
                     }
                     last_heading_line = NR
@@ -85,7 +88,7 @@ if [[ "$LANG" == "md" || "$LANG" == "markdown" ]]; then
                 }
                 END {
                     if (last_heading_line && (NR - last_heading_line + 1) >= min) {
-                        printf "{\"file\":\"%s\",\"name\":\"%s\",\"lines\":%d}\n",
+                        printf "{\"file\":\"%s\",\"name\":\"%s\",\"lines\":%d,\"kind\":\"large-md\"}\n",
                             file, last_heading_text, NR - last_heading_line + 1
                     }
                 }
@@ -118,17 +121,32 @@ rule:
     pattern: $NAME'
         ;;
     typescript|tsx|javascript)
+        # #547 AC 1.1 (D1): per-branch name binding. The old shared
+        # `has:{field:name}` was structurally dead for arrow_function (no name
+        # field) and for anonymous function_expression assigned to a
+        # declarator; js class-field arrows bind via field `property`
+        # (ts `public_field_definition` uses `name`) — hence the
+        # name/property fallback under `inside:`.
         RULE="id: large-fn
 language: $LANG
 rule:
   any:
     - kind: function_declaration
+      has: {field: name, pattern: \$NAME}
     - kind: method_definition
+      has: {field: name, pattern: \$NAME}
     - kind: function_expression
+      has: {field: name, pattern: \$NAME}
+    - kind: function_expression
+      inside:
+        any:
+          - has: {field: name, pattern: \$NAME}
+          - has: {field: property, pattern: \$NAME}
     - kind: arrow_function
-  has:
-    field: name
-    pattern: \$NAME"
+      inside:
+        any:
+          - has: {field: name, pattern: \$NAME}
+          - has: {field: property, pattern: \$NAME}"
         ;;
     rust)
         RULE='id: large-fn
@@ -145,11 +163,16 @@ rule:
         ;;
 esac
 
-ast-grep scan --inline-rules "$RULE" --json=stream 2>/dev/null \
-    | jq -c --argjson min "$MIN_LINES" '
-        . as $m |
-        ($m.range.end.line - $m.range.start.line + 1) as $n |
-        select($n >= $min) |
-        {file: $m.file, name: ($m.metaVariables.single.NAME.text // "?"), lines: $n}
-      ' \
-    || true
+# #547 AC 6.1: buffer-then-check — the rc gate runs BEFORE jq sees the stream
+# (a broken engine's garbage stdout cannot crash jq or leak bare stderr).
+AG_OUT=$(mktemp)
+AG_RC=0
+ast-grep scan --inline-rules "$RULE" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+ast_grep_check_rc "sst3-code-large" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+jq -c --argjson min "$MIN_LINES" '
+    . as $m |
+    ($m.range.end.line - $m.range.start.line + 1) as $n |
+    select($n >= $min) |
+    {file: $m.file, name: ($m.metaVariables.single.NAME.text // "?"), lines: $n, kind: "large-fn"}
+  ' < "$AG_OUT"
+rm -f "$AG_OUT"

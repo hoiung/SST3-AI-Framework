@@ -5,6 +5,7 @@
 # Example: sst3-code-entry-points.sh python
 # Output:  NDJSON, one object per entry point:
 #          {file, line, kind, symbol}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          kind: main | cli | http_handler | controller_init | service_main
 # Engines: ast-grep pre-baked patterns per language.
 #
@@ -88,10 +89,14 @@ emit_record() {
 
 run_pattern() {
     local pattern="$1" kind="$2" sym_meta="${3:-}"
+    local ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep run --pattern "$pattern" --lang "$LANG" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    ast_grep_check_rc "sst3-code-entry-points" "$ag_rc" || { rm -f "$ag_out"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         if [[ -n "$sym_meta" ]]; then
             symbol=$(jq -r --arg m "$sym_meta" '.metaVariables.single[$m].text // ""' <<< "$record")
         else
@@ -99,24 +104,77 @@ run_pattern() {
         fi
         [[ -z "$file" ]] && continue
         emit_record "$file" "$line" "$kind" "$symbol"
-    done < <(ast-grep run --pattern "$pattern" --lang "$LANG" --json=stream 2>/dev/null || true)
+    done < "$ag_out"
+    rm -f "$ag_out"
+}
+
+# #547 AC 3.1: kind-rule sibling of run_pattern — identical record handling,
+# invocation swaps to `ast-grep scan --inline-rules` (rule embeds `language:`).
+run_rule() {
+    local rule="$1" kind="$2" sym_meta="${3:-}"
+    local ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep scan --inline-rules "$rule" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    ast_grep_check_rc "sst3-code-entry-points" "$ag_rc" || { rm -f "$ag_out"; exit 0; }
+    while IFS= read -r record; do
+        [[ -z "$record" ]] && continue
+        file=$(jq -r '.file // ""' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
+        if [[ -n "$sym_meta" ]]; then
+            symbol=$(jq -r --arg m "$sym_meta" '.metaVariables.single[$m].text // ""' <<< "$record")
+        else
+            symbol="$kind"
+        fi
+        [[ -z "$file" ]] && continue
+        emit_record "$file" "$line" "$kind" "$symbol"
+    done < "$ag_out"
+    rm -f "$ag_out"
 }
 
 NL=$'\n'
 case "$LANG" in
     python)
         run_pattern 'if __name__ == "__main__": $$$' "main"
-        run_pattern "@app.route(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "http_handler" "NAME"
-        run_pattern "@app.get(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "http_handler" "NAME"
-        run_pattern "@app.post(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "http_handler" "NAME"
-        run_pattern "@router.get(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "http_handler" "NAME"
-        run_pattern "@router.post(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "http_handler" "NAME"
-        run_pattern "@click.command(\$\$\$)${NL}def \$NAME(\$\$\$): \$\$\$" "cli" "NAME"
+        # #547 (Stage-4 #447 recall gate): the single-quote guard form
+        # `if __name__ == '__main__'` is a DISTINCT string literal — ast-grep pattern
+        # text is quote-significant, so the double-quote pattern above misses it
+        # (16 live SST3/scripts python tools use single quotes; probe-confirmed missed.
+        #  `grep -rlE "if __name__ == '__main__'" scripts/` returns 17 files, but
+        #  the 17th is THIS wrapper's own pattern literal at :145, not a consumer tool).
+        # A second exact run_pattern restores recall parity and is inherently
+        # false-positive-safe (pins `== '__main__'`); a quote-agnostic kind-rule was
+        # probed but needs string_content + ==-operator pinning for zero recall gain.
+        run_pattern "if __name__ == '__main__': \$\$\$" "main"
+        # #547 AC 3.1 (D4+D9): decorated_definition kind-rules replace the six
+        # decorator+def shape patterns, which missed typed handlers (`-> dict`)
+        # and ALL stacked-decorator handlers. One rule per decorator, same kind
+        # labels + sym_meta. Probe-verified constraints: the `@…` decorator
+        # pattern MUST be YAML-quoted (bare `@` is a hard YAML error); sibling
+        # relational constraints nest under `all:` (duplicate sibling `has:`
+        # keys are a hard rule-parse error).
+        # shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
+        py_decorator_rule() {
+            printf 'id: entry-points\nlanguage: python\nrule:\n  kind: decorated_definition\n  all:\n    - has: {kind: decorator, pattern: "%s", stopBy: end}\n    - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}\n' "$1"
+        }
+        run_rule "$(py_decorator_rule '@app.route($$$)')" "http_handler" "NAME"
+        run_rule "$(py_decorator_rule '@app.get($$$)')" "http_handler" "NAME"
+        run_rule "$(py_decorator_rule '@app.post($$$)')" "http_handler" "NAME"
+        run_rule "$(py_decorator_rule '@router.get($$$)')" "http_handler" "NAME"
+        run_rule "$(py_decorator_rule '@router.post($$$)')" "http_handler" "NAME"
+        run_rule "$(py_decorator_rule '@click.command($$$)')" "cli" "NAME"
         ;;
     rust)
-        run_pattern 'fn main() { $$$ }' "main"
-        run_pattern 'pub fn main() { $$$ }' "main"
-        run_pattern "#[tokio::main]${NL}async fn main() { \$\$\$ }" "main"
+        # #547 AC 3.2 (D5): ONE kind-rule subsumes plain / pub / `-> Result` /
+        # tokio-async / tokio-Result mains — visibility, async, and return
+        # types are children of the same function_item node, and the tokio
+        # attribute is a SIBLING (which made the old 2-line tokio pattern
+        # structurally dead: a pattern spanning sibling top-level nodes cannot
+        # parse). 3 arms → 1.
+        run_rule 'id: entry-points
+language: rust
+rule:
+  kind: function_item
+  has: {field: name, regex: ^main$}' "main"
         ;;
     javascript|typescript|tsx)
         run_pattern 'app.get($$$, $HANDLER)' "http_handler" "HANDLER"

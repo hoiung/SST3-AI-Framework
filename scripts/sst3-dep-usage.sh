@@ -4,6 +4,7 @@
 # Usage:   sst3-dep-usage.sh <package> <lang>
 # Example: sst3-dep-usage.sh requests python
 # Output:  NDJSON, one object per usage site: {file, line, symbol, import_kind}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          import_kind: import | from_import | call_site
 # Engines: ast-grep (Python / Rust / JS).
 #
@@ -90,10 +91,14 @@ emit_record() {
 
 run_ast() {
     local pattern="$1" import_kind="$2" symbol_meta="${3:-}"
+    local ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep run --pattern "$pattern" --lang "$LANG" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    ast_grep_check_rc "sst3-dep-usage" "$ag_rc" || { rm -f "$ag_out"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         if [[ -n "$symbol_meta" ]]; then
             symbol=$(jq -r --arg m "$symbol_meta" '.metaVariables.single[$m].text // ""' <<< "$record")
         else
@@ -101,7 +106,8 @@ run_ast() {
         fi
         [[ -z "$file" ]] && continue
         emit_record "$file" "$line" "$symbol" "$import_kind"
-    done < <(ast-grep run --pattern "$pattern" --lang "$LANG" --json=stream 2>/dev/null || true)
+    done < "$ag_out"
+    rm -f "$ag_out"
 }
 
 case "$LANG" in

@@ -6,6 +6,8 @@
 # Output:  NDJSON stream:
 #          - One {kind:"orchestrator-progress", phase:"<label>", status:"started"} per phase
 #          - Findings from each wrapper, tagged with {kind:"<area>", ...}
+#            EXCEPT records whose kind ends in "-error" or "-killed" — those
+#            pass through with their own kind preserved (#547 AC 6.3)
 #          - One {kind:"orchestrator-progress", phase:"<label>", status:"complete|...", findings:N, seconds:T}
 #            per phase on completion
 #          - One terminating {kind:"orchestrator-complete", phases:[...], findings:N} on EXIT
@@ -151,9 +153,16 @@ run_or_skip() {
     local lines=0
     if [[ -s "$tmp" ]]; then
         # Tag each wrapper-emitted NDJSON line with the orchestrator's kind.
+        # #547 AC 6.3 (defect B): DISCRIMINATING passthrough — `-error` records
+        # (ast_grep_check_rc broken-engine, #544 convention) and `-killed`
+        # SIGTERM sentinels keep their own kind (the blanket `. + {kind:$k}`
+        # right-operand-wins relabel was masking them as normal findings);
+        # every other record keeps today's area relabel.
         while IFS= read -r LINE; do
             [[ -z "$LINE" ]] && continue
-            echo "$LINE" | jq -c --arg k "$LABEL" '. + {kind: $k}' 2>/dev/null || true
+            echo "$LINE" | jq -c --arg k "$LABEL" \
+                'if (.kind // "" | (endswith("-error") or endswith("-killed"))) then . else . + {kind: $k} end' \
+                2>/dev/null || true
             lines=$((lines + 1))
         done < "$tmp"
     fi
@@ -216,7 +225,11 @@ if [[ "$MODE" == "all" || "$MODE" == "code" ]]; then
     # Stage 5 fix (D5) — wire Phase 8 no-arg code wrappers.
     run_or_skip code-config "$WRAPPER_DIR/sst3-code-config.sh"
     run_or_skip code-orphans "$WRAPPER_DIR/sst3-code-orphans.sh" python
-    run_or_skip code-entry-points "$WRAPPER_DIR/sst3-code-entry-points.sh"
+    # #547 AC 7.5: entry-points requires a <lang> positional (like orphans above);
+    # the bare dispatch usage-errored every --all run (pre-existing, canonical
+    # 27439841 identical) so it never drove records through the preserve-kind
+    # path. `python` matches the orphans precedent (this repo is python/bash).
+    run_or_skip code-entry-points "$WRAPPER_DIR/sst3-code-entry-points.sh" python
     # NOTE: sst3-code-{callers, callees, callers-transitive, search, impact, review,
     # subclasses, coverage, cross-lang, secrets, shell, recent-changes, at-ref}
     # require explicit targets — see TARGET_REQUIRED_SKIPPED.

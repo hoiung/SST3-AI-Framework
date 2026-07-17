@@ -4,6 +4,7 @@
 # Usage:   sst3-code-config.sh [--paths-from <ndjson>]
 # Output:  NDJSON, one object per config key:
 #          {key, defined_in:[paths], read_at:[{file,line}], unused_def, undef_read}
+#          line fields are 1-indexed editor lines (#547 AC 7.1).
 #          unused_def: true if key appears in YAML/TOML/.env but never read
 #          undef_read: true if read_at exists but defined_in is empty
 # Engines: ast-grep (Python `os.environ[$KEY]`, `os.getenv($KEY)`,
@@ -87,19 +88,24 @@ PATTERNS=(
     "config.get(\$KEY)"
 )
 
+AG_OUT=$(mktemp)
 for pattern in "${PATTERNS[@]}"; do
+    AG_RC=0
+    ast-grep run --pattern "$pattern" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-code-config" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         key=$(jq -r '.metaVariables.single.KEY.text // ""' <<< "$record")
         # Strip surrounding quotes from string-literal keys
         key=$(printf '%s' "$key" | sed -e 's/^["'\'']//' -e 's/["'\'']$//')
         [[ -z "$file" || -z "$key" ]] && continue
         path_allowed "$file" || continue
         printf '%s\t%s\t%s\n' "$key" "$file" "$line" >> "$READS"
-    done < <(ast-grep run --pattern "$pattern" --lang python --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 # 2) Collect DEFINED keys from .yaml/.yml/.toml/.env files. Heuristic — we
 # treat top-level scalar keys + .env KEY=val lines as definitions.

@@ -13,6 +13,7 @@
 #         (class-API surface mapping)
 #
 # Output:  NDJSON, one object per callee site: {file, line, callee}.
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          With --class, an extra `method` field tags which method the
 #          callee came from (preserves attribution).
 # Design:  Two-pass ast-grep — pass 1 locates the target definition and
@@ -84,6 +85,12 @@ if ! command -v ast-grep >/dev/null 2>&1; then
     echo 'ERROR: ast-grep not installed; see dotfiles/docs/guides/code-query-playbook.md "Wrapper-Script Lane > Install"' >&2
     exit 127
 fi
+
+# #547 AC 6.1: save the real stdout on FD 9 so ast_grep_check_rc can emit the
+# broken-engine error record from inside $(...)-captured helpers (class_range /
+# fn_ranges) without poisoning their captured range data.
+SST3_REAL_STDOUT_FD=9
+exec 9>&1
 
 # Detect Class.method syntax. Splits NAME into CLASS_NAME + METHOD_NAME.
 CLASS_NAME=""
@@ -159,22 +166,31 @@ esac
 
 # Helper: emit RANGES JSON for a class scope (Class.method or --class).
 class_range() {
-    local cname="$1"
-    ast-grep scan --inline-rules "$CLASS_RULE" --json=stream 2>/dev/null \
-        | jq -c --arg cn "$cname" '
-            select(.metaVariables.single.CNAME.text == $cn)
-            | {file, start: .range.start.line, end: .range.end.line}
-        ' || true
+    local cname="$1" ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep scan --inline-rules "$CLASS_RULE" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    # On broken engine the record goes to FD 9 (real stdout) — this function's
+    # stdout is $(...)-captured; exit 1 aborts only the capture subshell and the
+    # caller's `|| exit 0` / empty-RANGES guard ends the run with the record out.
+    ast_grep_check_rc "sst3-code-callees" "$ag_rc" || { rm -f "$ag_out"; exit 1; }
+    jq -c --arg cn "$cname" '
+        select(.metaVariables.single.CNAME.text == $cn)
+        | {file, start: (.range.start.line + 1), end: (.range.end.line + 1)}
+    ' < "$ag_out"
+    rm -f "$ag_out"
 }
 
 # Helper: emit RANGES JSON for free function or method-name match.
 fn_ranges() {
-    local fname="$1"
-    ast-grep scan --inline-rules "$FN_RULE" --json=stream 2>/dev/null \
-        | jq -c --arg fname "$fname" '
-            select(.metaVariables.single.NAME.text == $fname)
-            | {file, start: .range.start.line, end: .range.end.line}
-        ' || true
+    local fname="$1" ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep scan --inline-rules "$FN_RULE" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    ast_grep_check_rc "sst3-code-callees" "$ag_rc" || { rm -f "$ag_out"; exit 1; }
+    jq -c --arg fname "$fname" '
+        select(.metaVariables.single.NAME.text == $fname)
+        | {file, start: (.range.start.line + 1), end: (.range.end.line + 1)}
+    ' < "$ag_out"
+    rm -f "$ag_out"
 }
 
 # Helper: filter ranges to those nested inside class scope ranges.
@@ -192,29 +208,36 @@ RANGES=""
 
 if [[ -z "$CLASS_NAME" ]] && [[ "$CLASS_MODE" -eq 0 ]]; then
     # Bare name: free-function or every method of that name across all classes.
-    RANGES=$(fn_ranges "$NAME")
+    # `|| exit 0` fires only on the helper's broken-engine exit-1 (record
+    # already on FD 9); a healthy empty result is rc 0 with empty RANGES.
+    RANGES=$(fn_ranges "$NAME") || exit 0
     # Disambiguation hint for class-name input.
     if [[ -z "$RANGES" ]] && [[ "$NAME" =~ ^[A-Z][A-Za-z0-9_]*$ ]]; then
         echo "WARN: '$NAME' looks like a class; pass --class to enumerate methods, or use Class.method to scope" >&2
     fi
 elif [[ "$CLASS_MODE" -eq 1 ]]; then
     # --class: union of all methods inside class.
-    CLASS_RANGES=$(class_range "$NAME" | jq -sc .)
+    CLASS_RANGES=$(class_range "$NAME" | jq -sc .) || exit 0
     if [[ -z "$CLASS_RANGES" ]] || [[ "$CLASS_RANGES" == "[]" ]]; then
         echo "WARN: class '$NAME' not found in $LANG sources" >&2
         exit 0
     fi
     # Get all method defs and filter to those inside class ranges.
-    RANGES=$(ast-grep scan --inline-rules "$FN_RULE" --json=stream 2>/dev/null \
-        | jq -c '
+    # #547 AC 6.1: buffer-then-check in main context, then filter the buffer.
+    AG_OUT=$(mktemp)
+    AG_RC=0
+    ast-grep scan --inline-rules "$FN_RULE" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-code-callees" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+    RANGES=$(jq -c '
             . as $m
-            | {file, start: $m.range.start.line, end: $m.range.end.line, method: $m.metaVariables.single.NAME.text}
-        ' \
+            | {file, start: ($m.range.start.line + 1), end: ($m.range.end.line + 1), method: $m.metaVariables.single.NAME.text}
+        ' < "$AG_OUT" \
         | inside_class "$CLASS_RANGES" \
         || true)
+    rm -f "$AG_OUT"
 elif [[ -n "$CLASS_NAME" ]] && [[ -n "$METHOD_NAME" ]]; then
     # Class.method: narrow method by class range.
-    CLASS_RANGES=$(class_range "$CLASS_NAME" | jq -sc .)
+    CLASS_RANGES=$(class_range "$CLASS_NAME" | jq -sc .) || exit 0
     if [[ -z "$CLASS_RANGES" ]] || [[ "$CLASS_RANGES" == "[]" ]]; then
         echo "WARN: class '$CLASS_NAME' not found in $LANG sources" >&2
         exit 0
@@ -236,13 +259,18 @@ echo "$RANGES" | jq -sc 'group_by(.file)[] | {file: .[0].file, ranges: [.[] | {s
     | while read -r FILE_GROUP; do
         FILE=$(echo "$FILE_GROUP" | jq -r '.file')
         RANGES_JSON=$(echo "$FILE_GROUP" | jq -c '.ranges')
-        ast-grep run --pattern "$CALL_PATTERN" --lang "$LANG" --json=stream "$FILE" 2>/dev/null \
-            | jq -c --argjson ranges "$RANGES_JSON" '
-                . as $m
-                | ($m.range.start.line) as $ln
-                | ($ranges[] | select($ln >= .start and $ln <= .end)) as $r
-                | {file: $m.file, line: $ln, callee: ($m.metaVariables.single.F.text // $m.text)}
-                  + (if ($r.method // null) != null then {method: $r.method} else {} end)
-              ' \
-            || true
+        # #547 AC 6.1: buffer-then-check per file. This loop is a pipeline
+        # subshell — `exit 0` ends the consumer; the record is already out.
+        AG_OUT=$(mktemp)
+        AG_RC=0
+        ast-grep run --pattern "$CALL_PATTERN" --lang "$LANG" --json=stream "$FILE" > "$AG_OUT" 2>/dev/null || AG_RC=$?
+        ast_grep_check_rc "sst3-code-callees" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+        jq -c --argjson ranges "$RANGES_JSON" '
+            . as $m
+            | ($m.range.start.line + 1) as $ln
+            | ($ranges[] | select($ln >= .start and $ln <= .end)) as $r
+            | {file: $m.file, line: $ln, callee: ($m.metaVariables.single.F.text // $m.text)}
+              + (if ($r.method // null) != null then {method: $r.method} else {} end)
+          ' < "$AG_OUT"
+        rm -f "$AG_OUT"
     done

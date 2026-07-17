@@ -32,7 +32,8 @@ test-fixtures/<name>/
   "expect": {
     "exit_code": 0,
     "stdout_min_records": 2,
-    "stdout_kind_records": ["large-fn"],
+    "stdout_kind_records": ["large-md"],
+    "stdout_must_contain": ["big.md"],
     "stdout_must_contain_files": ["big.md"],
     "stderr_must_contain": ["sst3-code-large:"],
     "stderr_must_match": "scanned \\d+ path"

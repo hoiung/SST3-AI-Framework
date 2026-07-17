@@ -4,6 +4,7 @@
 # Usage:   sst3-code-callers.sh <symbol> <lang>
 # Example: sst3-code-callers.sh BANNED_WORDS python
 # Output:  NDJSON, one object per call site: {file, line, kind}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 # Design:  Primary engine intended is the CC `LSP` tool's `incomingCalls`,
 #          callable by an agent directly when LSP is wired for the language.
 #          When LSP is not wired (verified Phase 1 smoke 2026-04-25), this
@@ -82,8 +83,14 @@ fi
 # not a pattern gap; the Leader.md raw-grep counter-query gate is the
 # compensating control for macro-heavy / test-assertion call sites.
 emit_call_sites() {
-    ast-grep run --pattern "$1" --lang "$LANG" --json=stream 2>/dev/null \
-        | jq -c '{file, line: .range.start.line, kind: "call"}' || true
+    # #547 AC 6.1: buffer-then-check — the rc gate runs BEFORE jq sees the
+    # stream (broken-engine garbage cannot crash jq or leak bare stderr).
+    local ag_out ag_rc=0
+    ag_out=$(mktemp)
+    ast-grep run --pattern "$1" --lang "$LANG" --json=stream > "$ag_out" 2>/dev/null || ag_rc=$?
+    ast_grep_check_rc "sst3-code-callers" "$ag_rc" || { rm -f "$ag_out"; exit 0; }
+    jq -c '{file, line: (.range.start.line + 1), kind: "call"}' < "$ag_out"  # #547 AC 7.1: 1-indexed
+    rm -f "$ag_out"
 }
 emit_call_sites "${SYMBOL}(\$\$\$)"
 emit_call_sites "\$SST3_RECV.${SYMBOL}(\$\$\$)"

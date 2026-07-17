@@ -179,3 +179,33 @@ sst3_solo_branch_alt() {
     local issue="$1"
     printf '(worktree-)?solo[/+-]issue-%s-' "$issue"
 }
+
+# ast_grep_check_rc <wrapper-name> <rc> — #547 AC 6.1 (R1 broken-engine loudness).
+# Discriminates the captured ast-grep exit code (rc, NOT output emptiness):
+#   rc 0 = matches; rc 1 = benign empty (`run` zero-matches / no files of the
+#   lang / missing file arg — probe matrix, ast-grep 0.42.1; `scan` exits 0 on
+#   zero matches). Both return 0 — a genuine empty result stays a valid empty.
+#   rc >= 2 (crash, garbage binary, rule/pattern parse error 8, exec-127) =
+#   engine PRESENT but BROKEN: emit {"kind":"<wrapper-name>-error",...} on
+#   stdout (#544 untested-py-error convention — stdout NDJSON, NEVER bare
+#   stderr: review.sh composes wrappers via `$(... 2>&1)`) and return 1.
+# Callers exit 0 after the record (any partial records already emitted stay
+# valid; the record IS the loud signal — sec-staged-scan/sst3-check consumers
+# gate on `-error` kinds in the stream, not on rc).
+# When SST3_REAL_STDOUT_FD is set (callees.sh: helpers whose stdout is
+# $(...)-captured), the record goes to that saved FD so it cannot poison the
+# captured data.
+ast_grep_check_rc() {
+    local wrapper="$1" rc="${2:-99}"
+    [[ "$rc" =~ ^[0-9]+$ ]] || rc=99
+    (( rc <= 1 )) && return 0
+    local record
+    record=$(printf '{"kind":"%s-error","reason":"ast-grep exited rc=%s: engine present but broken (benign classes: 0=match, 1=zero-matches)","rc":%s}' \
+        "$wrapper" "$rc" "$rc")
+    if [[ -n "${SST3_REAL_STDOUT_FD:-}" ]]; then
+        printf '%s\n' "$record" >&"${SST3_REAL_STDOUT_FD}"
+    else
+        printf '%s\n' "$record"
+    fi
+    return 1
+}

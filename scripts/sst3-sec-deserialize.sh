@@ -3,6 +3,7 @@
 #
 # Usage:   sst3-sec-deserialize.sh [--paths-from <ndjson>]
 # Output:  NDJSON, one object per sink: {file, line, sink, taint_source}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          sink: pickle.loads | yaml.load | eval | exec | marshal.loads
 #          taint_source: best-effort first-arg snippet (literal value or var
 #          name) — auditors use this to triangulate where the bytes came from.
@@ -107,12 +108,16 @@ extract_first_arg() {
     echo "$first"
 }
 
+AG_OUT=$(mktemp)
 for spec in "${PATTERNS[@]}"; do
     IFS='|' read -r sink pattern <<< "$spec"
+    AG_RC=0
+    ast-grep run --pattern "$pattern" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-sec-deserialize" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         text=$(jq -r '.text // ""' <<< "$record")
         [[ -z "$file" ]] && continue
         if [[ "$sink" == "yaml.load" ]] && is_safe_yaml_load "$text"; then
@@ -120,7 +125,8 @@ for spec in "${PATTERNS[@]}"; do
         fi
         taint=$(extract_first_arg "$text")
         emit_record "$file" "$line" "$sink" "$taint"
-    done < <(ast-grep run --pattern "$pattern" --lang python --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 exit 0

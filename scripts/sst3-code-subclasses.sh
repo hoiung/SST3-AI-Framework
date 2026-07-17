@@ -4,6 +4,7 @@
 # Usage:   sst3-code-subclasses.sh <class_name> <lang>
 # Example: sst3-code-subclasses.sh BaseStrategyController python
 # Output:  NDJSON, one object per subclass: {file, line, kind:"subclass", child}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 # Engines: ast-grep --json=stream + jq base-list filter.
 #
 # #445 R4 (Bug D): companion to sst3-code-callers.sh, which is blind to
@@ -66,23 +67,57 @@ if ! command -v ast-grep >/dev/null 2>&1; then
     exit 127
 fi
 
-# Per-language class-definition pattern. Captures the subclass NAME and
-# the base list (BASES); jq then filters down to those whose base list
-# contains $SYMBOL.
+# Per-language class-definition query. Python keeps its shape pattern (the
+# parenthesised base-list form matches all python class shapes); ts/tsx, js
+# and rust use kind-rules (#547 AC 4.1/4.2 — D6+D7): shape patterns cannot
+# match nodes carrying extra children (abstract/decorated classes, generic +
+# where-clause impls). The ts/tsx vs js SPLIT is probe-forced:
+# `abstract_class_declaration` is a TS-only kind — referencing it under
+# `language: javascript` is a load-time HARD "Invalid Kind" error even in
+# unreachable `any:` branches.
 case "$LANG" in
     python)
         # shellcheck disable=SC2016
         PATTERN='class $NAME($$$BASES): $$$BODY'
         ;;
-    typescript|tsx|javascript)
+    typescript|tsx)
+        # shellcheck disable=SC2016  # $NAME/$BASE are ast-grep meta-vars
+        RULE="id: subclasses
+language: $LANG
+rule:
+  any:
+    - kind: class_declaration
+    - kind: abstract_class_declaration
+  all:
+    - has: {field: name, pattern: \$NAME}
+    - has: {kind: class_heritage, has: {kind: extends_clause, has: {field: value, pattern: \$BASE}}}"
+        ;;
+    javascript)
+        # js grammar has no abstract-class syntax and its class_heritage
+        # holds a bare identifier (no extends_clause wrapper).
         # shellcheck disable=SC2016
-        PATTERN='class $NAME extends $BASE { $$$BODY }'
+        RULE='id: subclasses
+language: javascript
+rule:
+  kind: class_declaration
+  all:
+    - has: {field: name, pattern: $NAME}
+    - has: {kind: class_heritage, has: {kind: identifier, pattern: $BASE}}'
         ;;
     rust)
         # Rust uses impl blocks for trait/inheritance composition.
         # `impl <Trait> for <Type>` — match $TYPE implementing $SYMBOL trait.
+        # impl_item is the same top-level kind across plain/generic/where
+        # impls, so ONE rule covers all three; `all:` nesting is mandatory
+        # (duplicate sibling `has:` keys are a hard parse error).
         # shellcheck disable=SC2016
-        PATTERN='impl $TRAIT for $TYPE { $$$BODY }'
+        RULE='id: subclasses
+language: rust
+rule:
+  kind: impl_item
+  all:
+    - has: {field: trait, pattern: $TRAIT}
+    - has: {field: type, pattern: $TYPE}'
         ;;
     *)
         echo "ERROR: unsupported lang: $LANG (supported: python, typescript, tsx, javascript, rust)" >&2
@@ -92,37 +127,55 @@ esac
 
 case "$LANG" in
     python)
-        ast-grep run --pattern "$PATTERN" --lang python --json=stream 2>/dev/null \
-            | jq -c --arg sym "$SYMBOL" '
-                . as $m
-                | ($m.metaVariables.multi.BASES // []) as $bases
-                | if any($bases[]; .text == $sym) then
-                    {file: $m.file, line: $m.range.start.line, kind: "subclass",
-                     child: ($m.metaVariables.single.NAME.text // "?")}
-                  else empty end
-              ' \
-            || true
+        # #547 AC 6.1: buffer-then-check — the rc gate runs BEFORE jq sees the
+        # stream, so a broken engine's garbage stdout can neither crash jq nor
+        # leak bare stderr into review.sh's `$(... 2>&1)` composition capture.
+        AG_OUT=$(mktemp)
+        AG_RC=0
+        ast-grep run --pattern "$PATTERN" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+        ast_grep_check_rc "sst3-code-subclasses" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+        jq -c --arg sym "$SYMBOL" '
+            . as $m
+            | ($m.metaVariables.multi.BASES // []) as $bases
+            | if any($bases[]; .text == $sym) then
+                {file: $m.file, line: ($m.range.start.line + 1), kind: "subclass",
+                 child: ($m.metaVariables.single.NAME.text // "?")}
+              else empty end
+          ' < "$AG_OUT"
+        rm -f "$AG_OUT"
         ;;
     typescript|tsx|javascript)
-        ast-grep run --pattern "$PATTERN" --lang "$LANG" --json=stream 2>/dev/null \
-            | jq -c --arg sym "$SYMBOL" '
-                . as $m
-                | if ($m.metaVariables.single.BASE.text // "") == $sym then
-                    {file: $m.file, line: $m.range.start.line, kind: "subclass",
-                     child: ($m.metaVariables.single.NAME.text // "?")}
-                  else empty end
-              ' \
-            || true
+        # Combined consumption arm — --json=stream output is grammar-agnostic
+        # once the RULE is per-arm. ts $BASE binds the BARE identifier even
+        # for `extends Foo<T>` (probe-verified), so no strip is needed here.
+        AG_OUT=$(mktemp)
+        AG_RC=0
+        ast-grep scan --inline-rules "$RULE" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+        ast_grep_check_rc "sst3-code-subclasses" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+        jq -c --arg sym "$SYMBOL" '
+            . as $m
+            | if ($m.metaVariables.single.BASE.text // "") == $sym then
+                {file: $m.file, line: ($m.range.start.line + 1), kind: "subclass",
+                 child: ($m.metaVariables.single.NAME.text // "?")}
+              else empty end
+          ' < "$AG_OUT"
+        rm -f "$AG_OUT"
         ;;
     rust)
-        ast-grep run --pattern "$PATTERN" --lang rust --json=stream 2>/dev/null \
-            | jq -c --arg sym "$SYMBOL" '
-                . as $m
-                | if ($m.metaVariables.single.TRAIT.text // "") == $sym then
-                    {file: $m.file, line: $m.range.start.line, kind: "trait_impl",
-                     child: ($m.metaVariables.single.TYPE.text // "?")}
-                  else empty end
-              ' \
-            || true
+        # #547 AC 4.3 (rust-only generic strip): impl_item fields RETAIN
+        # generics — `impl<T> Container<T> for Holder` binds $TRAIT =
+        # `Container<T>` — so strip the argument suffix before equality.
+        AG_OUT=$(mktemp)
+        AG_RC=0
+        ast-grep scan --inline-rules "$RULE" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+        ast_grep_check_rc "sst3-code-subclasses" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+        jq -c --arg sym "$SYMBOL" '
+            . as $m
+            | if (($m.metaVariables.single.TRAIT.text // "") | sub("<.*$"; "")) == $sym then
+                {file: $m.file, line: ($m.range.start.line + 1), kind: "trait_impl",
+                 child: ($m.metaVariables.single.TYPE.text // "?")}
+              else empty end
+          ' < "$AG_OUT"
+        rm -f "$AG_OUT"
         ;;
 esac

@@ -5,6 +5,7 @@
 # Example: sst3-code-orphans.sh python
 # Output:  NDJSON, one object per orphan symbol:
 #          {file, line, symbol, kind, exported, last_modified}
+#          line is a 1-indexed editor line (#547 AC 7.1).
 #          kind: function | method | class
 #          exported: true if symbol is referenced in `__all__` or `pub` exposure
 #          last_modified: ISO8601 from `git log -1 --format=%aI` (best-effort)
@@ -104,23 +105,32 @@ if [[ -n "$ALLOWLIST_PATH" && -r "$ALLOWLIST_PATH" ]]; then
     grep -vE '^\s*(#|$)' "$ALLOWLIST_PATH" >> "$ALLOW" || true
 fi
 
-# Extract __all__ entries best-effort.
+# Extract __all__ entries best-effort. Each ast-grep run buffers to $AG_OUT and
+# routes its real rc through ast_grep_check_rc (#547 AC 6.1 — a broken engine
+# emits the -error record and exits 0 instead of a silent all-zero pass).
+AG_OUT=$(mktemp)
+AG_RC=0
+ast-grep run --pattern '__all__ = $$$' --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+ast_grep_check_rc "sst3-code-orphans" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
 while IFS= read -r record; do
     [[ -z "$record" ]] && continue
     text=$(jq -r '.text // ""' <<< "$record")
     while IFS= read -r tok; do
         [[ -n "$tok" ]] && echo "$tok" >> "$ALLOW"
     done < <(printf '%s' "$text" | grep -oE "['\"][a-zA-Z_][a-zA-Z0-9_]*['\"]" | tr -d "'\"")
-done < <(ast-grep run --pattern '__all__ = $$$' --lang python --json=stream 2>/dev/null || true)
+done < "$AG_OUT"
 
 # Also match PEP 526 annotated form: `__all__: list[str] = [...]` (Ralph Tier 3 FAIL E).
+AG_RC=0
+ast-grep run --pattern '__all__: $TYPE = $$$' --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+ast_grep_check_rc "sst3-code-orphans" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
 while IFS= read -r record; do
     [[ -z "$record" ]] && continue
     text=$(jq -r '.text // ""' <<< "$record")
     while IFS= read -r tok; do
         [[ -n "$tok" ]] && echo "$tok" >> "$ALLOW"
     done < <(printf '%s' "$text" | grep -oE "['\"][a-zA-Z_][a-zA-Z0-9_]*['\"]" | tr -d "'\"")
-done < <(ast-grep run --pattern '__all__: $TYPE = $$$' --lang python --json=stream 2>/dev/null || true)
+done < "$AG_OUT"
 
 # Build the caller-name index ONCE — equivalent to running sst3-code-callers
 # for every possible name in one batch. `$NAME($$$)` binds NAME to the FULL
@@ -132,29 +142,55 @@ done < <(ast-grep run --pattern '__all__: $TYPE = $$$' --lang python --json=stre
 # post-#496 callers.sh recall. Same-name methods on different classes can
 # over-count a shared name, which errs SAFE for an orphan detector (a missed
 # orphan, never a false deletion candidate).
+set +o pipefail
 ast-grep run --pattern '$NAME($$$)' --lang python --json=stream 2>/dev/null \
     | jq -r '.metaVariables.single.NAME.text // empty' 2>/dev/null \
     | grep -E '^[a-zA-Z_][a-zA-Z0-9_.]*$' \
     | awk -F'.' '{print $NF}' \
-    | sort | uniq -c | awk '{print $2"\t"$1}' > "$CALLER_INDEX" || true
+    | sort | uniq -c | awk '{print $2"\t"$1}' > "$CALLER_INDEX"
+AG_RC=${PIPESTATUS[0]}
+set -o pipefail
+ast_grep_check_rc "sst3-code-orphans" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
 
 # O(1)-ish lookup: extract count column for matching key, default 0 if missing.
 caller_count() {
     awk -F'\t' -v k="$1" '$1 == k { print $2; found=1; exit } END { if (!found) print 0 }' "$CALLER_INDEX"
 }
 
-# Extract def + class definitions.
-DEF_PATTERNS=(
-    "function|def \$NAME(\$\$\$): \$\$\$"
-    "class|class \$NAME: \$\$\$"
+# Extract def + class definitions — #547 AC 2.1 (D2+D3): kind-rules replace
+# the shape patterns (`def $NAME($$$): $$$` missed every return-type-annotated
+# def; `class $NAME: $$$` missed every based/metaclass class). Rule convention
+# = impact.sh EXTRACT_RULE (#546).
+# shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
+DEF_RULES=(
+    'function|id: orphan-defs
+language: python
+rule:
+  kind: function_definition
+  has:
+    field: name
+    pattern: $NAME'
+    'class|id: orphan-defs
+language: python
+rule:
+  kind: class_definition
+  has:
+    field: name
+    pattern: $NAME'
 )
 
-for spec in "${DEF_PATTERNS[@]}"; do
-    IFS='|' read -r kind pattern <<< "$spec"
+for spec in "${DEF_RULES[@]}"; do
+    # Parameter-expansion split — an IFS read would TRUNCATE the multi-line
+    # rule at the first newline (#547 AC 2.1 probe: 19 garbage chars survive).
+    kind="${spec%%|*}"
+    rule="${spec#*|}"
+    AG_RC=0
+    ast-grep scan --inline-rules "$rule" --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
+    ast_grep_check_rc "sst3-code-orphans" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
     while IFS= read -r record; do
         [[ -z "$record" ]] && continue
         file=$(jq -r '.file // ""' <<< "$record")
-        line=$(jq -r '.range.start.line // 0' <<< "$record")
+        line=$(jq -r '(.range.start.line + 1) // 0' <<< "$record")  # #547 AC 7.1: 1-indexed
         name=$(jq -r '.metaVariables.single.NAME.text // ""' <<< "$record")
         [[ -z "$file" || -z "$name" ]] && continue
         path_allowed "$file" || continue
@@ -179,7 +215,8 @@ for spec in "${DEF_PATTERNS[@]}"; do
             --arg lm "$last_mod" --argjson e "$exported" \
             '{file:$f, line:$l, symbol:$s, kind:$k, exported:$e, last_modified:$lm}'
         SST3_EMITTED_COUNT=$((SST3_EMITTED_COUNT + 1))
-    done < <(ast-grep run --pattern "$pattern" --lang python --json=stream 2>/dev/null || true)
+    done < "$AG_OUT"
 done
+rm -f "$AG_OUT"
 
 exit 0
