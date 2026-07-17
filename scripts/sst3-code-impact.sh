@@ -103,7 +103,17 @@ while IFS= read -r FILE; do
         N=$( (set +o pipefail; ast-grep run --pattern "${SYM}(\$\$\$)" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
         N=${N//[^0-9]/}
         N=${N:-0}
-        COUNT=$((COUNT + N))
+        # #544: count BOTH call-site shapes, mirroring the #496 fix in
+        # sst3-code-callers.sh — the bare pattern alone is a 100% recall miss
+        # on receiver-qualified calls (Python `self.method()` / `obj.method()`,
+        # JS `this.method()`, Rust `recv.method()`), which zeroed blast-radius
+        # for method-heavy changed files. The two shapes are structurally
+        # disjoint (identifier vs field-expression callee), so summing never
+        # double-counts a call site.
+        N2=$( (set +o pipefail; ast-grep run --pattern "\$SST3_RECV.${SYM}(\$\$\$)" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
+        N2=${N2//[^0-9]/}
+        N2=${N2:-0}
+        COUNT=$((COUNT + N + N2))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
 done <<< "$CHANGED"
