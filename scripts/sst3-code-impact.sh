@@ -80,30 +80,77 @@ count_call_sites() {
 
 while IFS= read -r FILE; do
     [[ -f "$FILE" ]] || continue
-    # AC 5.1 (dotfiles#516): dispatch the function-definition pattern(s) BY LANGUAGE.
-    # The prior code applied the Python `def $F($$$)` pattern to every language,
-    # so TS/JS/Rust files extracted ZERO symbols and silently reported 0
-    # impacted_callers (false-negative blast radius). Each language needs its own
-    # definition pattern(s) — and most need the body to match a full definition
-    # node (verified against ast-grep 0.42.1): TS/JS named functions AND arrow
-    # consts; Rust functions WITH and WITHOUT a `-> ret` annotation. Patterns are
-    # single-quoted so the ast-grep meta-vars $F / $$$ stay literal.
-    # shellcheck disable=SC2016  # DEFPATS meta-vars $F, $$$ must NOT undergo bash expansion
+    # Language dispatch (AC 5.1 dotfiles#516 kept the per-language split; #546
+    # ports the extraction itself from shape patterns to kind-rules).
     case "$FILE" in
-        *.py)  LANG="python";     DEFPATS=('def $F($$$)') ;;
-        *.ts)  LANG="typescript"; DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
-        *.tsx) LANG="tsx";        DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
-        *.js)  LANG="javascript"; DEFPATS=('function $F($$$) { $$$ }' 'const $F = ($$$) => $_') ;;
-        *.rs)  LANG="rust";       DEFPATS=('fn $F($$$) { $$$ }' 'fn $F($$$) -> $R { $$$ }') ;;
+        *.py)  LANG="python" ;;
+        *.ts)  LANG="typescript" ;;
+        *.tsx) LANG="tsx" ;;
+        *.js)  LANG="javascript" ;;
+        *.rs)  LANG="rust" ;;
         *)     continue ;;
     esac
-    # pipefail disabled in this subshell only: a pattern that matches nothing makes
-    # ast-grep exit non-zero, which would otherwise abort the loop under set -o pipefail.
+    # #546: definition extraction ported to the #445 R4 kind-rule convention
+    # already used by sst3-code-callees.sh:98-155 and sst3-code-large.sh.
+    # Shape patterns cannot match nodes carrying extra children, so Rust
+    # `pub`/`pub(crate)`/`pub async` fns and impl methods (visibility_modifier
+    # child), JS/TS class methods (method_definition kind), and typed/exported
+    # functions were never extracted — measured recall on the #546 probe tree:
+    # rust 2/6, ts 1/6 (python 3/3). Kind-rules recover 6/6 / 6/6 / 3/3.
+    # Anonymous arrows have no `name` field and stay unaddressable by name
+    # (same limit as callees.sh:119-120). variable_declarator also yields
+    # non-function consts and destructuring patterns — non-identifier names
+    # are filtered below; over-extraction adds mostly-0-count lookups (a
+    # const name colliding with a called function elsewhere can add a small
+    # over-count — the same coarse-name imprecision this advisory already
+    # carries; over-count errs safe).
+    # shellcheck disable=SC2016  # $NAME inside rule strings is an ast-grep meta-var, not a shell expansion
+    case "$LANG" in
+        python)
+            EXTRACT_RULE='id: impact-defs
+language: python
+rule:
+  kind: function_definition
+  has:
+    field: name
+    pattern: $NAME' ;;
+        typescript|tsx|javascript)
+            EXTRACT_RULE="id: impact-defs
+language: $LANG
+rule:
+  any:
+    - kind: function_declaration
+    - kind: method_definition
+    - kind: variable_declarator
+  has:
+    field: name
+    pattern: \$NAME" ;;
+        rust)
+            EXTRACT_RULE='id: impact-defs
+language: rust
+rule:
+  kind: function_item
+  has:
+    field: name
+    pattern: $NAME' ;;
+    esac
+    # pipefail disabled in this subshell only: zero matches make ast-grep exit
+    # non-zero (as does grep on empty input), which would otherwise abort the
+    # loop under set -o pipefail. The grep keeps only plain ASCII identifiers:
+    # destructuring declarators bind the whole pattern text (`{a, b}`) as
+    # $NAME, and assert_safe_identifier below exit-64s on those — drop them
+    # here instead (orphans.sh:137 precedent). Deliberate trade-off (Ralph
+    # Tier-2/3 #546): JS/TS `$`-identifiers (`data$`, `$emit`) and non-ASCII
+    # identifiers (`def café()`) are ALSO dropped silently and their call
+    # sites uncounted — assert_safe_identifier rejects both classes, so
+    # pre-#546 the same symbols exit-64'd the WHOLE run; silent-drop is the
+    # milder failure mode, and the raw counter-query lane (playbook #484
+    # W6.4) is the recall backstop.
     SYMBOLS=$( set +o pipefail
-        for PAT in "${DEFPATS[@]}"; do
-            ast-grep run --pattern "$PAT" --lang "$LANG" "$FILE" --json=stream 2>/dev/null \
-                | jq -r '.metaVariables.single.F.text // empty'
-        done | sort -u )
+        ast-grep scan --inline-rules "$EXTRACT_RULE" --json=stream "$FILE" 2>/dev/null \
+            | jq -r '.metaVariables.single.NAME.text // empty' \
+            | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
+            | sort -u )
     COUNT=0
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue
@@ -113,15 +160,26 @@ while IFS= read -r FILE; do
         # on receiver-qualified calls (field-expression callee: `self.method()`
         # / `obj.method()`). The two shapes are structurally disjoint
         # (identifier vs field-expression callee), so summing never
-        # double-counts a call site. Delivered recall benefit gates on the
-        # SYMBOL EXTRACTION above: Python defs (incl. class methods) extract,
-        # so receiver recall is real there; Rust `pub fn`/impl methods and
-        # JS/TS class methods are never yielded as $SYM by DEFPATS
-        # (pre-existing #516 extraction limits), so the receiver query cannot
-        # fire for them until extraction is extended (out of #544 scope).
+        # double-counts a call site. Extraction above is kind-based (#546),
+        # so method/pub symbols now reach these queries in every language.
         N=$(count_call_sites "${SYM}(\$\$\$)")
         N2=$(count_call_sites "\$SST3_RECV.${SYM}(\$\$\$)")
         COUNT=$((COUNT + N + N2))
+        # #546: language-specific THIRD shapes — each a structurally distinct
+        # callee node the first two cannot match (disjointness empirically
+        # verified both directions, so summing never double-counts):
+        #   rust — scoped-path calls `lib::f()` / `crate::lib::f()` /
+        #   `self::f()` (scoped_identifier callee — the dominant Rust call
+        #   style); one pattern matches every segment depth.
+        #   ts/tsx/js — optional-chain calls `obj?.m()`; the plain-dot
+        #   receiver pattern does NOT match them (and `?.` does not match
+        #   plain-dot calls).
+        case "$LANG" in
+            rust)                      N3=$(count_call_sites "\$SST3_PATH::${SYM}(\$\$\$)") ;;
+            typescript|tsx|javascript) N3=$(count_call_sites "\$SST3_RECV?.${SYM}(\$\$\$)") ;;
+            *)                         N3=0 ;;
+        esac
+        COUNT=$((COUNT + N3))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
 done <<< "$CHANGED"
