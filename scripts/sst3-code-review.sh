@@ -9,6 +9,8 @@
 #            {section:"impact", changed_file, impacted_callers}
 #            {section:"untested-in-diff", file, untested:[names]}
 #            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 changed files; exit 0 no-op)
+#            {section:"review-error", source, exit, stderr}            (engine exited non-zero; #447 Phase 3)
+#            {section:"review-error", source, kind, reason, detail}    (untested-py exit-0 error record passed through; #544)
 # Engines: composes sst3-code-impact.sh + sst3-code-untested-py.sh.
 
 set -euo pipefail
@@ -146,8 +148,10 @@ if [[ -f .coverage ]] && command -v coverage >/dev/null 2>&1; then
             # (#445 R4 Bug E contract — cross-host paths / corrupt data file).
             # That record has no `.file`, so the file-membership select below
             # silently dropped it and the review read as "all changed Python
-            # covered". Route error records through as review-error (same
-            # field names as the rc!=0 branch above).
+            # covered". Route error records through as review-error, keeping
+            # the record's own {kind, reason, detail} fields — a DIFFERENT
+            # field set from the rc!=0 branch above ({exit, stderr}); the two
+            # review-error variants share only section+source (see header).
             printf '%s\n' "$UNTESTED_OUT" | { grep -v '^$' || true; } \
                 | jq -c --arg changed "$CHANGED" '
                     . as $u |
