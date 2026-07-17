@@ -60,6 +60,24 @@ if [[ -z "$CHANGED" ]]; then
     exit 0
 fi
 
+# Count repo-wide call sites matching one ast-grep pattern (#544 Stage-5
+# dedup — shared by the bare + receiver-qualified shapes in the loop below,
+# mirroring callers.sh's emit_call_sites split). Uses the caller's $LANG.
+# Zero-caller case: `wc -l` exits 0 with `0` output, but pipe SIGPIPE on
+# ast-grep failure can yield `0\n0` via `|| echo 0` fallback — strip non-digits
+# so subsequent arithmetic doesn't fail with "syntax error in expression".
+# Stage 5 fix L1.I (Issue #12 post-impl review) — `set -o pipefail` at the
+# top propagates ast-grep's nonzero exit (it returns non-zero on certain
+# zero-match patterns) through the pipe, silently under-counting impact
+# records. Disable pipefail in this subshell only; the `${n:-0}` + non-digit
+# strip already handle the empty output case safely.
+count_call_sites() {
+    local n
+    n=$( (set +o pipefail; ast-grep run --pattern "$1" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
+    n=${n//[^0-9]/}
+    printf '%s\n' "${n:-0}"
+}
+
 while IFS= read -r FILE; do
     [[ -f "$FILE" ]] || continue
     # AC 5.1 (dotfiles#516): dispatch the function-definition pattern(s) BY LANGUAGE.
@@ -90,29 +108,19 @@ while IFS= read -r FILE; do
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue
         assert_safe_identifier "$SYM"
-        # Zero-caller case: `wc -l` exits 0 with `0` output, but pipe SIGPIPE on
-        # ast-grep failure can yield `0\n0` via `|| echo 0` fallback — strip non-digits
-        # so subsequent arithmetic doesn't fail with "syntax error in expression".
-        # Stage 5 fix L1.I (Issue #12 post-impl review) — `set -o pipefail`
-        # at line 11 propagates ast-grep's nonzero exit (it returns non-zero on
-        # certain zero-match patterns) through the pipe, aborting the whole
-        # loop after the first symbol with no callers and silently under-
-        # counting impact records. Disable pipefail in this subshell only;
-        # the `${N:-0}` + non-digit strip below already handle the empty
-        # output case safely.
-        N=$( (set +o pipefail; ast-grep run --pattern "${SYM}(\$\$\$)" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
-        N=${N//[^0-9]/}
-        N=${N:-0}
         # #544: count BOTH call-site shapes, mirroring the #496 fix in
         # sst3-code-callers.sh — the bare pattern alone is a 100% recall miss
-        # on receiver-qualified calls (Python `self.method()` / `obj.method()`,
-        # JS `this.method()`, Rust `recv.method()`), which zeroed blast-radius
-        # for method-heavy changed files. The two shapes are structurally
-        # disjoint (identifier vs field-expression callee), so summing never
-        # double-counts a call site.
-        N2=$( (set +o pipefail; ast-grep run --pattern "\$SST3_RECV.${SYM}(\$\$\$)" --lang "$LANG" --json=stream 2>/dev/null | wc -l) )
-        N2=${N2//[^0-9]/}
-        N2=${N2:-0}
+        # on receiver-qualified calls (field-expression callee: `self.method()`
+        # / `obj.method()`). The two shapes are structurally disjoint
+        # (identifier vs field-expression callee), so summing never
+        # double-counts a call site. Delivered recall benefit gates on the
+        # SYMBOL EXTRACTION above: Python defs (incl. class methods) extract,
+        # so receiver recall is real there; Rust `pub fn`/impl methods and
+        # JS/TS class methods are never yielded as $SYM by DEFPATS
+        # (pre-existing #516 extraction limits), so the receiver query cannot
+        # fire for them until extraction is extended (out of #544 scope).
+        N=$(count_call_sites "${SYM}(\$\$\$)")
+        N2=$(count_call_sites "\$SST3_RECV.${SYM}(\$\$\$)")
         COUNT=$((COUNT + N + N2))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
