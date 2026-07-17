@@ -5,8 +5,10 @@
 # Example: sst3-code-impact.sh main
 # Output:  NDJSON, one object per changed file: {changed_file, impacted_callers}
 #          where impacted_callers is an integer count of call sites referencing
-#          a top-level symbol in changed_file.
-# Engines: git diff --name-only base...HEAD; ast-grep --json=stream per file.
+#          a named function/method defined in changed_file (kind-rule
+#          extraction — class/impl methods included; #546).
+# Engines: git diff --name-only base...HEAD; ast-grep --json=stream — per-file
+#          definition extraction + ONE repo-wide caller-name index per language.
 
 set -euo pipefail
 export LC_ALL=C
@@ -27,6 +29,12 @@ trap on_sigterm SIGTERM
 
 # shellcheck source=./sst3-bash-utils.sh
 source "$(dirname "$0")/sst3-bash-utils.sh"
+
+# NO wrapper_sentinel EXIT trap here, deliberately (Stage-5 #546, fixture-
+# proven): sst3-code-review.sh:119 composes this wrapper via `$(... 2>&1)`,
+# so ANY stderr line would land inside IMPACT_OUT and break its jq parse
+# (code-review-untested-error fixture exit 5). SST3_EMITTED_COUNT still
+# increments per record so on_sigterm's partial_records field is accurate.
 
 # --paths-from retrofit (#447 Phase 8): strip --paths-from from positional args
 # and (if a filter NDJSON was supplied) install a transparent stdout filter
@@ -78,29 +86,28 @@ fi
 # totals, preserving the #496/#544/#546 recall exactly (the three impact
 # fixtures lock the counts: rust 4, ts 3, python 3/0). Same-name symbols on
 # different classes/modules merge — safe over-count for an impact advisory,
-# the same documented orphans.sh trade-off. Cost: ≤4 index passes (<1s each)
-# instead of ~800 scans (~minutes).
-declare -A CALLER_IDX
-INDEX_TMPFILES=()
-trap 'rm -f "${INDEX_TMPFILES[@]}"' EXIT
+# the same documented orphans.sh trade-off. Cost: ≤5 index passes (one per
+# supported language, ~1-3s each on a 1000-file repo) instead of ~800 scans
+# (~minutes). Stage-5 (#546) follow-through: counts preload into an
+# in-process assoc array — the initial per-symbol awk lookup forked one
+# subprocess per symbol (measured 5-10s across a 1000-symbol diff, ~half the
+# wrapper's wall time); lookups are now fork-free (index shape still the
+# orphans.sh:125-139 port, lookup upgraded from its :142-144 awk scan).
+declare -A CALLER_CNT INDEX_BUILT
 build_caller_index() {
-    local lang="$1" idx
-    idx=$(mktemp -t sst3_impact_idx.XXXXXX)
-    INDEX_TMPFILES+=("$idx")
-    # pipefail disabled in this subshell only: ast-grep exits non-zero on
-    # zero matches, grep on empty input — neither is an error here.
+    local lang="$1" n c
+    # pipefail disabled inside the process substitution only: ast-grep exits
+    # non-zero on zero matches, grep on empty input — neither is an error here.
     # shellcheck disable=SC2016  # $NAME is an ast-grep meta-var, not shell
-    ( set +o pipefail
+    while IFS=$'\t' read -r n c; do
+        CALLER_CNT["$lang:$n"]=$c
+    done < <( set +o pipefail
       ast-grep run --pattern '$NAME($$$)' --lang "$lang" --json=stream 2>/dev/null \
         | jq -r '.metaVariables.single.NAME.text // empty' \
         | awk '{ gsub(/\?/,""); gsub(/::/,"."); n=split($0,a,"."); print a[n] }' \
         | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
-        | sort | uniq -c | awk '{print $2"\t"$1}' > "$idx" ) || true
-    CALLER_IDX[$lang]="$idx"
-}
-# O(1)-ish lookup, exact key match, 0 when absent (orphans.sh:142-144 shape).
-caller_count() {
-    awk -F'\t' -v k="$1" '$1 == k { print $2; found=1; exit } END { if (!found) print 0 }' "${CALLER_IDX[$LANG]}"
+        | sort | uniq -c | awk '{print $2"\t"$1}' )
+    INDEX_BUILT[$lang]=1
 }
 
 while IFS= read -r FILE; do
@@ -176,16 +183,16 @@ rule:
             | jq -r '.metaVariables.single.NAME.text // empty' \
             | grep -E '^[a-zA-Z_][a-zA-Z0-9_]*$' \
             | sort -u )
-    [[ -z "${CALLER_IDX[$LANG]:-}" ]] && build_caller_index "$LANG"
+    [[ -z "${INDEX_BUILT[$LANG]:-}" ]] && build_caller_index "$LANG"
     COUNT=0
     for SYM in $SYMBOLS; do
         [[ -z "$SYM" ]] && continue
         assert_safe_identifier "$SYM"
-        # Per-symbol count = one batch-index lookup. The index already merged
-        # every call shape (#496/#544 bare+receiver, #546 scoped + optional-
-        # chain) by last-component key — see the Phase-4 block above.
-        N=$(caller_count "$SYM")
-        COUNT=$((COUNT + N))
+        # Per-symbol count = one fork-free assoc lookup. The index already
+        # merged every call shape (#496/#544 bare+receiver, #546 scoped +
+        # optional-chain) by last-component key — see the Phase-4 block above.
+        COUNT=$((COUNT + ${CALLER_CNT[$LANG:$SYM]:-0}))
     done
     jq -nc --arg f "$FILE" --argjson c "$COUNT" '{changed_file: $f, impacted_callers: $c}'
+    SST3_EMITTED_COUNT=$((SST3_EMITTED_COUNT + 1))
 done <<< "$CHANGED"
