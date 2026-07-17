@@ -8,7 +8,8 @@
 #          kind: function | method | class
 #          exported: true if symbol is referenced in `__all__` or `pub` exposure
 #          last_modified: ISO8601 from `git log -1 --format=%aI` (best-effort)
-# Engines: ast-grep (def lookup) + sst3-code-callers.sh (caller count) + git log.
+# Engines: ast-grep (def lookup + batch caller-name index; #544 — NOT composed
+#          from sst3-code-callers.sh, the index is built inline) + git log.
 #
 # Rationale (#447 Phase 8): functions with 0 callers AND 0 imports across the
 # repo. Allowlist-aware (mirrors Bug G fix in sync-doc-to-code) so monkey-
@@ -122,12 +123,19 @@ while IFS= read -r record; do
 done < <(ast-grep run --pattern '__all__: $TYPE = $$$' --lang python --json=stream 2>/dev/null || true)
 
 # Build the caller-name index ONCE — equivalent to running sst3-code-callers
-# for every possible name in one batch. Pattern matches bare calls (`foo($$$)`);
-# method calls (`obj.foo()`) require a separate sweep but mirror the existing
-# callers.sh semantics, so per-name caller counts agree.
+# for every possible name in one batch. `$NAME($$$)` binds NAME to the FULL
+# dotted callee for receiver/module-qualified calls (`obj.foo()` → `obj.foo`,
+# `mod.foo()` → `mod.foo`), so keying the index by the raw binding made every
+# symbol called ONLY through a receiver a FALSE-POSITIVE orphan (the #496
+# recall class, fixed here under #544 Stage 5). Reduce each callee to its
+# last dotted component so bare-name lookups count both shapes — matching
+# post-#496 callers.sh recall. Same-name methods on different classes can
+# over-count a shared name, which errs SAFE for an orphan detector (a missed
+# orphan, never a false deletion candidate).
 ast-grep run --pattern '$NAME($$$)' --lang python --json=stream 2>/dev/null \
     | jq -r '.metaVariables.single.NAME.text // empty' 2>/dev/null \
     | grep -E '^[a-zA-Z_][a-zA-Z0-9_.]*$' \
+    | awk -F'.' '{print $NF}' \
     | sort | uniq -c | awk '{print $2"\t"$1}' > "$CALLER_INDEX" || true
 
 # O(1)-ish lookup: extract count column for matching key, default 0 if missing.
