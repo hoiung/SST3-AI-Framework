@@ -31,7 +31,7 @@ trap on_sigterm SIGTERM
 source "$(dirname "$0")/sst3-bash-utils.sh"
 
 # NO wrapper_sentinel EXIT trap here, deliberately (Stage-5 #546, fixture-
-# proven): sst3-code-review.sh:119 composes this wrapper via `$(... 2>&1)`,
+# proven): sst3-code-review.sh composes this wrapper via `$(... 2>&1)`,
 # so ANY stderr line would land inside IMPACT_OUT and break its jq parse
 # (code-review-untested-error fixture exit 5). SST3_EMITTED_COUNT still
 # increments per record so on_sigterm's partial_records field is accurate.
@@ -74,10 +74,10 @@ fi
 # repo, and a 34-file diff demanded ~800 of them (bare + `$SST3_RECV.` +
 # rust `$SST3_PATH::` / ts-js `$SST3_RECV?.` shapes per symbol). Standalone
 # the records stream progressively so it looks fine; nested inside
-# review.sh:119's command substitution NOTHING appears until every scan
+# review.sh's command substitution NOTHING appears until every scan
 # finishes — the reported 5+min zero-output "pipe hang" (bash reader at ~0
 # CPU while ast-grep children grind invisibly).
-# Ported fix = sst3-code-orphans.sh:125-139 (its #544 Stage-5 D1 batch
+# Ported fix = sst3-code-orphans.sh (its #544 Stage-5 D1 batch
 # index): ONE `$NAME($$$)` pass per changed-set language binds the FULL
 # callee node for EVERY call shape — identifier (`f()`), field-expression
 # (`obj.f()` / `this.f()`), scoped_identifier path (`crate::lib::f()`),
@@ -92,7 +92,7 @@ fi
 # in-process assoc array — the initial per-symbol awk lookup forked one
 # subprocess per symbol (measured 5-10s across a 1000-symbol diff, ~half the
 # wrapper's wall time); lookups are now fork-free (index shape still the
-# orphans.sh:125-139 port, lookup upgraded from its :142-144 awk scan).
+# orphans.sh #544 D1 batch-index port, lookup upgraded from its awk scan).
 declare -A CALLER_CNT INDEX_BUILT
 # #547 AC 5.4 (CX): typescript/tsx/javascript share ONE `jsfam` index bucket,
 # built from all three language scans on first encounter — a `.ts` def called
@@ -194,7 +194,7 @@ rule:
     # loop under set -o pipefail. The grep keeps only plain ASCII identifiers:
     # destructuring declarators bind the whole pattern text (`{a, b}`) as
     # $NAME, and assert_safe_identifier below exit-64s on those — drop them
-    # here instead (orphans.sh:137 precedent). Deliberate trade-off (Ralph
+    # here instead (orphans.sh emit-site precedent). Deliberate trade-off (Ralph
     # Tier-2/3 #546): JS/TS `$`-identifiers (`data$`, `$emit`) and non-ASCII
     # identifiers (`def café()`) are ALSO dropped silently and their call
     # sites uncounted — assert_safe_identifier rejects both classes, so

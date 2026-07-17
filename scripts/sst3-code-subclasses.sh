@@ -134,10 +134,15 @@ case "$LANG" in
         AG_RC=0
         ast-grep run --pattern "$PATTERN" --lang python --json=stream > "$AG_OUT" 2>/dev/null || AG_RC=$?
         ast_grep_check_rc "sst3-code-subclasses" "$AG_RC" || { rm -f "$AG_OUT"; exit 0; }
+        # #547 Stage-5 sibling-recall fix: strip a subscript suffix off the base
+        # text before equality — a generic base `class X(Repo[User])` binds BASES
+        # text `Repo[User]`, which fails bare-`Repo` equality without the strip
+        # (the python twin of the rust generic strip, AC 4.3). `Dict[str, Repo]`
+        # → `Dict` so querying an inner type-arg (`Repo`) correctly does NOT match.
         jq -c --arg sym "$SYMBOL" '
             . as $m
             | ($m.metaVariables.multi.BASES // []) as $bases
-            | if any($bases[]; .text == $sym) then
+            | if any($bases[]; (.text | sub("\\[.*$"; "")) == $sym) then
                 {file: $m.file, line: ($m.range.start.line + 1), kind: "subclass",
                  child: ($m.metaVariables.single.NAME.text // "?")}
               else empty end

@@ -131,7 +131,6 @@ run_rule() {
     rm -f "$ag_out"
 }
 
-NL=$'\n'
 case "$LANG" in
     python)
         run_pattern 'if __name__ == "__main__": $$$' "main"
@@ -140,7 +139,8 @@ case "$LANG" in
         # text is quote-significant, so the double-quote pattern above misses it
         # (16 live SST3/scripts python tools use single quotes; probe-confirmed missed.
         #  `grep -rlE "if __name__ == '__main__'" scripts/` returns 17 files, but
-        #  the 17th is THIS wrapper's own pattern literal at :145, not a consumer tool).
+        #  the 17th is THIS wrapper's own pattern literal in the run_pattern below,
+        #  not a consumer tool).
         # A second exact run_pattern restores recall parity and is inherently
         # false-positive-safe (pins `== '__main__'`); a quote-agnostic kind-rule was
         # probed but needs string_content + ==-operator pinning for zero recall gain.
