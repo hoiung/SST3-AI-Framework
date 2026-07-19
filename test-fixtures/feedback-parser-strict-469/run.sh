@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-PARSER="$REPO_ROOT/SST3/scripts/feedback_parser.py"
+PARSER="$REPO_ROOT/scripts/feedback_parser.py"
 HERE="$(dirname "$0")"
 
 assert_clean() {
