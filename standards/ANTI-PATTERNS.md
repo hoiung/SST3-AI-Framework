@@ -269,7 +269,7 @@ exit $FAIL
 
 ---
 
-<!-- stages: 4 -->
+<!-- stages: 1,3,4,5 -->
 ## Anti-Pattern #14: Stingy / Single-Layer / Trusted-Without-Verification Subagent Use
 
 **14a — Stingy count**: 2-3 subagents when 10-20 needed. Misses 40-60% of issues. Stinginess masquerades as efficiency.
@@ -385,7 +385,7 @@ Phase checkpoints post a comment to the Issue — they DO NOT pause work. Post t
 
 ---
 
-<!-- stages: 4 -->
+<!-- stages: 1,3,4,5 -->
 ## Anti-Pattern #19: Structural Question Answered By Grep Alone, Or Wrapper-Lane Result Trusted Without Source Check
 
 **Lineage note**: this AP originated under the deprecated daemon-MCP that #445 displaced; the canonical interface is now the stateless wrapper-lane (`bash scripts/sst3-code-*.sh`) — no database, no embeddings (`sst3-code-search.sh` is keyword-only by design), no staleness (every call re-parses on disk). Wrapper-lane queries are the documented first step; documented grep / subagent fallback is the EXPECTED path, never a degradation.
@@ -534,7 +534,7 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 
 ---
 
-<!-- stages: 4 -->
+<!-- stages: 1,4 -->
 ## Anti-Pattern #24: Marker-Substring Changes Without Full Emit-Site Enumeration
 
 **Problem**: When introducing, modifying, or removing a marker substring (error-message partition string, counter name, diagnostic flag, feature-gate literal, status-enum value, log-line prefix), implementing the change at the obvious emission point WITHOUT enumerating and auditing every other site that emits / reads / references / asserts that substring. The scope-incomplete change lands with one of two failure modes: (a) **orphaned/stale references** in test fixtures, mocks, guard clauses, or downstream aggregation logic that silently skip the new wording; (b) **non-deterministic split** where some emission paths use the new substring and others retain the old one, creating downstream inconsistency that surfaces only under certain load patterns.

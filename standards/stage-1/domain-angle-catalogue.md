@@ -43,3 +43,8 @@
 3. **synthesis ordering** — dispatch synthesis subagents AFTER confirmed task-completion
    notification of the inputs they read; never in parallel with the producers and never on
    a fixed timer (the inputs may not exist yet). The synthesis prompt names its input files.
+4. **enumerate-before-bounding** — do not set an acceptance threshold, ceiling, or cap
+   before the candidate set has been enumerated: enumerate first, then bound. A number
+   chosen before the set exists is a guess wearing a threshold's clothing, and every later
+   decision inherits it as though it were measured. Issue #52 fixed a reuse ceiling at
+   "2-3" before the candidate sweep ran, then found the real set already saturated it.
