@@ -2,13 +2,14 @@
   "fixture": "sec-secret-touchpoints",
   "issue": 447,
   "phase": 8,
-  "scope": "Secret/credential touchpoint detection. Synthetic touchpoints.py contains 3 env reads + 1 dotenv load = 4 ast-grep matches; password-literal + AWS-key are fixture-only sentinels (test inputs). Asserts >=4 records and that touchpoints.py is referenced.",
+  "scope": "Secret/credential touchpoint detection. Synthetic touchpoints.py contains 3 env reads (env_read) + 1 two-arg getenv default (env_default, the #1470 Fail-Fast violation form) + 1 dotenv load = 5 deterministic ast-grep matches. The password-literal + AWS-key ripgrep records are NOT counted in the floor, because the ripgrep stage is currently non-deterministic: it passes no path target, so rg recurses the CWD only when stdin is a character device (e.g. a /dev/null redirect) and instead CONSUMES stdin when stdin is a pipe — which is the pre-commit / CI / non-tty path. Emitted totals are therefore 7 or 5 by environment, and only the ast-grep floor of 5 is stable. KNOWN DEFECT (pre-existing, wider than this fixture): in the piped-stdin case the three ripgrep-backed rules — password_literal, aws_access_key, aws_secret_key — emit ZERO records, so those secret checks silently do not fire in automated contexts. Measured: a file containing a literal AKIA-prefixed key yields 1 aws_access_key record under /dev/null and 0 under a pipe. The fix is to give rg an explicit path target; that changes SEC firing across every consumer repo and so needs its own AP #18 sample-invocation cycle rather than riding along here. Tracked separately — do NOT read the environment-dependence below as benign. Discrimination is carried by stdout_kind_records env_default, which is present iff the 2-arg getenv pattern is wired — that assertion fails in BOTH environments when the pattern is absent, where any min-records number is vacuous in one of them.",
   "wrapper": "sst3-sec-secret-touchpoints.sh",
   "args": [],
   "cwd": "input",
   "expect": {
     "exit_code": 0,
-    "stdout_min_records": 4,
+    "stdout_min_records": 5,
+    "stdout_kind_records": ["env_default"],
     "stdout_must_contain_files": ["touchpoints.py"]
   }
 }

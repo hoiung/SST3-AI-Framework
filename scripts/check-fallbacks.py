@@ -362,9 +362,24 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python check-fallbacks.py .
+  python check-fallbacks.py path/to/file.py --severity error
   python check-fallbacks.py --exclude-dir tests --exclude "*.test.py" src/
-  python check-fallbacks.py --severity warning --json .
+  python check-fallbacks.py --severity warning --json src/
+
+Diff-scoped gate (the achievable Stage-4 form). A whole-tree scan is not
+usable as a gate: the tree carries a pre-existing violation baseline, so it
+exits 1 regardless of what the current change did. Resolve the default
+branch from origin/HEAD (it differs by repo) and exit loud if it cannot be
+resolved — an empty base makes git diff list no files, which would pass the
+gate silently.
+  DEF=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/master)
+  BASE=$(git merge-base HEAD "$DEF") || { echo "cannot resolve base" >&2; exit 2; }
+  FAIL=0
+  for f in $(git diff --name-only "$BASE"...HEAD -- '*.py'); do
+    [ -f "$f" ] || continue
+    python3 check-fallbacks.py "$f" --severity error || FAIL=1
+  done
+  exit $FAIL
 
 Allowlist format (.fallback-allowlist):
   path/to/file.py:42 # Legacy code, planned refactor in #123

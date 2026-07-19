@@ -137,12 +137,31 @@ if not config_file:
 
 **Automated Enforcement**:
 ```bash
-# Run during Stage 4 verification
-python scripts/check-fallbacks.py --severity warning .
+# Run during Stage 4 verification — diff-scoped, so the pre-existing
+# tree-wide baseline never enters the scan.
+#
+# Resolve the default branch from origin/HEAD — it differs by repo
+# (dotfiles=master, project-a=main). Hardcoding one makes
+# merge-base exit 128 on the other, leaving BASE empty; `git diff
+# ""...HEAD` then exits 0 listing NO files, so the loop never runs and
+# the gate reports clean regardless of violations. That is a fail-OPEN
+# gate — the exact defect class this anti-pattern exists to prevent — so
+# an unresolvable base must exit LOUD, never fall through.
+DEF=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/master)
+BASE=$(git merge-base HEAD "$DEF") || {
+  echo "check-fallbacks gate: cannot resolve merge-base against $DEF" >&2; exit 2; }
+FAIL=0
+for f in $(git diff --name-only "$BASE"...HEAD -- '*.py'); do
+  [ -f "$f" ] || continue          # skip deletions
+  python3 scripts/check-fallbacks.py "$f" --severity error || FAIL=1
+done
+exit $FAIL
 
-# Exit 0 = clean, Exit 1 = violations found
-# Use --exclude-dir tests to skip test files
-# Use .fallback-allowlist for intentional fallbacks
+# Exit 0 = no ERROR-severity fallback introduced by this diff; Exit 1 = one was.
+# A whole-tree invocation is NOT usable as a gate: the tree carries a large
+# pre-existing violation baseline, so it exits 1 unconditionally regardless of
+# what the current change did. Diff-scoping is what makes the gate achievable —
+# untouched files never enter the scan, so no grandfathering list is needed.
 ```
 
 ---

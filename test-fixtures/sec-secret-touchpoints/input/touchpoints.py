@@ -7,7 +7,9 @@ def env_reads():
     api_key = os.environ["API_KEY"]
     db_url = os.environ.get("DATABASE_URL")
     region = os.getenv("AWS_REGION")
-    return api_key, db_url, region
+    # Fail-Fast violation form (2-arg getenv) — the #1470 defect class.
+    cache_host = os.getenv("REDIS_HOST", "localhost")
+    return api_key, db_url, region, cache_host
 
 
 def init_dotenv():

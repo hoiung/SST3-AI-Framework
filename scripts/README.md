@@ -492,17 +492,36 @@ pre-commit run check-claude-template-propagation --all-files
 
 **Usage**:
 ```bash
-# Scan current directory
-python SST3/scripts/check-fallbacks.py .
+# Scan a single file
+python SST3/scripts/check-fallbacks.py path/to/file.py --severity error
 
 # Scan with exclusions
 python SST3/scripts/check-fallbacks.py --exclude-dir tests --exclude "*.test.py" src/
 
 # JSON output for CI/CD
-python SST3/scripts/check-fallbacks.py --severity warning --json .
+python SST3/scripts/check-fallbacks.py --severity warning --json src/
 
 # Show help
 python SST3/scripts/check-fallbacks.py --help
+```
+
+**Diff-scoped gate (the achievable Stage-4 form)**. A whole-tree scan is not
+usable as a gate — the tree carries a pre-existing violation baseline, so it
+exits 1 regardless of what the current change did. Scope to the diff instead:
+
+```bash
+# Default branch differs by repo; hardcoding one leaves BASE empty on the
+# other, and `git diff ""...HEAD` exits 0 listing no files, so the gate would
+# silently pass. Unresolvable base must exit loud.
+DEF=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/master)
+BASE=$(git merge-base HEAD "$DEF") || {
+  echo "check-fallbacks gate: cannot resolve merge-base against $DEF" >&2; exit 2; }
+FAIL=0
+for f in $(git diff --name-only "$BASE"...HEAD -- '*.py'); do
+  [ -f "$f" ] || continue          # skip deletions
+  python3 SST3/scripts/check-fallbacks.py "$f" --severity error || FAIL=1
+done
+exit $FAIL
 ```
 
 **What It Detects**:

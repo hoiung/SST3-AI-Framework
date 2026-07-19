@@ -3,6 +3,7 @@
 
 The Verification Loop is the iteration block that runs AFTER all phase ACs land + Ralph Review completes, and BEFORE Gate 2 (merge). Loop exits only when EVERY checkbox passes; iterate until clean.
 
+<!-- stages: 4 -->
 ## Loop checkboxes (canonical: `../../workflow/WORKFLOW.md` "Verification Loop")
 
 - Graph-backed diff audit when `graph_applicable=true` (carry-forward from Stage 1 research file; NEVER re-classify).
@@ -13,7 +14,9 @@ The Verification Loop is the iteration block that runs AFTER all phase ACs land 
 - Skill-canonical verification (Double-Guardrail; runs invoked-skill's own hooks).
 - Mirror-lane Lane A + Lane B 3-command verification.
 - Doc-lane diff-trigger when diff touches `*.md` / frontmatter.
+- External-store write lifetime audit (conditional) — every new keyed write to an external store carries an explicit TTL/expiry, or documents inline why a lifetime-less write is correct. Skip-clean when the diff adds no external-store write.
 
+<!-- stages: 4 -->
 ## Cross-references
 
 - `../../workflow/WORKFLOW.md` — canonical loop checkboxes.
@@ -23,6 +26,7 @@ The Verification Loop is the iteration block that runs AFTER all phase ACs land 
 - `../../standards/stage-4/three-tier-testing.md` — Unit/Workflow/E2E tier USE rules.
 - `../../standards/stage-4/observability-fail-fast.md` — runtime observability invariants the loop verifies.
 
+<!-- stages: 4 -->
 ## When the loop exits
 
 Loop exits ONLY when every checkbox PASSES — no exceptions for "high priority" or "low priority". The only valid skip is a confirmed false positive with documented evidence (AP #11). Skipping a check because it's inconvenient is a direct STANDARDS.md violation (Fix Everything).
