@@ -493,16 +493,16 @@ pre-commit run check-claude-template-propagation --all-files
 **Usage**:
 ```bash
 # Scan a single file
-python SST3/scripts/check-fallbacks.py path/to/file.py --severity error
+python scripts/check-fallbacks.py path/to/file.py --severity error
 
 # Scan with exclusions
-python SST3/scripts/check-fallbacks.py --exclude-dir tests --exclude "*.test.py" src/
+python scripts/check-fallbacks.py --exclude-dir tests --exclude "*.test.py" src/
 
 # JSON output for CI/CD
-python SST3/scripts/check-fallbacks.py --severity warning --json src/
+python scripts/check-fallbacks.py --severity warning --json src/
 
 # Show help
-python SST3/scripts/check-fallbacks.py --help
+python scripts/check-fallbacks.py --help
 ```
 
 **Diff-scoped gate (the achievable Stage-4 form)**. A whole-tree scan is not
@@ -510,6 +510,9 @@ usable as a gate — the tree carries a pre-existing violation baseline, so it
 exits 1 regardless of what the current change did. Scope to the diff instead:
 
 ```bash
+# Run from the REPO ROOT. `git diff --name-only` emits repo-root-relative
+# paths, so running this from scripts/ would make `[ -f "$f" ]` discard every
+# path and the gate would exit 0 having scanned nothing — a fail-OPEN gate.
 # Default branch differs by repo; hardcoding one leaves BASE empty on the
 # other, and `git diff ""...HEAD` exits 0 listing no files, so the gate would
 # silently pass. Unresolvable base must exit loud.
@@ -519,7 +522,7 @@ BASE=$(git merge-base HEAD "$DEF") || {
 FAIL=0
 for f in $(git diff --name-only "$BASE"...HEAD -- '*.py'); do
   [ -f "$f" ] || continue          # skip deletions
-  python3 SST3/scripts/check-fallbacks.py "$f" --severity error || FAIL=1
+  python3 scripts/check-fallbacks.py "$f" --severity error || FAIL=1
 done
 exit $FAIL
 ```

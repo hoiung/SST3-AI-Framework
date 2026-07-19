@@ -371,13 +371,17 @@ usable as a gate: the tree carries a pre-existing violation baseline, so it
 exits 1 regardless of what the current change did. Resolve the default
 branch from origin/HEAD (it differs by repo) and exit loud if it cannot be
 resolved — an empty base makes git diff list no files, which would pass the
-gate silently.
+gate silently. Run it from the REPO ROOT: `git diff --name-only` emits
+repo-root-relative paths, so a copy invoking a bare `check-fallbacks.py`
+from SST3/scripts would have `[ -f "$f" ]` discard every path and exit 0
+having scanned nothing — the same fail-OPEN this block warns about.
   DEF=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/master)
-  BASE=$(git merge-base HEAD "$DEF") || { echo "cannot resolve base" >&2; exit 2; }
+  BASE=$(git merge-base HEAD "$DEF") || {
+    echo "check-fallbacks gate: cannot resolve merge-base against $DEF" >&2; exit 2; }
   FAIL=0
   for f in $(git diff --name-only "$BASE"...HEAD -- '*.py'); do
     [ -f "$f" ] || continue
-    python3 check-fallbacks.py "$f" --severity error || FAIL=1
+    python3 scripts/check-fallbacks.py "$f" --severity error || FAIL=1
   done
   exit $FAIL
 

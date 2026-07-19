@@ -87,6 +87,7 @@ emit_record() {
 PY_PATTERNS=(
     "env_read|os.environ[\$KEY]"
     "env_read|os.environ.get(\$KEY)"
+    "env_default|os.environ.get(\$KEY, \$DEF)"
     "env_read|os.getenv(\$KEY)"
     "env_default|os.getenv(\$KEY, \$DEF)"
     "dotenv_load|dotenv.load_dotenv(\$\$\$)"
@@ -130,7 +131,16 @@ for rule in "${RG_RULES[@]}"; do
         # Truncate the match to keep the NDJSON small.
         ident="${match:0:60}"
         [[ -n "$file" && -n "$line" ]] && emit_record "$file" "$line" "$kind" "$ident"
-    done < <(rg --json -e "$regex" --no-messages 2>/dev/null || true)
+    # The `.` path target is load-bearing, not cosmetic. With no path argument rg
+    # reads stdin whenever stdin is a pipe or a regular file — and pre-commit
+    # supplies exactly that — so every rule below emitted ZERO records in each
+    # automated context (pre-commit, pre-push, CI) while still firing correctly
+    # when run by hand from a terminal. A secret-detection gate that works only
+    # when a human is watching is a fail-OPEN gate. Measured before the fix: a
+    # file containing AKIA-prefixed keys and a password literal passed `sst3-sec`
+    # clean under a pipe and emitted 2 records under `< /dev/null`. Naming the
+    # target makes the scan stdin-independent, matching the ast-grep stage above.
+    done < <(rg --json -e "$regex" --no-messages . 2>/dev/null || true)
 done
 
 exit 0
