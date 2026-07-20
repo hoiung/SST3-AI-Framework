@@ -190,7 +190,7 @@ The draft exists. Now verify it is correct before it becomes the contract.
 
 ## Stage 4 — Implement (includes Verification Loop + Merge + User-Review-Checklist)
 
-**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 4` to load the Stage-4-tagged subset PLUS the 9 stage-4/*.md extract files (verification-loop / ralph-review / gate-2-merge / gate-3-user-review / three-tier-testing / contract-verification / observability-fail-fast / cohabitation-protocol / file-housekeeping). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
+**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash scripts/load-stage-rules.sh 4` to load the Stage-4-tagged subset PLUS every stage-4/*.md extract file (verification-loop / ralph-review / gate-2-merge / gate-3-user-review / three-tier-testing / contract-verification / observability-fail-fast / cohabitation-protocol / file-housekeeping / ap18-workflow-tier / per-stage-feedback-capture / source-of-intent — the loader's glob is the authority; the prior hardcoded count of 9 had gone stale when three files were added under #516). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
 
 
 The issue is created and verified. Now implement it. Do NOT stop to ask permission. On long / multi-phase work, when remaining nears ~50% (~500K of 1M) auto-run `/handover` + compact + CONTINUE; never operate below 50% remaining (near-completion exemption: ~2-3 turns from done at ~51% → finish).

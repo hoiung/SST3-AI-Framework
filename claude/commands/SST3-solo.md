@@ -76,6 +76,9 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 **Main agent** = collate, write /tmp, create issues, implement, commit, merge
 
 ### Stage 1 — Research (Subagent Swarm → /tmp)
+
+**Stage 1 mandatory-reading directive**: run `bash scripts/load-stage-rules.sh 1` at Stage-1 entry (research / subagent-swarm / pre-swarm SEED rules). Parity with `Leader.md` Stage 1.
+
 - Author + run the research swarm via the Workflow tool (DEFAULT; 5 files max per subtask); Agent/Task = the documented fallback only for a trivial single-angle check
 - Main context = orchestrator only — NEVER read source files directly
 - Research phase <30% of context budget
@@ -84,14 +87,20 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - **Leader.md parity** (solo loads WORKFLOW.md, NOT Leader.md — so also apply these Leader.md Stage-1 steps): handover-claim verification gate — step 1a.5's 3 verification classes (closure-rationale / pre-existing-classification / fix-ranking) + run any mechanically-testable hypothesis before scope [AC 1.7]; for any non-code / operator-side / "false-positive-on-contract" framing, dispatch a live-system probe + capture a host-baseline file fed to every subagent [AC 1.9]; empty-SEED → raw-grep fallback + `pre_swarm_graph_seed` frontmatter when the wrapper returns near-empty for a symbol known to exist [AC 1.11]
 
 ### Stage 2 — Issue Creation (Main Agent from /tmp)
+
+**Stage 2 mandatory-reading directive**: run `bash scripts/load-stage-rules.sh 2` at Stage-2 entry. This is what loads `standards/stage-2/*.md` — the pre-dispatch author self-check catalogue (a)–(k) and the L1/L2 prompt-angle catalogue. Without it those checks are unreachable in solo mode. Parity with `Leader.md` Stage 2.
+
 - Create issue using `issue-template.md` from /tmp research
 - Add ALL before/after illustrations, phase checkpoints between phases
 - Author + run the draft-check swarm via the Workflow tool (DEFAULT) for scope-check vs audit; Agent/Task = the documented fallback only for a trivial single-angle check
 - Quality mantras VERBATIM: no inefficiencies, fix optimisations, reliable/robust, dedupe, no bottlenecks, fast/safe, no memory leaks, follows STANDARDS.md
 - No false positives. No priority levels. All must be fixed.
-- **Leader.md parity** (also apply these Leader.md Stage-2 author/draft steps): two-angle verifiability sweep — falsifiability (passes the FAIL state too = toothless) + discriminability (no bare-substring where exact-match exists) + script/gate preconditions [AC 2.2]; finding-to-AC traceability table — every Fn AND Gn → an AC or explicit out-of-scope, bound at sub-element not headline level [AC 2.3]; expanded L1/L2 prompts — implementation-correctness axis, carve-out respect, backwards-compat source-read, shape-gated angles [AC 2.4]; author-time citation freshness — grep-verify every file:line before writing it + stale-count cleanup [AC 3.4]; scope decomposition — sub-issue merge/drop tracing, multi-axis split, JBGE-DEFERRED knob gate [AC 3.11]; voice-mirror vendor prerequisite pre-check for voice-scanner consumers [AC 3.16]
+- **Leader.md parity** (also apply these Leader.md Stage-2 author/draft steps): author self-check block — run the full pre-dispatch catalogue in `standards/stage-2/pre-dispatch-self-checks.md`, sub-checks (a)–(k), zero unresolved items before any subagent dispatch [AC 2.1]; two-angle verifiability sweep — falsifiability (passes the FAIL state too = toothless) + discriminability (no bare-substring where exact-match exists) + script/gate preconditions [AC 2.2]; finding-to-AC traceability table — every Fn AND Gn → an AC or explicit out-of-scope, bound at sub-element not headline level [AC 2.3]; expanded L1/L2 prompts — implementation-correctness axis, carve-out respect, backwards-compat source-read, shape-gated angles [AC 2.4]; author-time citation freshness — grep-verify every file:line before writing it + stale-count cleanup [AC 3.4]; scope decomposition — sub-issue merge/drop tracing, multi-axis split, JBGE-DEFERRED knob gate [AC 3.11]; voice-mirror vendor prerequisite pre-check for voice-scanner consumers [AC 3.16]
 
 ### Stage 3 — Triple-Check (Subagents Verify Scope)
+
+**Stage 3 mandatory-reading directive**: run `bash scripts/load-stage-rules.sh 3` at Stage-3 entry (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Parity with `Leader.md` Stage 3.
+
 - Scope vs audit = 100% captured, no gaps, no overengineering
 - **Chat Reconciliation (Verifier-Led, MAIN-AGENT-owned, non-delegable)** — the chat-history / opposite-scoping check is NOT a subagent self-cert (subagents never receive the conversation). Dispatch the 3-model neutral panel (Haiku+Sonnet+Opus, shown ONLY the operator's raw messages from `extract-chat-agreements.py`), flag invented/dropped/inverted vs the draft, POST `## Chat Reconciliation`, PAUSE for operator sign-off before issue creation (Leader.md step 2a / AC 7.1; STANDARDS.md "Chat Reconciliation (Verifier-Led)"; #522)
 - Check for dead/obsolete/legacy code cleanup
@@ -99,6 +108,9 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - **Leader.md parity** (also apply these Leader.md Stage-3 sanity angles): draft internal-consistency — Expected-Behavior ↔ AC binding + deferred-feature coherence [AC 3.3]; subagent BLOCK/FAIL findings get main-agent source-verify before acting + a rejected-finding-revisit angle [AC 3.6]; cross-stage contradiction resolution — source decides over recency-bias, and Stage-2 parked feedback is fed to the Stage-3 subagents [AC 3.13]
 
 ### Stage 4 — Implementation + Merge + User Review
+
+**Stage 4 mandatory-reading directive**: run `bash scripts/load-stage-rules.sh 4` at Stage-4 entry — emits the Stage-4-tagged canon PLUS every `stage-4/*.md` extract file (verification-loop, ralph-review, the gate files, three-tier-testing, and the rest — the loader's glob is the authority on the set, deliberately not restated as a count here because a hardcoded count drifts as files are added). Parity with `Leader.md` Stage 4; the "Before Starting Work" checklist item below is the same invocation.
+
 - Implement all phases, commit per file
 - **When-needed (NOT every run)**: for goal / discovery / analysis / iterate-until-met work, invoke `/goal-loop` (wraps native `/goal`, loops until every acceptance gate passes or an honest NO-GO is recorded)
 - Verification Loop (repeat until clean)
@@ -110,6 +122,9 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - **Leader.md parity** (also apply this Leader.md Stage-4 step): worktree setup + pre-commit formatter staging hygiene — when a formatter hook (end-of-file-fixer / trailing-whitespace) modifies a file mid-commit, re-stage by exact pathspec and re-commit; never `| tail -N` between hook output and exit-code propagation under `set -e` [AC 4.2]
 
 ### Stage 5 — Post-Implementation Review (Subagent Swarm)
+
+**Stage 5 mandatory-reading directive**: run `bash scripts/load-stage-rules.sh 5` at Stage-5 entry (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Parity with `Leader.md` Stage 5.
+
 - Author + run the post-implementation audit swarm via the Workflow tool (DEFAULT); Agent/Task = the documented fallback only for a trivial single-angle check
 - Phase-by-phase review against issue body scope, goal alignment, design doc
 - Wiring check: everything connected to existing functions?
