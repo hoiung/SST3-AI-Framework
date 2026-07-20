@@ -8,6 +8,11 @@
 #          The file chains:
 #            {section:"impact", changed_file, impacted_callers}
 #            {section:"untested-in-diff", file, untested:[names]}
+#            {section:"untested-in-diff", status:"skipped", reason}  (#548 — coverage
+#              precondition unmet; a DIFFERENT field set from the record above,
+#              carrying no `.file`/`.untested`. Consumers selecting this section
+#              must branch on `.status`, the same way the two review-error
+#              variants below share only section+source.)
 #            {section:"empty-diff-range", base, note}  (BASE...HEAD has 0 changed files; exit 0 no-op)
 #            {section:"empty-impact-scope", base, note} (changed files exist, none impact-scoped; #547 AC 6.2b)
 #            {section:"review-error", source, exit, stderr}            (engine exited non-zero; #447 Phase 3)
@@ -126,12 +131,13 @@ if [[ $IMPACT_RC -ne 0 ]]; then
         '{section:"review-error", source:"sst3-code-impact", exit:$rc, stderr:$s}' >> "$OUT"
 elif [[ -z "$(printf '%s' "$IMPACT_OUT" | tr -d '[:space:]')" ]]; then
     # #547 AC 6.2(b): the outer diff is non-empty but the impact leg produced
-    # ZERO records (all changed files outside impact's 5-ext filter) — append
+    # ZERO records (all changed files outside impact's 6-ext filter; #548 added
+    # jsx to it) — append
     # the symmetric record; the empty-diff-range record above covers only the
     # empty-outer-diff case.
     jq -nc --arg b "$BASE" \
         '{section:"empty-impact-scope", base:$b,
-          note:"changed files exist but none match the impact extension filter (py/ts/tsx/js/rs)"}' >> "$OUT"
+          note:"changed files exist but none match the impact extension filter (py/ts/tsx/js/jsx/rs)"}' >> "$OUT"
     echo "empty-impact-scope: no impact-scoped files in ${BASE}...HEAD" >&2
 else
     # #520 (item-3): `grep -v` exits 1 on empty-but-successful impact output;
@@ -152,9 +158,30 @@ else
           ' >> "$OUT"
 fi
 
-if [[ -f .coverage ]] && command -v coverage >/dev/null 2>&1; then
-    CHANGED=$(git diff --name-only "${BASE}...HEAD" -- '*.py' 2>/dev/null || true)
-    if [[ -n "$CHANGED" ]]; then
+# #548: the coverage gate used to fall through in SILENCE — in a worktree with
+# no `.coverage` (the common case; worktrees start without one) the
+# untested-in-diff section emitted zero records, and 0 records is
+# indistinguishable from analysed-and-clean. Fail-loud doctrine (AP #27 shape):
+# emit an explicit skip record naming WHICH precondition failed.
+#
+# The changed-Python check is the OUTER gate, deliberately. A skip record must
+# mean "there was Python to analyse and I could not", never "there was no
+# Python". Gating the skip on the coverage precondition alone (the first cut of
+# this fix, caught by Ralph Tier 2) fired the record on every non-Python diff in
+# a fresh worktree — near-universal noise that would have re-buried the very
+# signal this change exists to surface. Sharing one `$CHANGED` evaluation
+# between both arms also removes the duplicate gate evaluation.
+CHANGED=$(git diff --name-only "${BASE}...HEAD" -- '*.py' 2>/dev/null || true)
+if [[ -n "$CHANGED" ]]; then
+    if [[ ! -f .coverage ]] || ! command -v coverage >/dev/null 2>&1; then
+        if [[ ! -f .coverage ]]; then
+            SKIP_REASON="no .coverage data file in $(pwd)"
+        else
+            SKIP_REASON="coverage tool not on PATH"
+        fi
+        jq -nc --arg r "$SKIP_REASON" \
+            '{section:"untested-in-diff", status:"skipped", reason:$r}' >> "$OUT"
+    else
         set +e
         UNTESTED_OUT=$(bash "$SCRIPT_DIR/sst3-code-untested-py.sh" 2>&1)
         UNTESTED_RC=$?

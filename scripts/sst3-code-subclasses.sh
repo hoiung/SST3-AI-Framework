@@ -58,7 +58,10 @@ if [[ $# -lt 2 ]]; then
 fi
 
 SYMBOL="$1"
-LANG="$2"
+# #548: route through the shared normaliser (see callees.sh for rationale).
+# jsx -> javascript lands on the dedicated javascript arm below, which exists
+# because `language: javascript` cannot use the abstract_class_declaration kind.
+LANG=$(normalise_lang "$2")
 
 assert_safe_identifier "$SYMBOL"
 

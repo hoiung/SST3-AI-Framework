@@ -65,14 +65,19 @@ normalise_lang() {
     local lang="$1"
     case "$lang" in
         py|python|python3) echo "python" ;;
-        js|javascript|gs) echo "javascript" ;;
+        # #548: `jsx` folds into javascript — ast-grep's javascript grammar both
+        # parses and discovers .jsx files (0.42.1 probe), and this is the single
+        # site that unblocks `jsx` for every arg-taking wrapper (callers,
+        # search, callees, large, subclasses, entry-points, callers-transitive),
+        # each of which previously exit-64'd on `unsupported lang: jsx`.
+        js|javascript|gs|jsx) echo "javascript" ;;
         ts|typescript) echo "typescript" ;;
         tsx) echo "tsx" ;;
         rs|rust) echo "rust" ;;
         sh|bash|shell) echo "bash" ;;
         md|markdown) echo "markdown" ;;
         *)
-            echo "ERROR: unsupported lang: $lang (supported: python, javascript, typescript, tsx, rust, bash, markdown)" >&2
+            echo "ERROR: unsupported lang: $lang (supported: python, javascript, jsx, typescript, tsx, rust, bash, markdown)" >&2
             exit 64
             ;;
     esac

@@ -58,7 +58,10 @@ if [[ $# -lt 2 ]]; then
 fi
 
 MIN_LINES="$1"
-LANG="$2"
+# #548: route through the shared normaliser (see callees.sh for rationale).
+# `md` still reaches the markdown branch below — normalise_lang maps md ->
+# markdown, and that branch tests for both spellings.
+LANG=$(normalise_lang "$2")
 
 # Markdown special path — heading-block size heuristic. Closes the prose-hotspot
 # coverage gap on cv-linkedin (~206 .md) + hoiboy-uk (~634 .md). Counts lines

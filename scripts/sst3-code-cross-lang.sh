@@ -133,6 +133,10 @@ infer_lang() {
         *.ts) echo typescript ;;
         *.tsx) echo tsx ;;
         *.js) echo javascript ;;
+        # #548: .jsx → javascript (NOT tsx — the tsx grammar parses no .jsx on
+        # ast-grep 0.42.1). `*.js)` above cannot shadow this: it matches only
+        # names ending in ".js".
+        *.jsx) echo javascript ;;
         *.go) echo go ;;
         *.sh|*.bash) echo bash ;;
         *.yml|*.yaml) echo yaml ;;

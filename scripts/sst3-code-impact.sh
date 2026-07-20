@@ -62,7 +62,7 @@ if ! command -v ast-grep >/dev/null 2>&1; then
     exit 127
 fi
 
-CHANGED=$(git diff --name-only "${BASE}...HEAD" -- '*.py' '*.ts' '*.tsx' '*.js' '*.rs' 2>/dev/null || true)
+CHANGED=$(git diff --name-only "${BASE}...HEAD" -- '*.py' '*.ts' '*.tsx' '*.js' '*.jsx' '*.rs' 2>/dev/null || true)
 
 if [[ -z "$CHANGED" ]]; then
     exit 0
@@ -137,11 +137,19 @@ while IFS= read -r FILE; do
     [[ -f "$FILE" ]] || continue
     # Language dispatch (AC 5.1 dotfiles#516 kept the per-language split; #546
     # ports the extraction itself from shape patterns to kind-rules).
+    # #548: `.jsx` dispatches to `javascript`, NOT `tsx`. Probe-confirmed on
+    # ast-grep 0.42.1: the tsx grammar yields ZERO matches on a .jsx file
+    # (explicit-file and repo-wide walk alike), so a `tsx` dispatch would admit
+    # the file and then extract no symbols — emitting a confident
+    # `impacted_callers: 0` false clean, strictly worse than the pre-#548
+    # omission it replaced. The javascript grammar parses and discovers .jsx.
+    # Locked by test-fixtures/code-impact-jsx-recall (asserts a NON-ZERO count).
     case "$FILE" in
         *.py)  LANG="python" ;;
         *.ts)  LANG="typescript" ;;
         *.tsx) LANG="tsx" ;;
         *.js)  LANG="javascript" ;;
+        *.jsx) LANG="javascript" ;;
         *.rs)  LANG="rust" ;;
         *)     continue ;;
     esac

@@ -77,7 +77,11 @@ if [[ ${#ARGS[@]} -lt 2 ]]; then
 fi
 
 NAME="${ARGS[0]}"
-LANG="${ARGS[1]}"
+# #548: route through the shared normaliser so alias tokens (jsx, js, py, ts,
+# rs) resolve here exactly as they do in callers/search/entry-points. Before
+# this, the raw arg was matched directly against the per-language case below,
+# so `jsx` exit-64'd even though .jsx analysis works fine under javascript.
+LANG=$(normalise_lang "${ARGS[1]}")
 
 assert_safe_identifier "$NAME"
 
