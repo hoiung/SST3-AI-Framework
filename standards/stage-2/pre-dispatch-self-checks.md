@@ -6,7 +6,7 @@
 > BEFORE dispatching any Layer-1/2 subagent (#516 AC 2.1). Zero unresolved items required
 > before dispatch.
 
-## The nine sub-checks (a)–(i)
+## Sub-checks (a)–(i)
 
 - **(a) placeholder sweep** — `grep -E 'placeholder|stub|\bTODO\b|if needed|nice-to-have|could be|assumed|presumably|expected' /tmp/issue_draft_<topic>.md` → zero hits; re-run after every scope-reversal.
 - **(b) scope-narrowing check** — every AC traces to the narrowed operator ask; an AC that does not map to the literal request is overreach — cut or justify.
@@ -25,3 +25,17 @@
 - For every AC naming a constant/symbol by file:line, re-grep at author-time (line numbers drift).
 - For every count or literal-string verify predicate carried from Stage 1, re-execute the `grep` / `wc` at author-time — do not trust the Stage-1 number.
 - For every "reuse existing X" claim, read X's full body + its transitive IO calls before asserting reuse is safe.
+
+## Shape-gated sub-check (k) — multi-root script file-availability
+
+Fires when the draft touches a **bootstrap / installer / provisioning script that resolves files from more than one root** — a staged kit, a repo it clones part-way through its own run, or a hand-copied staging dir. Skip-clean otherwise.
+
+- **(k) multi-root script file-availability** — for every AC that imports / sources / dot-sources a file inside such a script, identify WHICH root makes that file present **at that step's position in the run order**, before writing the import path. Check all of them in one pass — they are one question, not separate findings to surface across separate review rounds:
+  - **pre-clone staged root** (`$PSScriptRoot`-style) — its LAYOUT varies by how the script was invoked: a flat-staged kit puts everything beside the script, while a run straight out of an existing clone keeps the repo's own `subdir\file` shape. Do not assume either; probe both shapes under this root,
+  - **post-clone repo root** (only exists after the clone step — absent at every earlier step),
+  - **operator-invoked staging dir** (the script was copied somewhere and run by hand; carries only a SUBSET of the kit, so "it's on the kit" is not sufficient).
+- Establish the run-order position first — anchor the pattern to the script's own step-header form (`grep -nE '^# --- Step [0-9]'`-style), not a bare word match, which returns mostly prose cross-references. The same file can be reachable at one step and absent at an earlier one; the ordering is the whole check.
+- Cite the in-file precedent: these scripts carry comments stating which root a given call must use and why. Read the precedent BEFORE choosing a root; do not infer from a nearby line that sits on the other side of the clone step.
+- Prefer a guarded try-both (`Test-Path` / `[ -f ]`) over a single hardcoded path — both ACROSS roots when a call must work on either side of the clone step, and WITHIN the staged root when its layout depends on the invocation mode. Break on the first hit inside a probe loop, so one resolution wins.
+- Where a LATER step can re-load the same file — a second attempt from a different root, whether or not the earlier one succeeded — guard that fallback on an already-loaded predicate — `Get-Command` / `command -v` / a sentinel variable — not on the earlier loop's break. A break only ends its own loop; it cannot stop a separate downstream block from re-sourcing the file and resetting whatever script-scope state the first load established.
+- Repo-specific script names, manifest variables, and staging paths belong in the owning repo's own sweep issue — not in this catalogue (it mirrors to a public consumer).
