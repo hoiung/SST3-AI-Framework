@@ -169,8 +169,10 @@ fi
 # Python". Gating the skip on the coverage precondition alone (the first cut of
 # this fix, caught by Ralph Tier 2) fired the record on every non-Python diff in
 # a fresh worktree — near-universal noise that would have re-buried the very
-# signal this change exists to surface. Sharing one `$CHANGED` evaluation
-# between both arms also removes the duplicate gate evaluation.
+# signal this change exists to surface. The if/else restructure also removes a
+# duplicate evaluation — of the COVERAGE PRECONDITION, which the intermediate
+# cut tested twice (once to emit the skip, once to guard the real path).
+# `$CHANGED` itself was only ever evaluated once.
 CHANGED=$(git diff --name-only "${BASE}...HEAD" -- '*.py' 2>/dev/null || true)
 if [[ -n "$CHANGED" ]]; then
     if [[ ! -f .coverage ]] || ! command -v coverage >/dev/null 2>&1; then
