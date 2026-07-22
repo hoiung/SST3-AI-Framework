@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Backup issue bodies before Issue Assignment rollout.
+[#406 Phase 9 — MANUAL UTILITY] Not wired into .pre-commit-config.yaml or CI by design. Invoke directly when needed (manual workflow tool, not a per-commit hook).
+
 
 This script creates a JSON snapshot of all open issue bodies across specified
 repos. Used as a safety net before running rollout-issue-assignment.py.
@@ -13,7 +15,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sst3_utils import fix_windows_console, KNOWN_REPOS
@@ -24,7 +26,24 @@ fix_windows_console()
 # Build REPOS path dict from sst3_utils.KNOWN_REPOS — single source of truth.
 # dotfiles is special-cased (its scripts are inside SST3/scripts so the path
 # resolution differs from sibling repos).
-_DOTFILES_ROOT = Path(__file__).resolve().parent.parent.parent
+#
+# #500 Stage 5 worktree-CWD fix: when invoked from .claude/worktrees/<wt>/,
+# Path(__file__).parent.parent.parent resolved to the worktree root, then
+# .parent landed in .claude/worktrees/ (not ~/DevProjects/), and every
+# consumer-repo lookup silently missed. Use sst3_mirror_utils.resolve_main_clone_root
+# (the env-immune helper propagate-template.py adopted post-#488) so the
+# DevProjects base is canonical regardless of worktree state.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(_SCRIPT_DIR))
+import sst3_mirror_utils as _smu  # noqa: E402
+# dotfiles#552 AC 3.2 — `_SCRIPT_DIR.parent / MANIFEST_FILENAME` is only the FIRST
+# of the candidates `find_manifest()` already knows about, and it is the one that
+# assumes the NESTED canonical layout. In the FLATTENED public mirror it points at
+# a manifest that is deliberately never published, and the sibling-dotfiles
+# candidate -- the documented resolution for consumers and mirrors -- was never
+# reached. Reuse the full resolver rather than re-implementing one branch of it.
+_MANIFEST_PATH = _smu.find_manifest(_SCRIPT_DIR)
+_DOTFILES_ROOT = _smu.resolve_main_clone_root(_MANIFEST_PATH)
 _DEVPROJECTS = _DOTFILES_ROOT.parent
 REPOS = {
     name: (_DOTFILES_ROOT if name == 'dotfiles' else _DEVPROJECTS / name)
@@ -108,7 +127,7 @@ def backup_issues(repos: list[str], output_path: str) -> dict:
                 'title': issue['title'],
                 'body': issue['body'],
                 'labels': [label['name'] for label in issue.get('labels', [])],
-                'timestamp': datetime.utcnow().isoformat() + 'Z'
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }
             for issue in filtered_issues
         ]
@@ -118,7 +137,7 @@ def backup_issues(repos: list[str], output_path: str) -> dict:
 
     result = {
         'metadata': {
-            'created_at': datetime.utcnow().isoformat() + 'Z',
+            'created_at': datetime.now(timezone.utc).isoformat(),
             'repos': repos,
             'total_issues': total_issues
         },
@@ -143,13 +162,13 @@ def main():
         epilog='''
 Examples:
   # Backup dotfiles issues
-  python $SST3/backup-issue-bodies.py --repos dotfiles --output backup-dotfiles.json
+  python backup-issue-bodies.py --repos dotfiles --output backup-dotfiles.json
 
   # Backup all repos
-  python $SST3/backup-issue-bodies.py --repos all --output backup-20251128.json
+  python backup-issue-bodies.py --repos all --output backup-20251128.json
 
   # Backup specific repos
-  python $SST3/backup-issue-bodies.py --repos dotfiles,<consumer-public-1> --output backup.json
+  python backup-issue-bodies.py --repos dotfiles,<consumer-public-1> --output backup.json
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
