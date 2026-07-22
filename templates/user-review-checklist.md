@@ -138,7 +138,7 @@ For any number, ratio, or capacity claim appearing in this issue's documentation
 
 ### Run Validation Script
 ```bash
-python SST3/scripts/check-issue-body-vs-comments.py --issue [CURRENT_ISSUE_NUMBER]
+python $SST3/check-issue-body-vs-comments.py --issue [CURRENT_ISSUE_NUMBER]
 ```
 
 **If script returns violations**: Fix IMMEDIATELY before closing Issue

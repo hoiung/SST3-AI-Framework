@@ -17,10 +17,24 @@
 # Exit 0 = wiring intact; exit 1 = drift (a fix-A regression).
 
 set -euo pipefail
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+# dotfiles#552 AC 3.2 — this fixture asserts on REPO-ROOT files, not on
+# `scripts/` siblings, so the sibling idiom used by the other fixtures does not
+# apply. A fixed 3-up walk assumed the NESTED canonical layout and overshot the
+# root in the FLATTENED mirror. Probe for the `.git` marker instead (a DIR in a
+# main clone, a FILE in a linked worktree) so the depth difference cannot matter.
+REPO_ROOT="$(cd "$(dirname "$0")" && while [ "$PWD" != / ]; do
+    [ -e .git ] && { pwd; break; }; cd ..; done)"
+[ -n "$REPO_ROOT" ] || { echo "FIXTURE-ABORT: no .git marker above $(dirname "$0")" >&2; exit 2; }
 CLAUDE="$REPO_ROOT/CLAUDE.md"
 LEADER="$REPO_ROOT/.claude/commands/Leader.md"
 SOLO="$REPO_ROOT/.claude/commands/SST3-solo.md"
+
+# Fail LOUD when the subjects are absent (they are NOT vendored to the public
+# mirror at these paths), rather than letting awk/grep on a missing file decide
+# the outcome -- that is the vacuous-pass class this issue exists to close.
+for _f in "$CLAUDE" "$LEADER" "$SOLO"; do
+    [ -f "$_f" ] || { echo "FIXTURE-ABORT: subject not found at $_f" >&2; exit 2; }
+done
 
 fail() { echo "FAIL: $1"; exit 1; }
 

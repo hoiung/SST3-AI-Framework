@@ -47,7 +47,7 @@
 
 **Discoverability Requirement** (Issue #119): All SST3 files MUST be discoverable from CLAUDE.md in EVERY repo.
 - **Chain**: CLAUDE.md → workflow/WORKFLOW.md → stage-X → feature (<=4 steps)
-- **Validation**: `python scripts/check-discoverability.py` during Verification Loop
+- **Validation**: `python $SST3/check-discoverability.py` during Verification Loop
 - **Exception**: CLAUDE_TEMPLATE.md (template), .sst3-local/ (project-specific)
 - **Enforcement**: Verification Loop BLOCKS merge if any repo fails discoverability check
 
@@ -359,9 +359,9 @@ Rule of thumb: any single Bash invocation that produces > 200 lines should be wr
 <!-- stages: 4 -->
 ### Structural Code Queries — Wrapper-Lane First, Subagent Fallback
 
-For structural code questions (callers, callees, imports, inheritance, blast radius, dead code, large functions, test coverage) in a language the wrapper-lane parses (Python, TypeScript, TSX, JavaScript, Rust — the five languages ast-grep is wired for in the wrappers), prefer **wrapper-lane** bash queries (`bash scripts/sst3-code-*.sh`) over subagent exploration — when the pre-query gate passes:
+For structural code questions (callers, callees, imports, inheritance, blast radius, dead code, large functions, test coverage) in a language the wrapper-lane parses (Python, TypeScript, TSX, JavaScript, Rust — the five languages ast-grep is wired for in the wrappers), prefer **wrapper-lane** bash queries (`bash $SST3/sst3-code-*.sh`) over subagent exploration — when the pre-query gate passes:
 
-1. **Wrapper invocable**: `bash scripts/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The lane is stateless — there is no graph to build. `file_count` reports the count of supported source files in the target repo (audit-trail aid, not a precondition).
+1. **Wrapper invocable**: `bash $SST3/sst3-code-status.sh` exits 0 and emits valid JSON `{last_updated, file_count, source_languages}`. The lane is stateless — there is no graph to build. `file_count` reports the count of supported source files in the target repo (audit-trail aid, not a precondition).
 2. **No staleness — every call re-parses from disk**. The wrapper-lane has no persistent cache; `sst3-code-update.sh` is a no-op contract-preservation shim. `last_updated` reflects the repo HEAD commit time, not query freshness.
 3. **Target file / project language is in the supported list**. If not (Markdown, YAML, JSON, SQL, TOML, shell, HTML, Jinja, Dockerfile, etc.), skip the wrapper-lane; use subagent exploration.
 4. **`search` is keyword-only**. The wrapper invokes ripgrep (`--literal` mode) or ast-grep structural patterns — there are no embeddings, no semantic similarity. Any "no match" must be cross-checked with a synonym sweep before drawing a negative conclusion.
@@ -925,7 +925,7 @@ Canonical audit signal for verifying that `mcp__github-checkbox__update_issue_ch
 <!-- stages: 4 -->
 ## Task-Close Drain Gate (Canonical)
 
-Every Stage-5 task close must verify residue drained or waived — `bash <your-dotfiles-clone>/SST3/scripts/leader-stage5-drain-check.sh <issue>` exit 0 mandatory before sign-off. The gate fires on six classes (D1: uncommitted task-touched files / D2: self-created stash / D3: self-opened worktree / D4: un-pushed commits / D5: unfinished propagation tail — dotfiles-scoped / D6: the issue's dotfiles feedback file `feedback-<repo>-<issue>.md` is not committed + pushed + synced to `origin/master` — runs regardless of `--repo`, since feedback lives in dotfiles even when the work repo differs; #522). Either drain the residue and re-run, or pass an explicit `--waive-residue <class>:<reason>` flag per class to record the operator's deliberate exception. Layer-A pre-flight (Leader.md step 7a.1, between the 7a.0 sweep and the 7a completeness check) + Layer-B GHA failsafe (`.github/workflows/stage5-completeness.yml`) replay the same gate server-side; both layers are mandatory. Parallel to the completeness-gate principle (#460 W4) but enforces "the task left no residue", not "the feature is complete". Introduced in #493 Phase 2.
+Every Stage-5 task close must verify residue drained or waived — `bash $SST3/leader-stage5-drain-check.sh <issue>` exit 0 mandatory before sign-off. The gate fires on six classes (D1: uncommitted task-touched files / D2: self-created stash / D3: self-opened worktree / D4: un-pushed commits / D5: unfinished propagation tail — dotfiles-scoped / D6: the issue's dotfiles feedback file `feedback-<repo>-<issue>.md` is not committed + pushed + synced to `origin/master` — runs regardless of `--repo`, since feedback lives in dotfiles even when the work repo differs; #522). Either drain the residue and re-run, or pass an explicit `--waive-residue <class>:<reason>` flag per class to record the operator's deliberate exception. Layer-A pre-flight (Leader.md step 7a.1, between the 7a.0 sweep and the 7a completeness check) + Layer-B GHA failsafe (`.github/workflows/stage5-completeness.yml`) replay the same gate server-side; both layers are mandatory. Parallel to the completeness-gate principle (#460 W4) but enforces "the task left no residue", not "the feature is complete". Introduced in #493 Phase 2.
 
 <!-- stages: 4 -->
 ## Per-Stage Feedback Capture (Canonical)
@@ -1088,7 +1088,7 @@ Housekeeping in 3 places (during work, after merge, STANDARDS.md) is intentional
 
 <!-- stages: 4 -->
 ### DO
-- [ ] Set up pre-commit hooks (scripts/check-propagation.py, scripts/auto-stage-tracked-folders.py)
+- [ ] Set up pre-commit hooks (`$SST3/check-propagation.py`, `$SST3/auto-stage-tracked-folders.py`)
 - [ ] Write tests for critical paths (85% bug catch rate at Verification Loop)
 - [ ] Isolate components with clear interfaces
 - [ ] Require PR review before merging
@@ -1098,7 +1098,7 @@ Housekeeping in 3 places (during work, after merge, STANDARDS.md) is intentional
 <!-- stages: 4 -->
 ### DON'T
 - [ ] Skip tests for "simple" changes
-- [ ] Bypass pre-commit hooks (scripts/check-propagation.py, scripts/auto-stage-tracked-folders.py)
+- [ ] Bypass pre-commit hooks (`$SST3/check-propagation.py`, `$SST3/auto-stage-tracked-folders.py`)
 - [ ] Mix concerns in single modules
 - [ ] Merge without passing tests
 - [ ] Ignore linter warnings

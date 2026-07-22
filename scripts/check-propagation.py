@@ -12,7 +12,7 @@ BEHAVIOR:
 
 USAGE:
     Called automatically by pre-commit when template files are staged.
-    Can also be run manually: python SST3/scripts/check-propagation.py
+    Can also be run manually: python scripts/check-propagation.py
 """
 
 import subprocess
@@ -38,7 +38,7 @@ def check_template_changed():
     except SST3UtilError as exc:
         print(f"[ERROR] check-propagation: {exc}", file=sys.stderr)
         sys.exit(1)
-    template_changed = 'SST3/templates/CLAUDE_TEMPLATE.md' in staged
+    template_changed = 'templates/CLAUDE_TEMPLATE.md' in staged
     dotfiles_claude_changed = 'CLAUDE.md' in staged
     return template_changed, dotfiles_claude_changed
 
@@ -150,7 +150,6 @@ def validate_sst3_sections():
         Tuple of (valid: bool, mismatches: list of repo names)
     """
     script_dir = Path(__file__).parent.resolve()
-    dotfiles_root = script_dir.parent.parent  # SST3/scripts -> SST3 -> dotfiles
     # #500 Stage 5 worktree-CWD fix: when invoked from .claude/worktrees/<wt>/,
     # dotfiles_root.parent resolves to .claude/worktrees/ (not ~/DevProjects/),
     # causing every cross-repo CLAUDE.md lookup to silently miss. Use
@@ -159,7 +158,15 @@ def validate_sst3_sections():
     # the canonical DevProjects regardless of worktree state.
     sys.path.insert(0, str(script_dir))
     import sst3_mirror_utils as _smu  # noqa: E402
-    manifest_path = dotfiles_root / 'SST3' / _smu.MANIFEST_FILENAME
+    # dotfiles#552 AC 3.2 — resolve the manifest FIRST, then derive the canonical
+    # root from it. The prior order hand-counted `script_dir.parent.parent` and
+    # built the manifest path from that, which assumed the NESTED canonical
+    # layout; the FLATTENED public mirror is one level shallower, so the walk
+    # overshot the repo root. `find_manifest()` already covers every layout x
+    # (main clone / linked worktree) case and raises when there is none, so
+    # reuse it rather than maintaining a second walk beside it (AP #10).
+    manifest_path = _smu.find_manifest(script_dir)
+    dotfiles_root = _smu.resolve_dotfiles_root(manifest_path)
     parent_dir = _smu.resolve_main_clone_root(manifest_path).parent
 
     template_path = dotfiles_root / 'SST3' / 'templates' / 'CLAUDE_TEMPLATE.md'
@@ -270,7 +277,7 @@ def main():
         # AP #22: prefer `git -C` / module form over bare cd to avoid CWD leak
         # (bare `cd dotfiles` was the prior suggestion; replaced #460 Phase 9 AC 9.5).
         print("      python -m SST3.scripts.propagate-template --all")
-        print("      # or, equivalently: (cd dotfiles && python SST3/scripts/propagate-template.py --all)")
+        print("      # or, equivalently: (cd dotfiles && python scripts/propagate-template.py --all)")
         print("\n      Then review and commit the changes in each repository.")
         print("\n" + "="*60 + "\n")
         sys.exit(1)  # BLOCK commit - this is a critical error
@@ -311,7 +318,7 @@ def main():
             print("[ERROR] Dry-run propagation failed. Check the script.")
             print("\n" + output)
             print("\n[WARNING] Commit will proceed, but please fix propagation manually:")
-            print("   python SST3/scripts/propagate-template.py --all")
+            print("   python scripts/propagate-template.py --all")
             print("\n" + "="*60 + "\n")
             sys.exit(0)  # Don't block commit even on failure
 
@@ -325,7 +332,7 @@ def main():
         if response is None:
             # Skip was selected
             print("\n[REMINDER] Run propagation manually later:")
-            print("   python SST3/scripts/propagate-template.py --all")
+            print("   python scripts/propagate-template.py --all")
             print("\n" + "="*60 + "\n")
             sys.exit(0)
 
@@ -340,11 +347,11 @@ def main():
                 print("\n" + "="*60 + "\n")
             else:
                 print("\n[ERROR] Propagation failed. Run manually:")
-                print("   python SST3/scripts/propagate-template.py --all")
+                print("   python scripts/propagate-template.py --all")
                 print("\n" + "="*60 + "\n")
         else:
             print("\n[REMINDER] Run propagation manually later:")
-            print("   python SST3/scripts/propagate-template.py --all")
+            print("   python scripts/propagate-template.py --all")
             print("\n   IMPORTANT:")
             print("   - Other repositories are now out of sync")
             print("   - Propagate as soon as possible")

@@ -21,9 +21,20 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-PARSER="$REPO_ROOT/scripts/feedback_parser.py"
-TOOL="$REPO_ROOT/scripts/mark-improvements-applied.sh"
+# dotfiles#552 AC 3.2 — sibling-relative walk: `scripts/` is a sibling of
+# test-fixtures/ in BOTH the nested canonical and flattened mirror layouts,
+# so 2-up-into-scripts is invariant. The old 3-up-to-repo-root then
+# /scripts/ re-encoded the nested layout and overshot in the mirror.
+SCRIPTS_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
+PARSER="$SCRIPTS_DIR/feedback_parser.py"
+TOOL="$SCRIPTS_DIR/mark-improvements-applied.sh"
+
+# dotfiles#552 AC 3.2 — fail LOUD when the subject is absent. Without this,
+# a missing target made assertions that merely expect a NON-ZERO exit pass
+# vacuously (file-not-found is also non-zero), so the fixture reported
+# "assertions passed" while testing nothing at all.
+[ -f "$PARSER" ] || { echo "FIXTURE-ABORT: $PARSER not found at $PARSER" >&2; exit 2; }
+[ -f "$TOOL" ] || { echo "FIXTURE-ABORT: $TOOL not found at $TOOL" >&2; exit 2; }
 HERE="$(dirname "$0")"
 
 fail() { echo "FAIL: $*"; exit 1; }
@@ -75,7 +86,7 @@ for l in sys.stdin:
 
 SPAN2_PRE=$(python3 - "$F" <<PYEOF
 import sys, json
-sys.path.insert(0, "$REPO_ROOT/SST3/scripts")
+sys.path.insert(0, "$SCRIPTS_DIR")
 import feedback_parser as fp
 from pathlib import Path
 text = Path(sys.argv[1]).read_text()
@@ -91,7 +102,7 @@ FLIPPED_LINE=$(sed -n "${STATUS_LINE}p" "$F")
 
 SPAN2_POST=$(python3 - "$F" <<PYEOF
 import sys, json
-sys.path.insert(0, "$REPO_ROOT/SST3/scripts")
+sys.path.insert(0, "$SCRIPTS_DIR")
 import feedback_parser as fp
 from pathlib import Path
 text = Path(sys.argv[1]).read_text()

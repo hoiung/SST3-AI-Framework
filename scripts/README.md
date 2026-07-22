@@ -123,7 +123,7 @@ Add to `.github/workflows/sst3-validation.yml`:
 ```yaml
 - name: Validate meta-testing
   run: |
-    python SST3/scripts/meta-test-validator.py ${{ github.event.pull_request.number }} ${{ github.head_ref }}
+    python $SST3/meta-test-validator.py ${{ github.event.pull_request.number }} ${{ github.head_ref }}
 ```
 
 **When to Run**:
@@ -142,9 +142,9 @@ Add to `.github/workflows/sst3-validation.yml`:
 **Usage**:
 ```bash
 # From dotfiles repo:
-python SST3/scripts/cleanup-temp.py              # Dry run (preview)
-python SST3/scripts/cleanup-temp.py --execute    # Actually delete
-python SST3/scripts/cleanup-temp.py --age 45     # Custom threshold
+python $SST3/cleanup-temp.py              # Dry run (preview)
+python $SST3/cleanup-temp.py --execute    # Actually delete
+python $SST3/cleanup-temp.py --age 45     # Custom threshold
 
 # From other repos (project-a, project-b, etc.):
 python ../cleanup-temp.py (current directory)
@@ -208,13 +208,13 @@ python ../cleanup-temp.py (current directory)
 **Usage**:
 ```bash
 # Preview (dry-run, default)
-python SST3/scripts/auto-rollback.py <issue-number> --dry-run
+python $SST3/auto-rollback.py <issue-number> --dry-run
 
 # Execute rollback
-python SST3/scripts/auto-rollback.py <issue-number> --execute
+python $SST3/auto-rollback.py <issue-number> --execute
 
 # With file preservation
-python SST3/scripts/auto-rollback.py <issue-number> --execute --preserve-dir "C:/path/backup"
+python $SST3/auto-rollback.py <issue-number> --execute --preserve-dir "C:/path/backup"
 ```
 
 **Features**:
@@ -236,20 +236,20 @@ python SST3/scripts/auto-rollback.py <issue-number> --execute --preserve-dir "C:
 **Usage**:
 ```bash
 # Check if fix should be applied
-python SST3/scripts/check-failed-experiments.py "Always use UTF-8 encoding" --issue 119
+python $SST3/check-failed-experiments.py "Always use UTF-8 encoding" --issue 119
 
 # Add new failed experiment entry
-python SST3/scripts/check-failed-experiments.py --add-failure "UTF-8 encoding" \
+python $SST3/check-failed-experiments.py --add-failure "UTF-8 encoding" \
     --issue 119 --reason "Breaks Windows cp1252" --alternative "Check encoding first"
 
 # List all failed experiments
-python SST3/scripts/check-failed-experiments.py --list
+python $SST3/check-failed-experiments.py --list
 
 # Get attempt count only
-python SST3/scripts/check-failed-experiments.py "UTF-8 encoding" --count
+python $SST3/check-failed-experiments.py "UTF-8 encoding" --count
 
 # JSON output (for automation)
-python SST3/scripts/check-failed-experiments.py "UTF-8 encoding" --issue 119 --json
+python $SST3/check-failed-experiments.py "UTF-8 encoding" --issue 119 --json
 ```
 
 **Exit Codes**:
@@ -313,7 +313,7 @@ EXIT: 2
 **Testing**:
 ```bash
 # Run inline unit tests
-python SST3/scripts/check-failed-experiments.py --test
+python $SST3/check-failed-experiments.py --test
 ```
 
 **Related Documentation**:
@@ -330,13 +330,13 @@ python SST3/scripts/check-failed-experiments.py --test
 **Usage**:
 ```bash
 # Dry run (recommended first)
-python SST3/scripts/propagate-template.py --all --dry-run
+python $SST3/propagate-template.py --all --dry-run
 
 # Single repository
-python SST3/scripts/propagate-template.py --repo ../<your-project>
+python $SST3/propagate-template.py --repo ../<your-project>
 
 # All repositories
-python SST3/scripts/propagate-template.py --all
+python $SST3/propagate-template.py --all
 ```
 
 **How It Works**:
@@ -362,7 +362,7 @@ python SST3/scripts/propagate-template.py --all
 pip install pre-commit && cd dotfiles && pre-commit install
 
 # Manual test
-python SST3/scripts/auto-stage-tracked-folders.py
+python $SST3/auto-stage-tracked-folders.py
 ```
 
 **Tracked Folders**:
@@ -395,13 +395,13 @@ python SST3/scripts/auto-stage-tracked-folders.py
 **Usage**:
 ```bash
 # Check for violations
-python SST3/scripts/check-crossrepo-paths.py
+python $SST3/check-crossrepo-paths.py
 
 # Show suggested fixes (dry-run)
-python SST3/scripts/check-crossrepo-paths.py --fix
+python $SST3/check-crossrepo-paths.py --fix
 
 # Verbose output
-python SST3/scripts/check-crossrepo-paths.py --verbose
+python $SST3/check-crossrepo-paths.py --verbose
 ```
 
 **Problem Solved**:
@@ -439,10 +439,10 @@ When SST3 docs reference other SST3 files using repo-relative paths (e.g., `` `S
 **Usage**:
 ```bash
 # Check all retrospectives
-python SST3/scripts/check-retrospective-location.py
+python $SST3/check-retrospective-location.py
 
 # Verbose output
-python SST3/scripts/check-retrospective-location.py --verbose
+python $SST3/check-retrospective-location.py --verbose
 ```
 
 **Problem Solved**:
@@ -582,13 +582,13 @@ Scripts for cross-repo Stage Assignment checkbox rollout automation (Issue #305)
 **Usage**:
 ```bash
 # Dry-run (preview changes)
-python SST3/scripts/migrate-stage-assignment-marker.py --repos all --dry-run
+python $SST3/migrate-stage-assignment-marker.py --repos all --dry-run
 
 # Test on first 3 issues
-python SST3/scripts/migrate-stage-assignment-marker.py --repos dotfiles --test 3
+python $SST3/migrate-stage-assignment-marker.py --repos dotfiles --test 3
 
 # Execute migration
-python SST3/scripts/migrate-stage-assignment-marker.py --repos all --execute
+python $SST3/migrate-stage-assignment-marker.py --repos all --execute
 ```
 
 **Behavior**:
@@ -620,13 +620,13 @@ python SST3/scripts/migrate-stage-assignment-marker.py --repos all --execute
 **Usage**:
 ```bash
 # Backup all open issues from all repos
-python SST3/scripts/backup-issue-bodies.py --repos all --output backup-$(date +%Y%m%d).json
+python $SST3/backup-issue-bodies.py --repos all --output backup-$(date +%Y%m%d).json
 
 # Backup specific repo
-python SST3/scripts/backup-issue-bodies.py --repos dotfiles
+python $SST3/backup-issue-bodies.py --repos dotfiles
 
 # Include closed issues
-python SST3/scripts/backup-issue-bodies.py --repos all --state all
+python $SST3/backup-issue-bodies.py --repos all --state all
 ```
 
 **Exit Codes**: `0`=success, `3`=error
@@ -652,16 +652,16 @@ python SST3/scripts/backup-issue-bodies.py --repos all --state all
 **Usage**:
 ```bash
 # Preview changes (ALWAYS run first)
-python SST3/scripts/rollout-issue-assignment.py --dry-run --repos all
+python $SST3/rollout-issue-assignment.py --dry-run --repos all
 
 # Test on 3 issues first
-python SST3/scripts/rollout-issue-assignment.py --test 3 --repos dotfiles
+python $SST3/rollout-issue-assignment.py --test 3 --repos dotfiles
 
 # Full rollout (after verification)
-python SST3/scripts/rollout-issue-assignment.py --execute --repos all
+python $SST3/rollout-issue-assignment.py --execute --repos all
 
 # Rollout specific section only
-python SST3/scripts/rollout-issue-assignment.py --execute --repos all --section stage
+python $SST3/rollout-issue-assignment.py --execute --repos all --section stage
 ```
 
 **Flags**:
@@ -687,10 +687,10 @@ python SST3/scripts/rollout-issue-assignment.py --execute --repos all --section 
 **Usage**:
 ```bash
 # Verify against backup
-python SST3/scripts/verify-issue-rollout.py --backup backup-20251128.json
+python $SST3/verify-issue-rollout.py --backup backup-20251128.json
 
 # Verify specific issues
-python SST3/scripts/verify-issue-rollout.py --backup backup.json --issues 305,306,307
+python $SST3/verify-issue-rollout.py --backup backup.json --issues 305,306,307
 ```
 
 **Exit Codes**: `0`=verified, `1`=discrepancies, `3`=error
@@ -703,7 +703,7 @@ python SST3/scripts/verify-issue-rollout.py --backup backup.json --issues 305,30
 
 **Usage**: Runs automatically via pre-commit. Manual test:
 ```bash
-python SST3/scripts/check-issue-assignment-change.py
+python $SST3/check-issue-assignment-change.py
 ```
 
 **Behavior**:

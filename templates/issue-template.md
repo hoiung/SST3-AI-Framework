@@ -270,7 +270,7 @@ Every Acceptance Criteria checkbox MUST have an explicit verification command/me
 ### User Review (MANDATORY - Cannot Skip)
 - [ ] POST user-review-checklist.md to user in chat (from TEMPLATE — ALL sections mandatory)
 - [ ] Work through checklist WITH user
-- [ ] Run validation: `python SST3/scripts/check-issue-body-vs-comments.py --issue [NUMBER]`
+- [ ] Run validation: `python $SST3/check-issue-body-vs-comments.py --issue [NUMBER]`
 - [ ] **WAIT** for user approval
 - [ ] User approves
 

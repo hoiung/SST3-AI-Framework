@@ -143,13 +143,13 @@ def main():
         epilog='''
 Examples:
   # Backup dotfiles issues
-  python SST3/scripts/backup-issue-bodies.py --repos dotfiles --output backup-dotfiles.json
+  python $SST3/backup-issue-bodies.py --repos dotfiles --output backup-dotfiles.json
 
   # Backup all repos
-  python SST3/scripts/backup-issue-bodies.py --repos all --output backup-20251128.json
+  python $SST3/backup-issue-bodies.py --repos all --output backup-20251128.json
 
   # Backup specific repos
-  python SST3/scripts/backup-issue-bodies.py --repos dotfiles,auto_pb_swing_trader --output backup.json
+  python $SST3/backup-issue-bodies.py --repos dotfiles,auto_pb_swing_trader --output backup.json
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )

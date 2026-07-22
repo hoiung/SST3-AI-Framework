@@ -10,10 +10,10 @@ SST3=$( [ -f scripts/load-stage-rules.sh ] && echo scripts/ || echo "<your-dotfi
 
 Then invoke every SST3 script as `bash $SST3/<script>.sh ...`. This is required because no fixed path works everywhere: a bare `scripts/...` exits 127 from any consumer repo, and a `$HOME`-anchored path silently reads the MAIN dotfiles clone even when you are in a dotfiles worktree — so a session editing `standards/**` would validate the wrong tree. The resolver above picks the local canon when one exists (dotfiles clone or its worktrees, including your own in-flight edits) and falls back to the dotfiles clone otherwise (consumer repos and their worktrees). Verified across all four. Confirm exit 0 before relying on any output. **A 127 here means the path did not resolve — it does NOT mean a missing inner engine**; do not apply the engine-missing remedy below to it. If the fallback branch itself 127s, the dotfiles clone is not at `<your-dotfiles-clone>` on this machine — resolve it instead from the installed command symlink (`dirname $(dirname $(readlink -f ~/.claude/commands))`), which `install.sh` creates pointing at the canonical root. Do NOT substitute a full `STANDARDS.md` read on failure: the per-stage cluster files (`stage-N/*.md`) exist ONLY in the loader's output, so a full-canon read silently omits them.
 
-**Post-#498 Phase 4 — per-stage loader**: prefer `bash $SST3/load-stage-rules.sh always` at session start over reading STANDARDS.md in full. The loader emits the always-load carve-out subset (privacy / voice / destructive-op / MCP-Tool-Schema-Loading) at ~16K bytes vs the full ~50K canonical. Per-stage subsets (`load-stage-rules.sh <N>`) load when entering Stage N. AC 4.9 invariant: `grep -F 'load-stage-rules.sh always' .claude/commands/SST3-solo.md` returns ≥1.
+**Post-#498 Phase 4 — per-stage loader**: prefer `bash $SST3/load-stage-rules.sh always` at session start over reading STANDARDS.md in full. The loader emits the always-load carve-out subset (privacy / voice / destructive-op / MCP-Tool-Schema-Loading) at ~16K bytes vs the full ~50K canonical. Per-stage subsets (`load-stage-rules.sh <N>`) load when entering Stage N. AC 4.9 invariant: `grep -F 'load-stage-rules.sh always' .claude/commands/SST3-solo.md` returns ≥1. Non-zero exit = STOP; do not proceed on partial canon.
 
 Default per-session reading set:
-1. `bash $SST3/load-stage-rules.sh always` — always-load canonical subset.
+1. `bash $SST3/load-stage-rules.sh always` — always-load canonical subset. Non-zero exit = STOP; do not proceed on partial canon.
 2. Current repository's `CLAUDE.md` (entire file).
 3. `../workflow/WORKFLOW.md` (entire file — defines the 5-stage workflow).
 
@@ -85,7 +85,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 1 — Research (Subagent Swarm → /tmp)
 
-**Stage 1 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 1` at Stage-1 entry (research / subagent-swarm / pre-swarm SEED rules). Parity with `Leader.md` Stage 1.
+**Stage 1 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 1` at Stage-1 entry (research / subagent-swarm / pre-swarm SEED rules). Parity with `Leader.md` Stage 1. Non-zero exit = STOP; do not proceed on partial canon.
 
 - Author + run the research swarm via the Workflow tool (DEFAULT; 5 files max per subtask); Agent/Task = the documented fallback only for a trivial single-angle check
 - Main context = orchestrator only — NEVER read source files directly
@@ -96,7 +96,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 2 — Issue Creation (Main Agent from /tmp)
 
-**Stage 2 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 2` at Stage-2 entry. This is what loads the `standards/stage-2/*.md` cluster — the pre-dispatch author self-check catalogue (a)–(k) and the L1/L2 prompt-angle catalogue. Without it those checks are unreachable in solo mode. Parity with `Leader.md` Stage 2.
+**Stage 2 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 2` at Stage-2 entry. This is what loads the `standards/stage-2/*.md` cluster — the pre-dispatch author self-check catalogue (a)–(k) and the L1/L2 prompt-angle catalogue. Without it those checks are unreachable in solo mode. Parity with `Leader.md` Stage 2. Non-zero exit = STOP; do not proceed on partial canon.
 
 - Create issue using `issue-template.md` from /tmp research
 - Add ALL before/after illustrations, phase checkpoints between phases
@@ -107,7 +107,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 3 — Triple-Check (Subagents Verify Scope)
 
-**Stage 3 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 3` at Stage-3 entry (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Parity with `Leader.md` Stage 3.
+**Stage 3 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 3` at Stage-3 entry (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Parity with `Leader.md` Stage 3. Non-zero exit = STOP; do not proceed on partial canon.
 
 - Scope vs audit = 100% captured, no gaps, no overengineering
 - **Chat Reconciliation (Verifier-Led, MAIN-AGENT-owned, non-delegable)** — the chat-history / opposite-scoping check is NOT a subagent self-cert (subagents never receive the conversation). Dispatch the 3-model neutral panel (Haiku+Sonnet+Opus, shown ONLY the operator's raw messages from `extract-chat-agreements.py`), flag invented/dropped/inverted vs the draft, POST `## Chat Reconciliation`, PAUSE for operator sign-off before issue creation (Leader.md step 2a / AC 7.1; STANDARDS.md "Chat Reconciliation (Verifier-Led)"; #522)
@@ -117,7 +117,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 4 — Implementation + Merge + User Review
 
-**Stage 4 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 4` at Stage-4 entry — emits the Stage-4-tagged canon PLUS every `stage-4/*.md` extract file (verification-loop, ralph-review, the gate files, three-tier-testing, and the rest — the loader's glob is the authority on the set, deliberately not restated as a count here because a hardcoded count drifts as files are added). Parity with `Leader.md` Stage 4; the "Before Starting Work" checklist item below is the same invocation.
+**Stage 4 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 4` at Stage-4 entry — emits the Stage-4-tagged canon PLUS every `stage-4/*.md` extract file (verification-loop, ralph-review, the gate files, three-tier-testing, and the rest — the loader's glob is the authority on the set, deliberately not restated as a count here because a hardcoded count drifts as files are added). Parity with `Leader.md` Stage 4; the "Before Starting Work" checklist item below is the same invocation. Non-zero exit = STOP; do not proceed on partial canon.
 
 - Implement all phases, commit per file
 - **When-needed (NOT every run)**: for goal / discovery / analysis / iterate-until-met work, invoke `/goal-loop` (wraps native `/goal`, loops until every acceptance gate passes or an honest NO-GO is recorded)
@@ -131,7 +131,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 
 ### Stage 5 — Post-Implementation Review (Subagent Swarm)
 
-**Stage 5 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 5` at Stage-5 entry (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Parity with `Leader.md` Stage 5.
+**Stage 5 mandatory-reading directive**: run `bash $SST3/load-stage-rules.sh 5` at Stage-5 entry (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Parity with `Leader.md` Stage 5. Non-zero exit = STOP; do not proceed on partial canon.
 
 - Author + run the post-implementation audit swarm via the Workflow tool (DEFAULT); Agent/Task = the documented fallback only for a trivial single-angle check
 - Phase-by-phase review against issue body scope, goal alignment, design doc
@@ -151,7 +151,7 @@ Describe the task you need to complete:
 
 ### Before Starting Work
 - [ ] Read CLAUDE.md in full
-- [ ] Load the STANDARDS canon via `bash $SST3/load-stage-rules.sh 4` (Stage-4 subset + always carve-out) — the #498 per-stage loader, preferred over a full STANDARDS.md read (see file top)
+- [ ] Load the STANDARDS canon via `bash $SST3/load-stage-rules.sh 4` (Stage-4 subset + always carve-out) — the #498 per-stage loader, preferred over a full STANDARDS.md read (see file top). Non-zero exit = STOP; do not proceed on partial canon
 - [ ] Read Issue line-by-line (not skim)
 - [ ] Enter an isolated worktree per the CLAUDE.md "Branch Safety (CRITICAL — DO NOT VIOLATE)" anchor (dotfiles#488 Fix-A): call the `EnterWorktree` tool named `solo/issue-{number}-{description}` — do NOT bare `git checkout -b solo/...` in the shared clone (a clone has one HEAD/index; a concurrent agent's branch-create moves yours). The CLAUDE.md anchor is authoritative (the tool only activates from a user/CLAUDE.md/memory directive); this line REFERENCES it.
 - [ ] **HARD STOP**: NEVER switch branches mid-implementation — this remains the in-worktree invariant (commit + push to the worktree's solo branch only; Gate-2 uses the AC 1.3 remote-FF procedure, never a shared-tree branch-switch).

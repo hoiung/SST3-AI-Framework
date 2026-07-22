@@ -37,8 +37,13 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_BLOCKLIST = REPO_ROOT / "SST3" / "scripts" / ".secret-blocklist-canonical"
+# dotfiles#552 AC 3.2 — the blocklist is a SIBLING of this script, so resolve it
+# as one. Walking up to a repo root and back down re-encoded the nested canonical
+# layout: in the FLATTENED public mirror (one level shallower) it pointed outside
+# the repository entirely, so the not-found warning below named a path that was
+# never the right place to look in that layout. Sibling resolution is invariant
+# across both layouts.
+DEFAULT_BLOCKLIST = Path(__file__).resolve().parent / ".secret-blocklist-canonical"
 
 # Generic regex shapes — every pattern below uses character classes / counts only.
 # No literal identifier substrings appear in this script body (AC 2.6c).

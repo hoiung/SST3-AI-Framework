@@ -408,8 +408,21 @@ Safety features:
     #     consumers + the dotfiles self-row are siblings of the MAIN clone,
     #     NEVER of a linked worktree (the silent --all no-op the P1 comment
     #     warned about is fixed here without the fragile git call).
-    template_src_root = script_dir.parent.parent
-    manifest_path = template_src_root / "SST3" / _smu.MANIFEST_FILENAME
+    # dotfiles#552 AC 3.2 — resolve the manifest FIRST, then derive the canonical
+    # root from it, rather than deriving the manifest from a hand-counted parent
+    # walk. `script_dir.parent.parent` assumed the NESTED canonical layout; the
+    # public mirror is FLATTENED and one level shallower, so it overshot the repo
+    # root and built a manifest path that could never exist. That mattered because
+    # the mirror's own Verification Loop tells adopters to run this script
+    # (`workflow/WORKFLOW.md`, and the Gate-1 checkbox in the Leader command).
+    #
+    # `find_manifest()` already encodes every layout x (main clone / linked
+    # worktree) case AND the documented "consumers + public mirrors read the
+    # sibling dotfiles copy" rule, and raises ManifestError when there is none --
+    # a loud, accurate failure instead of a silent wrong root (AP #10: reuse the
+    # existing resolver, do not hand-roll a second one).
+    manifest_path = _smu.find_manifest(script_dir)
+    template_src_root = _smu.resolve_dotfiles_root(manifest_path)
     main_clone = _smu.resolve_main_clone_root(manifest_path)
 
     # AC 2.3 (dotfiles#495 FRAG-1): worktree-aware self-row destination — when

@@ -48,6 +48,35 @@ EXIT_CONFIG = 2
 # Transform implementations (pure, idempotent)
 # -----------------------------------------------------------------------------
 
+# dotfiles#552 AC 3.3 — the REQUIRED TRAILING SLASH in both patterns below is
+# INTENTIONAL and must not be widened. It was raised as a possible gap (a bare
+# `SST3/<subdir>` with no trailing slash is not rewritten); measuring it showed
+# widening would corrupt more than it fixes.
+#
+# Measured across every canonical file carrying `path_scrub` (184 mirror entries
+# on SST3-AI-Harness + 2 on sst3-skills -- note path_scrub runs on TWO lanes, not
+# on all 16 mirror targets):
+#
+#   _SST3_SELF_RE   68 bare matches, of which 49 are `$SST3/...` -- the SHELL
+#                   VARIABLE form of the resolver, which every skill and command
+#                   uses to invoke SST3 scripts portably. Rewriting those mangles
+#                   a variable reference into a broken literal, and Phase 4 of
+#                   this same issue converts ~22 MORE call sites INTO that form.
+#                   Of the remaining 19, `SST3/drift-manifest.json` must also stay
+#                   verbatim: the manifest is deliberately never published to the
+#                   mirror, so scrubbing the prefix would assert a file exists at
+#                   the mirror root when it does not.
+#
+#   _PATH_SCRUB_RE  exactly 1 bare match, `../dotfiles/SST3/drift-manifest.json`,
+#                   which is CORRECT as written -- it points at the sibling
+#                   dotfiles clone, the documented way a consumer or mirror reads
+#                   the canonical manifest. Widening would break the one reference
+#                   it would touch.
+#
+# So the trailing slash is what distinguishes a real path PREFIX (safe to rewrite)
+# from a variable reference or a deliberate cross-repo pointer (must not be).
+# Re-derive the counts before revisiting; a `(?!/)` lookahead alone gives a false
+# 413 because the greedy `+` backtracks to satisfy it.
 _PATH_SCRUB_RE = re.compile(r"\.\./dotfiles/SST3/([a-zA-Z0-9_\-]+)/")
 _SST3_SELF_RE = re.compile(r"\bSST3/([a-zA-Z0-9_\-]+)/")
 _ISSUE_URL_LINKED = re.compile(
@@ -327,12 +356,31 @@ _MEMORY_REF_RE = re.compile(r"`memory/[a-z0-9_]+\.md`")
 # into a "[canonical-only — read … directly]" note) was REMOVED: adopters now
 # have scripts/load-stage-rules.sh and can run `bash scripts/load-stage-rules.sh
 # <N>` directly, exactly as the post-path_scrub mirror form already reads.
+# dotfiles#552 AC 1.4 — that claim was FALSE from #523 until now. The shell
+# script shipped but its execution substrate did not: `_load_stage_rules.py` and
+# `sst3_stage_tag_parser.py` sat in `unmirrored_canonical_files`, whose reasons
+# asserted the opposite of this comment ("no consumer hosts the stage-tag
+# substrate"). Every mirrored stage therefore exited 1 with "canon file
+# missing". Both helpers are now vendored to SST3-AI-Harness and those two
+# unmirrored entries are removed, so exactly one claim survives and it is true.
 # Drops the entire `### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN` block in
 # WORKFLOW.md (operator GitHub-secret rotation procedure not applicable to
 # public consumers). DOTALL so `.` spans newlines. Lazy `.*?` stops at the next
 # `### ` or `## ` heading. Multi-line MUST come BEFORE per-line patterns.
+# dotfiles#552 Phase 2 — the lookahead MUST also stop at a `<!-- stages: N -->`
+# tag comment. Without it the lazy match ran past the block's own end and
+# swallowed the tag comment belonging to the NEXT heading (WORKFLOW.md:143,
+# `<!-- stages: 4 -->`). That section then lost its stage-4 tag in the mirror
+# only, fell through to tag inheritance, and surfaced at stage 5 instead --
+# so the public mirror emitted `## Verification Loop`, `### Stage 3 — Triple-
+# Check` and `### Stage 5 — Post-Implementation Review` at the WRONG stage while
+# stage 4 silently lost them. Measured: mirror WORKFLOW.md contributed 23,628 B
+# to stage 5 against canonical's 11,730 B, and only 14,897 B to stage 4 against
+# canonical's 29,490 B. A scrub chain that only removes text cannot inflate a
+# stage, which is what made this visible. Found by the AC 2.6 retention table;
+# a byte-count check alone would have reported "mirror is smaller, fine".
 _DOTFILES_READ_TOKEN_BLOCK_RE = re.compile(
-    r"### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN.*?(?=^### |^## )",
+    r"### Stage 5 Layer-B Failsafe — DOTFILES_READ_TOKEN.*?(?=^### |^## |^<!-- stages:)",
     re.DOTALL | re.MULTILINE,
 )
 # #501 Stage 5 — canonical-only scripts referenced in vendored prose. After
@@ -846,6 +894,31 @@ def _validate_mirror(mirror: Any, prefix: str) -> None:
                 f"{prefix} has divergent=true but mirror_sha256 missing or malformed "
                 f"(expected 64-char lowercase hex sha256)"
             )
+        # Transforms on a divergent entry are INERT, and inert config that reads
+        # as protection is worse than no config (dotfiles#552, Ralph Tier 2
+        # round 3). `do_apply` in propagate-mirrors.py checks divergence FIRST,
+        # updates only mirror_sha256, and `continue`s -- it never reaches
+        # `apply_transforms`. So a scrub chain declared here never runs.
+        #
+        # This was not hypothetical: seven divergent entries had been given the
+        # full seven-transform scrub chain, and those seven were EXACTLY the
+        # files carrying blocklisted private terms. The manifest asserted a
+        # scrub on precisely the files that were not being scrubbed, and a
+        # commit message attested to it. Rejecting the shape is what makes the
+        # inertness impossible to declare rather than merely documented.
+        #
+        # A divergent mirror is protected by its hash pin plus whatever
+        # hand-scrub produced it -- not by this list.
+        transforms = mirror.get("transforms")
+        if transforms:
+            raise ManifestError(
+                f"{prefix} has divergent=true AND a non-empty transforms list "
+                f"{transforms}. Transforms are never applied to a divergent "
+                f"mirror (propagate-mirrors.do_apply skips it before "
+                f"apply_transforms), so declaring them asserts a scrub that "
+                f"does not run. Remove the transforms, or clear divergent=true "
+                f"if the mirror really should be regenerated from canonical."
+            )
     else:
         transforms = mirror.get("transforms")
         if not isinstance(transforms, list):
@@ -924,6 +997,38 @@ def in_linked_worktree(manifest_path: Path) -> bool:
         resolve_dotfiles_root(manifest_path).resolve()
         != resolve_main_clone_root(manifest_path).resolve()
     )
+
+
+_PROPAGATE_TOOL_REL = "SST3/scripts/propagate-mirrors.py"
+
+
+def propagate_tool_path() -> str:
+    """Best available path to propagate-mirrors.py, for remediation hints.
+
+    dotfiles#552 Ralph Tier 2 round 8. An earlier fix replaced two conflicting
+    hard-coded literals with `_SCRIPTS_DIR`, which is the directory THIS module
+    was imported from. That is right in the canonical tree and WRONG for the
+    dotfiles self-row, where this module is mirrored flat to `<root>/scripts/`
+    while propagate-mirrors.py stays canonical-only under `SST3/scripts/`. The
+    hint then names a file that does not exist -- reproduced by planting drift,
+    running the real pre-commit hook, and pasting its printed command back:
+    "can't open file '.../scripts/propagate-mirrors.py': [Errno 2]".
+
+    Self-verifying, like the loader's own resolver: test for the file rather
+    than infer from the directory name. Falls back to the repo-relative literal,
+    which is honest and runnable from a repo root, instead of an absolute path
+    that is confidently wrong.
+    """
+    beside = Path(_SCRIPTS_DIR) / "propagate-mirrors.py"
+    if beside.is_file():
+        return str(beside)
+    try:
+        resolved = resolve_canonical(find_manifest(), _PROPAGATE_TOOL_REL)
+        if resolved.is_file():
+            return str(resolved)
+    except (ManifestError, OSError):
+        pass
+    return _PROPAGATE_TOOL_REL
 
 
 def resolve_canonical(manifest_path: Path, canonical_rel: str) -> Path:
@@ -1069,7 +1174,15 @@ def check_mirror_drift(
             return True, (
                 f"{mirror['repo']}/{mirror['path']} sha256 {actual_sha[:12]}… "
                 f"(expected {expected_sha[:12]}…) — divergent mirror drifted. "
-                f"If intentional, run: python SST3/scripts/propagate-mirrors.py "
+                # dotfiles#552 AC 3.1 — resolve the tool at RUNTIME rather than
+                # emitting a fixed literal. propagate-mirrors.py is canonical-only,
+                # so the correct prefix depends on where the operator is standing;
+                # the two branches of this function used to print DIFFERENT
+                # literals and at most one could be right in any given context.
+                # Ralph Tier 2 round 8: "beside this module" was ALSO wrong for the
+                # dotfiles self-row, where this module is mirrored flat but the tool
+                # is not. propagate_tool_path() tests for the file instead.
+                f"If intentional, run: python {propagate_tool_path()} "
                 f"--apply --repo {mirror['repo']} --file {entry['canonical']}"
             )
         return False, ""
@@ -1085,7 +1198,10 @@ def check_mirror_drift(
         return True, (
             f"{mirror['repo']}/{mirror['path']} has drifted from canonical "
             f"{entry['canonical']} after transforms {transforms}. "
-            f"Run: python ../dotfiles/SST3/scripts/propagate-mirrors.py "
+            # dotfiles#552 AC 3.1 — same runtime resolution as the divergent
+            # branch above, so both remediation hints agree. Verified by executing
+            # the printed command, not by asserting the two branches match.
+            f"Run: python {propagate_tool_path()} "
             f"--apply --repo {mirror['repo']} --file {entry['canonical']}"
         )
     return False, ""

@@ -11,7 +11,7 @@ BEHAVIOR:
 
 USAGE:
     Called automatically by pre-commit when issue-template.md is staged.
-    Can also be run manually: python SST3/scripts/check-issue-assignment-change.py
+    Can also be run manually: python $SST3/check-issue-assignment-change.py
 
 Exit codes:
     0: Always (warning only, never blocks)
@@ -26,7 +26,7 @@ from sst3_utils import get_staged_files, fix_windows_console, KNOWN_REPOS, SST3U
 fix_windows_console()
 
 
-TEMPLATE_PATH = 'SST3/templates/issue-template.md'
+TEMPLATE_PATH = 'templates/issue-template.md'
 SOLO_MARKER = '## Solo Assignment (SST3 Automated)'
 
 
@@ -127,7 +127,7 @@ def print_warning():
     print("The Solo Assignment section in issue-template.md has been modified.")
     print()
     print("NEXT STEPS (MANDATORY):")
-    print("1. READ: SST3/templates/issue-assignment-rollout.md")
+    print("1. READ: templates/issue-assignment-rollout.md")
     print("2. EXECUTE: Follow all checkboxes in the rollout template")
     print("3. VERIFY: All open issues updated before merging related PR")
     print()

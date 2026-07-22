@@ -19,8 +19,18 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-AGG="$REPO_ROOT/scripts/leader-feedback-aggregate.sh"
+# dotfiles#552 AC 3.2 — sibling-relative walk: `scripts/` is a sibling of
+# test-fixtures/ in BOTH the nested canonical and flattened mirror layouts,
+# so 2-up-into-scripts is invariant. The old 3-up-to-repo-root then
+# /scripts/ re-encoded the nested layout and overshot in the mirror.
+SCRIPTS_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
+AGG="$SCRIPTS_DIR/leader-feedback-aggregate.sh"
+
+# dotfiles#552 AC 3.2 — fail LOUD when the subject is absent. Without this,
+# a missing target made assertions that merely expect a NON-ZERO exit pass
+# vacuously (file-not-found is also non-zero), so the fixture reported
+# "assertions passed" while testing nothing at all.
+[ -f "$AGG" ] || { echo "FIXTURE-ABORT: $AGG not found at $AGG" >&2; exit 2; }
 HERE="$(dirname "$0")"
 
 run_summarize() {

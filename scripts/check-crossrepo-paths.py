@@ -8,14 +8,14 @@ Purpose:
 - Catch patterns like `SST3/`, `../templates/`, `../workflow/` that should be `../dotfiles/SST3/...`
 
 Problem Solved:
-When SST3 docs reference other SST3 files using repo-relative paths (e.g., `SST3/workflow/...`),
+When SST3 docs reference other SST3 files using repo-relative paths (e.g., `workflow/...`),
 those paths work from dotfiles repo but BREAK from other repos (<consumer-public-1>, <consumer-public-2>).
 This makes SST3 features undiscoverable from other repos, violating the discoverability requirement.
 
 Correct Pattern:
-- From dotfiles repo: `SST3/workflow/WORKFLOW.md` (repo-relative)
-- From other repos: `../dotfiles/SST3/workflow/WORKFLOW.md` (cross-repo)
-- SST3 docs should use: `../dotfiles/SST3/workflow/WORKFLOW.md` (works everywhere)
+- From dotfiles repo: `workflow/WORKFLOW.md` (repo-relative)
+- From other repos: `../workflow/WORKFLOW.md` (cross-repo)
+- SST3 docs should use: `../workflow/WORKFLOW.md` (works everywhere)
 
 Exceptions:
 - CLAUDE_TEMPLATE.md: Intentionally uses repo-relative paths (template for other repos)
@@ -23,9 +23,9 @@ Exceptions:
 - Paths already using `../dotfiles/SST3/` (correct format)
 
 Usage:
-  python SST3/scripts/check-crossrepo-paths.py                # Check for violations
-  python SST3/scripts/check-crossrepo-paths.py --fix          # Show suggested fixes (dry-run)
-  python SST3/scripts/check-crossrepo-paths.py --verbose      # Verbose output
+  python scripts/check-crossrepo-paths.py                # Check for violations
+  python scripts/check-crossrepo-paths.py --fix          # Show suggested fixes (dry-run)
+  python scripts/check-crossrepo-paths.py --verbose      # Verbose output
 
 Exit codes:
   0: No violations found
@@ -50,8 +50,33 @@ class CrossRepoPathChecker:
             verbose: Enable verbose output
         """
         self.verbose = verbose
-        self.dotfiles_root = Path(__file__).resolve().parents[2]  # Go up to dotfiles
-        self.sst3_root = self.dotfiles_root / "SST3"
+        # Layout-invariant root resolution (dotfiles#552 AC 3.2).
+        #
+        # `scripts/` sits directly under the SST3 content root in BOTH layouts:
+        # the NESTED canonical one, where that root is the SST3 directory inside
+        # the dotfiles repo, and the FLATTENED public mirror, where it is the
+        # repository root itself. Either way the content root is this file's
+        # grandparent -- an invariant, not a directory count.
+        # (Deliberately phrased without a literal nested path: `path_scrub`
+        # rewrites that token on the way into the mirror, which would collapse
+        # the two sides of this comparison into the same string.)
+        #
+        # The prior `parents[2] / "SST3"` form counted levels instead. In the
+        # mirror (one level shallower) that resolved to `<DevProjects>/SST3`,
+        # which does not exist, so all four scan roots below silently vanished.
+        # Combined with `pass_filenames: false` in the mirror's own
+        # .pre-commit-config.yaml, the hook scanned ZERO files and exited 0 --
+        # a fail-open gate, the exact class Phase 0 of this issue closes.
+        _scripts_dir = Path(__file__).resolve().parent
+        self.sst3_root = _scripts_dir.parent
+        # Repo root, used only for display-relative paths. Probe for the `.git`
+        # marker (a DIR in a main clone, a FILE in a linked worktree) rather than
+        # counting parents, so the layout depth difference cannot reintroduce
+        # the same off-by-one here.
+        self.dotfiles_root = next(
+            (p for p in _scripts_dir.parents if (p / ".git").exists()),
+            self.sst3_root,
+        )
 
         # Track violations
         self.violations: List[Dict] = []
@@ -179,7 +204,7 @@ class CrossRepoPathChecker:
                     if wrong_path.startswith('SST3/'):
                         correct_path = f"../dotfiles/{wrong_path}"
                     elif wrong_path.startswith('../'):
-                        # Paths like ../workflow/ should be ../dotfiles/SST3/workflow/
+                        # Paths like ../workflow/ should be ../workflow/
                         relative_part = wrong_path[3:]  # Remove ../
                         correct_path = f"../dotfiles/SST3/{relative_part}"
                     else:
@@ -226,6 +251,20 @@ class CrossRepoPathChecker:
             self.sst3_root / 'reference',
             self.sst3_root / 'standards',
         ]
+
+        # Fail-open guard (dotfiles#552 AC 3.2). If NONE of the scan roots exist
+        # the loop below finds nothing and the check returns clean -- reporting
+        # "no violations" for a tree it never read. A gate that cannot find its
+        # own inputs must fail loudly, not silently pass.
+        if not any(d.exists() for d in directories):
+            print(
+                "check-crossrepo-paths: none of the scan roots exist under "
+                f"{self.sst3_root} ({', '.join(d.name for d in directories)}) -- "
+                "refusing to report a vacuous PASS. This usually means the SST3 "
+                "content root was mis-resolved for this repository layout.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
         for directory in directories:
             if not directory.exists():
@@ -311,9 +350,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python SST3/scripts/check-crossrepo-paths.py           # Check for violations
-  python SST3/scripts/check-crossrepo-paths.py --fix     # Show suggested fixes
-  python SST3/scripts/check-crossrepo-paths.py -v        # Verbose output
+  python scripts/check-crossrepo-paths.py           # Check for violations
+  python scripts/check-crossrepo-paths.py --fix     # Show suggested fixes
+  python scripts/check-crossrepo-paths.py -v        # Verbose output
 
 Exit Codes:
   0: No violations found

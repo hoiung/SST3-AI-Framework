@@ -23,7 +23,7 @@ Discovery Chain (MANDATORY for every feature):
   Result: ✅ DISCOVERABLE (3-4 steps from CLAUDE.md)
 
 Usage:
-  python SST3/scripts/check-discoverability.py [--verbose] [--repo REPO_NAME]
+  python $SST3/check-discoverability.py [--verbose] [--repo REPO_NAME]
 
 Exit codes:
   0: All features discoverable from all repos (100% × 3 repos)

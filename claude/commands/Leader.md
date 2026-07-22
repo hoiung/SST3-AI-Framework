@@ -59,7 +59,7 @@ Which stage? (1-5)
 
 ## Stage 1 — Research (Subagent Swarm -> /tmp)
 
-**Stage 1 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 1` to load the Stage-1-tagged canonical subset (research / subagent-swarm / pre-swarm SEED rules). The loader replaces the prior "read STANDARDS.md in full" directive; per-stage tagging emits ~28K bytes vs the full ~50K canonical. Always-load carve-out (privacy / voice / destructive-op) is included automatically.
+**Stage 1 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 1` to load the Stage-1-tagged canonical subset (research / subagent-swarm / pre-swarm SEED rules). The loader replaces the prior "read STANDARDS.md in full" directive; per-stage tagging emits ~28K bytes vs the full ~50K canonical. Always-load carve-out (privacy / voice / destructive-op) is included automatically. Non-zero exit = STOP; do not proceed on partial canon.
 
 Scale subagent count to match scope. No maximum. No minimum of 2-3. If 12 directories to check, dispatch 12+ subagents. Every subagent covers a different angle, directory, file set, or data source. No two subagents share the same prompt.
 
@@ -102,7 +102,7 @@ Scale subagent count to match scope. No maximum. No minimum of 2-3. If 12 direct
 
 ## Stage 2 — Issue Draft (/tmp, NOT GitHub)
 
-**Stage 2 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 2` to load the Stage-2-tagged subset (issue-template / acceptance-criteria / quality-mantras / AC-verifiability rules). Replaces full-canon read at Stage 2 entry.
+**Stage 2 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 2` to load the Stage-2-tagged subset (issue-template / acceptance-criteria / quality-mantras / AC-verifiability rules). Replaces full-canon read at Stage 2 entry. Non-zero exit = STOP; do not proceed on partial canon.
 
 
 Create `/tmp/issue_draft_<topic>_<date>.md` FIRST. Do NOT create the GitHub issue yet.
@@ -157,7 +157,7 @@ Create `/tmp/issue_draft_<topic>_<date>.md` FIRST. Do NOT create the GitHub issu
 
 ## Stage 3 — Sanity Check + GitHub Issue Creation
 
-**Stage 3 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 3` to load the Stage-3-tagged subset (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Replaces full-canon read at Stage 3 entry.
+**Stage 3 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 3` to load the Stage-3-tagged subset (skill-canonical compliance / scope-vs-audit / raw-tool counter-query rules). Replaces full-canon read at Stage 3 entry. Non-zero exit = STOP; do not proceed on partial canon.
 
 
 The draft exists. Now verify it is correct before it becomes the contract.
@@ -199,7 +199,7 @@ The draft exists. Now verify it is correct before it becomes the contract.
 
 ## Stage 4 — Implement (includes Verification Loop + Merge + User-Review-Checklist)
 
-**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 4` to load the Stage-4-tagged subset PLUS every stage-4/*.md extract file (verification-loop, ralph-review, the gate files, three-tier-testing, and the rest — the loader's glob is the authority on the set, deliberately not restated as a count or a full enumeration here because both drift as files are added; the prior hardcoded count of 9 had gone stale when three files landed under #516). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream.
+**Stage 4 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 4` to load the Stage-4-tagged subset PLUS every stage-4/*.md extract file (verification-loop, ralph-review, the gate files, three-tier-testing, and the rest — the loader's glob is the authority on the set, deliberately not restated as a count or a full enumeration here because both drift as files are added; the prior hardcoded count of 9 had gone stale when three files landed under #516). The loader emits both the in-canon Stage-4-tagged sections AND the extract files in a single concatenated stream. Non-zero exit = STOP; do not proceed on partial canon.
 
 
 The issue is created and verified. Now implement it. Do NOT stop to ask permission. On long / multi-phase work, when remaining nears ~50% (~500K of 1M) auto-run `/handover` + compact + CONTINUE; never operate below 50% remaining (near-completion exemption: ~2-3 turns from done at ~51% → finish).
@@ -240,7 +240,7 @@ Stage 4 has three sequential gates after the implementation phases complete: Gat
 <!-- Gate, not audit — comprehensive-walk template per AP #23 does not apply (verifies named conditions, not multi-section canonical). -->
 - [ ] **Skill-canonical verification gate** (N32 Double-Guardrail — per Guardrails principle): run the invoked skill's own verification checks. Examples: `check-ai-writing-tells.py` exit 0 (voice / blog / CV / voice-doc-repo); eBay 21-field count grep + SMART test evidence; claude-api prompt-caching verify; project-specific pre-commit hooks green. Evidence: pass/fail + output in issue comment.
 - [ ] **Mirror-lane verification (Lane A + Lane B)** — per WORKFLOW.md "Verification Loop" Mirror-lane verification rule (#460 Phase 8 W5): canonical authoritative; do NOT duplicate the spec here.
-- [ ] **Mirror-lane Lane A + Lane B exit 0** — three separate invocations all exit 0 (per WORKFLOW.md L105 — `--dry-run` and `--validate` are mutually exclusive in propagate-mirrors.py argparse, so they must run as separate commands): (1) `python3 $SST3/propagate-template.py --all --dry-run` (Lane A), (2) `python3 $SST3/propagate-mirrors.py --dry-run` (Lane B drift-check), (3) `python3 $SST3/propagate-mirrors.py --validate` (Lane B manifest-validate). Skip-clean if no canonical-mirrored surface touched.
+- [ ] **Mirror-lane Lane A + Lane B** — `--dry-run` and `--validate` are mutually exclusive in propagate-mirrors.py argparse, so they run as separate commands. **Gating invocations** (exit code is load-bearing): (1) `python3 $SST3/propagate-template.py --all --dry-run` (Lane A), (2) `python3 $SST3/propagate-mirrors.py --validate` (Lane B). **Report-only** (run it, but do NOT cite its exit code as evidence): `python3 $SST3/propagate-mirrors.py --dry-run` — `do_dry_run` returns `EXIT_OK` unconditionally after printing "N would change", so it exits 0 with drift present; an earlier version of this checkbox demanded "three separate invocations all exit 0", which made one third of the gate vacuous (#552 Ralph round 9, verified by executing it against a drifted tree). Skip-clean if no canonical-mirrored surface touched.
 - [ ] **Doc-lane diff-trigger (#484 W6.1 — NOT graph-gated)**: if this Issue's diff touches `*.md` / frontmatter / docs, the doc-lane (`sst3-doc-lint` / `sst3-doc-links` / `sst3-doc-frontmatter`) MUST have run regardless of `graph_applicable` (a `graph_applicable=false` semantic/governance Issue is NOT exempt — its `*.md` diff still gets linted). Canonical rule + rationale: WORKFLOW.md Stage 1 "Doc-lane is diff-triggered, NOT graph-gated"; Leader defers — do NOT re-define here. Skip-clean only if the diff touches no doc file.
 
 If ANY check fails: fix, re-run ALL checks. The loop exits only when every check passes.
@@ -284,7 +284,7 @@ The pre-#488 block performed a shared-tree branch-switch + pull + local-merge + 
 
 ## Stage 5 — Post-Implementation Review (Subagent Swarm)
 
-**Stage 5 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 5` to load the Stage-5-tagged subset (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Replaces full-canon read at Stage 5 entry.
+**Stage 5 mandatory-reading directive (#498 Phase 4 AC 4.8)**: run `bash $SST3/load-stage-rules.sh 5` to load the Stage-5-tagged subset (adversarial-audit / completeness-gate / regression / wrapper-vs-raw delta / §3-deferral re-litigation rules). Replaces full-canon read at Stage 5 entry. Non-zero exit = STOP; do not proceed on partial canon.
 
 
 Subagents audit everything the main agent produced. Main agent produced the work; subagents verify it. Stage 5 is a POST-IMPLEMENTATION ADVERSARIAL AUDIT — what did the main agent miss? 100% mandatory — every `/Leader` invocation terminates here. It is DISTINCT from Ralph Review (which ran at Stage 4 and verified delivery). Ralph PASS does NOT mean Stage 5 is satisfied — different lens, different class of findings (TB-3 N36).

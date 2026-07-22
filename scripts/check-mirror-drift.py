@@ -45,7 +45,24 @@ from pathlib import Path
 # the table from the first scripts dir that actually has it is consistent and
 # reproduces the exact transform the writer applied. Standalone mirror clones
 # with no sibling dotfiles find no table and gracefully SKIP below as before.
-for _cand in (Path(__file__).resolve().parent, Path.cwd() / "../dotfiles/SST3/scripts"):
+# The second candidate below is CWD-RELATIVE, which is the bug #552 Ralph round 10
+# surfaced: run the FLAT self-row copy (scripts/check-mirror-drift.py) from a linked
+# worktree — the context CLAUDE.md mandates for all Stage-4 work — and neither
+# candidate resolves. `Path(__file__).parent` is `<root>/scripts`, which never holds
+# the canonical-only table, and `cwd/../dotfiles/SST3/scripts` points outside the
+# worktree at a path that does not exist. The table is then silently absent,
+# `private_term_scrub` degrades to a no-op, and every private-term-bearing file is
+# reported as false drift — including by the `--repo <mirror> --strict` command this
+# script now prints as its remediation hint. Measured: 6 false positives from the
+# worktree, 0 from the canonical clone, for identical canonical text and transforms.
+# The middle candidate fixes it by walking from THIS FILE to its sibling canonical
+# tree, so resolution no longer depends on where the process was launched.
+_here = Path(__file__).resolve().parent
+for _cand in (
+    _here,
+    _here.parent / "SST3" / "scripts",
+    Path.cwd() / "../dotfiles/SST3/scripts",
+):
     if (_cand / "_private_term_table.py").exists():
         sys.path.insert(0, str(_cand.resolve()))
         break
@@ -120,6 +137,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "Block on ANY drift regardless of staged set (legacy behaviour). "
             "Use at push / CI time for repo-wide enforcement."
+        ),
+    )
+    parser.add_argument(
+        "--require-checked",
+        action="store_true",
+        help=(
+            "Fail (exit 1) if ZERO file-mirror pairs were checked. Without this, "
+            "a --repo whose clone is absent -- CI, a fresh machine, a typo -- "
+            "prints 'OK: 0 ... file(s) checked' and exits 0, so wiring this "
+            "script as a gate for a repo that is not present yields a guard "
+            "that silently passes forever (dotfiles#552). Use it wherever the "
+            "exit code is load-bearing."
         ),
     )
     parser.add_argument(
@@ -317,17 +346,47 @@ def _emit_and_exit(
             )
             return smu.EXIT_DRIFT
 
+        # Scope this hint to what is ACTUALLY wired. It previously read "push/CI
+        # --strict still enforces repo-wide", which named a safety net that does
+        # not exist: every wired invocation passes --repo dotfiles
+        # (.pre-commit-config.yaml:454,461,469,476) and no GitHub workflow
+        # references a mirror repo at all, so nothing downstream re-checks the
+        # repo this run just skipped. Telling an operator a later gate will catch
+        # something it never sees is the same defect class as a remediation hint
+        # naming a file that does not exist (#552 Ralph round 8) — the message is
+        # trusted precisely because nobody re-runs it. State the command that does
+        # enforce it, so the claim is executable rather than reassuring.
+        # Print the command that ACTUALLY enforces. When --repo was passed, scope
+        # to it; otherwise omit the filter entirely — `--strict` with no --repo
+        # checks every mirror (the default). An earlier version printed
+        # `--all-repos` here, a flag this script's argparse does not define, so
+        # following the hint literally exited 2 "unrecognized argument" — the exact
+        # remediation-hint-names-a-thing-that-does-not-exist defect the block above
+        # warns against, committed one line down (#552 Stage 5).
+        enforce_scope = f"--repo {args.repo} " if args.repo else ""
         print(
             f"\n{len(unstaged)} mirrored file(s) drifted but NOT staged "
             f"(out of {checked} checked) — surfaced as warnings, commit "
-            f"allowed. Run propagate-{'block' if args.managed_blocks else 'mirrors'}.py --apply to sync; push/CI "
-            f"--strict still enforces repo-wide.",
+            f"allowed. Run propagate-{'block' if args.managed_blocks else 'mirrors'}.py --apply to sync. "
+            f"NOTE: no push/CI gate re-checks this; to enforce it now run "
+            f"`python3 {Path(smu.propagate_tool_path()).parent / 'check-mirror-drift.py'} "
+            f"{enforce_scope}--strict`, which exits non-zero on any drifted or "
+            f"MISSING mirror file, staged or not.",
             file=sys.stderr,
         )
         return smu.EXIT_OK
 
     scope = f"repo={args.repo}" if args.repo else "all mirrors"
     mode = "managed-blocks" if args.managed_blocks else "vendored"
+    if checked == 0 and getattr(args, "require_checked", False):
+        print(
+            f"ERROR: 0 {mode} file(s) checked ({scope}) — nothing was verified. "
+            f"The mirror clone is most likely absent, or --repo does not match "
+            f"any manifest entry. Exiting non-zero because --require-checked was "
+            f"passed: a gate that checks nothing must not report success.",
+            file=sys.stderr,
+        )
+        return smu.EXIT_DRIFT
     if not args.quiet:
         print(
             f"OK: {checked} {mode} file(s) checked ({scope}), no drift.",
