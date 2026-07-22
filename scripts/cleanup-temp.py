@@ -25,7 +25,7 @@ def parse_issue_number(filename: str) -> Optional[int]:
 
     Examples:
         "dotfiles-121-api-design.md" -> 121
-        "auto_pb_swing_trader-122-test-data.json" -> 122
+        "<consumer-public-1>-122-test-data.json" -> 122
         "old-file.txt" -> None
     """
     # Updated pattern for repo-issue-description

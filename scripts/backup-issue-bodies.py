@@ -75,7 +75,7 @@ def backup_issues(repos: list[str], output_path: str) -> dict:
     """Backup issue bodies from specified repositories.
 
     Args:
-        repos: List of repository names ('dotfiles', 'auto_pb_swing_trader', etc.)
+        repos: List of repository names ('dotfiles', '<consumer-public-1>', etc.)
         output_path: Path to output JSON file
 
     Returns:
@@ -149,7 +149,7 @@ Examples:
   python $SST3/backup-issue-bodies.py --repos all --output backup-20251128.json
 
   # Backup specific repos
-  python $SST3/backup-issue-bodies.py --repos dotfiles,auto_pb_swing_trader --output backup.json
+  python $SST3/backup-issue-bodies.py --repos dotfiles,<consumer-public-1> --output backup.json
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -157,7 +157,7 @@ Examples:
     parser.add_argument(
         '--repos',
         required=True,
-        help='Repositories to backup (dotfiles, auto_pb_swing_trader, tradebook_GAS, or "all")'
+        help='Repositories to backup (dotfiles, <consumer-public-1>, <consumer-public-2>, or "all")'
     )
     parser.add_argument(
         '--output',

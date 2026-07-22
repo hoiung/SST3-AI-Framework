@@ -21,6 +21,9 @@ Exceptions:
 - CLAUDE_TEMPLATE.md: Intentionally uses repo-relative paths (template for other repos)
 - Code blocks showing "wrong" examples (prefixed with ❌ or "DON'T:")
 - Paths already using `../dotfiles/SST3/` (correct format)
+- Flattened standalone public mirror (MIRROR-CONTRACT.md at the content root):
+  the whole check is skipped — sibling paths like `../standards/` are correct
+  there, not cross-repo violations (dotfiles#553).
 
 Usage:
   python scripts/check-crossrepo-paths.py                # Check for violations
@@ -77,6 +80,19 @@ class CrossRepoPathChecker:
             (p for p in _scripts_dir.parents if (p / ".git").exists()),
             self.sst3_root,
         )
+
+        # Layout-aware guard (dotfiles#553). The flattened standalone public
+        # mirror (SST3-AI-Harness) carries a MIRROR-CONTRACT.md at its root --
+        # which is exactly the directory this checker resolves as `sst3_root`
+        # there (the file's grandparent). Canonical/consumer repos NEVER carry
+        # that marker. In the flattened mirror a sibling reference like
+        # `../standards/` or `../workflow/` from a `reference/` file IS the
+        # correct layout, not the `../dotfiles/SST3/`-prefix violation this
+        # checker enforces -- the whole consumer-prefix contract is inapplicable
+        # there. Detect the mirror and skip cleanly (see validate()) rather than
+        # flagging dozens of correct, already-published sibling paths -- the
+        # exact false positive that forced a SKIP= to publish the #552 mirror.
+        self.is_flattened_mirror = (self.sst3_root / "MIRROR-CONTRACT.md").is_file()
 
         # Track violations
         self.violations: List[Dict] = []
@@ -334,6 +350,17 @@ class CrossRepoPathChecker:
         print("Cross-Repo Path Validation Check")
         print("=" * 50)
         print()
+
+        if self.is_flattened_mirror:
+            print(
+                "[SKIP] MIRROR-CONTRACT.md present at the SST3 content root -- this "
+                "is the flattened standalone public mirror, where sibling paths "
+                "like `../standards/` and `../workflow/` ARE the correct layout, "
+                "not a cross-repo violation. The ../dotfiles/SST3/ prefix contract "
+                "applies only to canonical/consumer repos. Skipping."
+            )
+            self.violations = []
+            return True
 
         violations = self.check_all_files(files=files)
         self.violations = violations

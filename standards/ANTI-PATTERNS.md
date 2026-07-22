@@ -221,6 +221,11 @@ exit $FAIL
 
 **Documented Exception**: The `../dotfiles/SST3/` → `SST3-AI-Harness/` parallel mirror is INTENTIONAL architectural design (scrubbed public mirror, see `<auto-memory ref>`). Edit BOTH on every SST3 file change. Drift between them is sanitisation, not duplication. Do NOT flag this pair as an AP #10 violation.
 
+<!-- stages: 1,4,5 -->
+#### Documented Exception — acknowledged-public identifiers (mirror privacy audit)
+
+Before flagging any operator identifier that appears in the public `SST3-AI-Harness` mirror as a privacy leak, first consult the mirror's `.secret-allowlist` (it enumerates, with rationale, the mirror files that legitimately carry these names) and the operator's public portfolio (the CV under `voice-doc-repo/cv-linkedin/` and the public trading write-up). The operator's flagship trading repos — `project-a` and `project-b`, bare form `auto_pb` — are acknowledged-PUBLIC: the repo CODE is private, but the NAME is a public portfolio asset the operator cites openly to get hired. (This file is itself scrubbed into the mirror, so those two repo names read there as `project-a` / `project-b` — the same repos genericised by `project_name_scrub`; the transform-exempt `.secret-allowlist` is where the real names still appear, which is why it is the list to consult.) Their bare-name appearance in the mirror is NOT a leak and MUST NOT be scrubbed for privacy — only the URL form is blocked (anti-linking defence, `.secret-blocklist-canonical [shared]`), so a surviving bare name is intentional, not a miss. Re-raising this cost a session once (an authorised-then-reversed 16-file scrub, 2026-07-22). Evidence sites documenting this status: `_private_term_table.py`, `sst3_mirror_utils.py`, the `.secret-blocklist-canonical` header, and STANDARDS.md "Public Repo Secret Detection".
+
 ---
 
 <!-- stages: 4 -->
