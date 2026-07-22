@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+[#406 Phase 9 — MANUAL UTILITY] Not wired into .pre-commit-config.yaml or CI by design. Invoke directly when needed (manual workflow tool, not a per-commit hook).
+
 Cleanup script for SST3/temp/ folder.
 Deletes files when: (1) linked issue is closed OR (2) file age > 30 days.
 
