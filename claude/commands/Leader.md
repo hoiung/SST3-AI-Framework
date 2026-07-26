@@ -1,3 +1,7 @@
+---
+description: Leader Mode — run the operator-directed SST3 5-stage workflow (/Leader 1-5 = research, issue creation, triple-check, implementation, post-implementation review). Instructions are orders: execute exactly as written, do not skim, summarise, or skip stages.
+---
+
 # Leader Mode
 
 Direct instructions from the human leader. NOT suggestions. Orders. Do not skim. Do not summarise. Do not skip steps. Execute exactly as written.

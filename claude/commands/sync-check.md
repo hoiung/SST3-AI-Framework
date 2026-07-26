@@ -1,3 +1,7 @@
+---
+description: Layer-2 orchestrator composing the SST3 wrapper-lane (Phases A + B + C) to surface code + doc + sync findings in one command. Wraps scripts/sst3-check.sh.
+---
+
 # /sync-check Skill
 
 Layer-2 orchestrator that composes the SST3 wrapper-lane (Phases A + B + C) to surface code+doc+sync findings in one command. Wraps `dotfiles/scripts/sst3-check.sh`.

@@ -1,3 +1,7 @@
+---
+description: Pre-compact AI-to-AI handover. Write ONE structured handover to ~/handover/ and point current-task.txt at it, so the post-compact context resumes with no loss. Invoke right before compacting a long session.
+---
+
 # /handover — pre-compact AI-to-AI handover
 
 Invoke this right before you compact a long session. It writes ONE structured handover the next (post-compact) context reads to resume with no loss. AI-to-AI: terse, evidence-anchored, not human prose.

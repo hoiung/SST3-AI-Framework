@@ -1,3 +1,7 @@
+---
+description: SST3-Solo Mode — load STANDARDS.md + ANTI-PATTERNS.md + the repo CLAUDE.md, display the reading summary, prompt for the task, then execute it under the SST3 guardrails (worktree branch safety, verification loop, Ralph Review, user-review checklist).
+---
+
 # SST3-Solo Mode
 
 ## Mandatory Reading
