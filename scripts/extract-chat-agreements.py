@@ -11,6 +11,17 @@ where <cwd-slug> is the working directory with every `/` replaced by `-`
 The transcript survives compaction, so it is the authoritative record of what the
 operator actually said — memory and handovers are not.
 
+Three record classes carry operator decisions and all three are read
+(dotfiles#555 AC 0.6):
+  - `type:"user"` records — typed prose, in `type:"text"` content parts
+  - `type:"queue-operation"` records — a message typed WHILE the agent was busy
+    is queued and recorded here; it is also replayed as a user turn on dequeue,
+    but that replay is not guaranteed to survive every session boundary
+  - AskUserQuestion answers — the operator's menu selections arrive as a
+    `tool_result` part answering an `AskUserQuestion` tool_use, never as text.
+    dotfiles#552 lost SIX consequential decisions this way: the panel
+    reconciled against a record containing none of them.
+
 This script reads those JSONL files and recovers ONLY genuine operator-typed
 turns, dropping harness-injected noise:
   - tool_result content parts (function outputs)
@@ -30,8 +41,12 @@ Exit codes:
   1  usage / IO error (project dir or session file missing / unreadable)
   2  parsed cleanly but recovered ZERO operator messages (caller decides — this
      is suspicious for a non-empty session and is surfaced distinctly)
+  3  a record class was seen that is neither parsed nor knowingly ignored — the
+     transcript format has moved and this tool may be dropping operator
+     decisions. Fail loud rather than under-report with exit 0 (#555 AC 0.6).
 
-Issue: hoiung/dotfiles#522 Phase 5 (verifier-led chat reconciliation).
+Issue: hoiung/dotfiles#522 Phase 5 (verifier-led chat reconciliation);
+       hoiung/dotfiles#555 AC 0.6 (queue-operation + AskUserQuestion + fail-loud).
 """
 
 from __future__ import annotations
@@ -73,6 +88,82 @@ _SKILL_BODY_H1 = (
 )
 
 _INTERRUPT_MARKER = "[Request interrupted by user]"
+
+# Top-level record `type` values this tool reads for operator decisions.
+_PARSED_TYPES = frozenset({"user", "queue-operation"})
+
+# Every other top-level `type` Claude Code writes. A value in NEITHER set means
+# the transcript format has moved and operator decisions may be going
+# unrecovered — main() exits 3 rather than under-reporting with exit 0.
+#
+# DERIVE, never copy. Claude Code adds record classes over time (this census
+# moved from 13 to 16 between a single-project sample and the full sweep), and a
+# stale set rots into exactly the silent-drop failure this guard exists to
+# close. Re-run at every edit:
+#
+#   for f in ~/.claude/projects/*/*.jsonl; do
+#       jq -r 'select(type=="object") | .type' "$f"
+#   done | sort -u
+#
+# Last derived 2026-07-26 (dotfiles#555 AC 0.6): 16 classes — `user` and
+# `queue-operation` parsed, the 14 below ignored.
+#
+# `assistant` is ignored for message extraction but IS scanned for
+# AskUserQuestion tool_use ids, which are what identify the operator's menu
+# selections in the following user turn. Ignored here means "carries no
+# operator message", not "never read".
+_KNOWN_IGNORED = frozenset({
+    "agent-name",
+    "ai-title",
+    "assistant",
+    "attachment",
+    "bridge-session",
+    "custom-title",
+    "file-history-delta",
+    "file-history-snapshot",
+    "last-prompt",
+    "mode",
+    "permission-mode",
+    "relocated",
+    "system",
+    "worktree-state",
+})
+
+# Which `queue-operation` operations carry the operator's text in `content`.
+#
+# DERIVE, never assume. The queue emits FOUR operations and THREE of them carry a
+# string body — reading all three re-emits the same text once per lifecycle event
+# it passes through, which inflates the Chat Reconciliation panel and the count
+# `render_markdown` prints. Re-run at every edit:
+#
+#   for f in ~/.claude/projects/*/*.jsonl; do
+#       jq -r 'select(type=="object" and .type=="queue-operation")
+#              | "\(.operation)\t\(.content|type)"' "$f"
+#   done | sort | uniq -c
+#
+# Last derived 2026-07-26 (dotfiles#555, 40 transcripts): enqueue 974/string,
+# remove 415/string + 18/null, popAll 50/string, dequeue 487/null.
+#
+# Only `enqueue` is read. Measured over the same 40 transcripts, adding `remove`
+# and `popAll` emitted 246 extra lines and recovered ZERO distinct messages, and
+# no transcript carried a text under `remove`/`popAll` that was absent from its
+# own enqueues — so the narrower gate is lossless, not a trade-off. `dequeue`
+# never carries a body at all. Pinned by test_queue_operation_non_enqueue_*.
+_QOP_CONTENT_OPS = frozenset({"enqueue"})
+
+# Every operation the census observed. `_QOP_CONTENT_OPS` says which one is READ;
+# this says which ones are KNOWN. An operation in neither is reported through the
+# same fail-loud path as an unrecognised record `type` — without it, a fifth
+# operation carrying operator text would be dropped in silence, which is the
+# failure this tool exists to close, one level below where it was closed.
+# Same two-set shape as _PARSED_TYPES / _KNOWN_IGNORED, and derived from the
+# same census command above.
+_KNOWN_QOP_OPS = frozenset({"enqueue", "remove", "popAll", "dequeue"})
+
+_ASKQ_TOOL = "AskUserQuestion"
+
+# Secondary signal for an AskUserQuestion answer — see _askq_answers().
+_ASKQ_ANSWER_PREFIX = "Your questions have been answered:"
 
 # A YAML frontmatter key at LINE START (anchored — not a mid-sentence `name:`).
 _FRONTMATTER_KEY_RE = re.compile(r"^(name|description|metadata):", re.MULTILINE)
@@ -141,40 +232,194 @@ def is_operator_text(stripped: str) -> bool:
     return True
 
 
-def extract_messages(records) -> list[str]:
-    """Return the ordered list of genuine operator messages from parsed records.
+def _askq_tool_use_ids(content) -> list[str]:
+    """Ids of `AskUserQuestion` tool_use parts in an assistant message content."""
+    if not isinstance(content, list):
+        return []
+    return [
+        part["id"]
+        for part in content
+        if isinstance(part, dict)
+        and part.get("type") == "tool_use"
+        and part.get("name") == _ASKQ_TOOL
+        and isinstance(part.get("id"), str)
+    ]
 
-    `records` is an iterable of decoded JSONL objects. Malformed / non-user /
-    meta / sidechain records are skipped silently — the caller surfaces decode
-    errors at the line level.
+
+def _askq_answers(content, askq_ids: set[str]) -> list[str]:
+    """Operator menu selections: tool_result parts answering an AskUserQuestion.
+
+    Two independent signals, either sufficient:
+      1. `tool_use_id` matches an AskUserQuestion tool_use seen earlier in the
+         transcript. Structural, cannot drift with harness wording.
+      2. the result body opens with the harness answer marker. Covers the case
+         where the assistant record carrying the tool_use is absent — a
+         `--session` slice, a truncated file, or a compaction boundary — where
+         signal 1 alone silently recovers nothing.
+
+    Neither alone is enough: (1) breaks on a missing tool_use record, (2) breaks
+    if the harness rewords (AP #24). Together they degrade gracefully.
+    """
+    if not isinstance(content, list):
+        return []
+    out: list[str] = []
+    for part in content:
+        if not isinstance(part, dict) or part.get("type") != "tool_result":
+            continue
+        body = part.get("content")
+        # `tool_use_id` must be type-checked before the set membership test: a
+        # malformed record carrying a list/dict there raises
+        # `TypeError: unhashable type` and takes down the whole run with a raw
+        # traceback. A malformed record is the corrupt-line contract's business
+        # (skip it), not a crash — and crashing here would lose every operator
+        # decision in the transcript, the exact failure this module exists to
+        # prevent (#555 Ralph Tier 2).
+        tool_use_id = part.get("tool_use_id")
+        by_id = isinstance(tool_use_id, str) and tool_use_id in askq_ids
+        by_marker = isinstance(body, str) and body.lstrip().startswith(_ASKQ_ANSWER_PREFIX)
+        if not (by_id or by_marker):
+            continue
+        if isinstance(body, str):
+            out.append(body)
+        elif isinstance(body, list):
+            out.extend(_text_parts(body))
+    return out
+
+
+def extract(records) -> tuple[list[str], set[str]]:
+    """Return (ordered operator messages, unrecognised top-level record types).
+
+    `records` is an iterable of decoded JSONL objects, in transcript order. A
+    record's `tool_use` always precedes its `tool_result`, so a single ordered
+    pass is enough to correlate AskUserQuestion answers.
+
+    Malformed records (non-dict, or no string `type`) are skipped silently —
+    the pre-existing corrupt-line contract. That is distinct from a record that
+    HAS a type this tool does not know: those land in the returned set and the
+    caller fails loud on them.
     """
     messages: list[str] = []
+    unknown: set[str] = set()
+    askq_ids: set[str] = set()
+
     for obj in records:
         if not isinstance(obj, dict):
             continue
-        if obj.get("type") != "user":
+        rtype = obj.get("type")
+        if not isinstance(rtype, str):
             continue
-        if obj.get("isMeta") or obj.get("isSidechain"):
+
+        if rtype == "assistant":
+            content = obj.get("message", {}).get("content") if isinstance(obj.get("message"), dict) else None
+            askq_ids.update(_askq_tool_use_ids(content))
             continue
-        content = obj.get("message", {}).get("content") if isinstance(obj.get("message"), dict) else None
-        for text in _text_parts(content):
-            stripped = text.strip()
-            if is_operator_text(stripped):
-                messages.append(stripped)
-    return messages
+
+        if rtype == "queue-operation":
+            # A message typed while the agent was busy. The queue emits four
+            # operations; `enqueue`, `remove` and `popAll` all carry the same
+            # text in `content` as the message moves through its lifecycle, so
+            # reading more than one re-emits it verbatim. Take `enqueue` only —
+            # see _QOP_CONTENT_OPS for the census and the losslessness measure.
+            # Most enqueued content is harness noise (<task-notification>
+            # completions), so the SAME operator-text predicate filters it — no
+            # second ruleset.
+            # Type-check BEFORE the set lookup: `operation` is untrusted JSONL,
+            # and a list/dict value makes `in` raise TypeError: unhashable type,
+            # which aborts the whole transcript and loses every message already
+            # recovered from it. Same guard as `tool_use_id` above, for the same
+            # reason — a malformed record must be skipped, never fatal.
+            operation = obj.get("operation")
+            if isinstance(operation, str) and operation not in _KNOWN_QOP_OPS:
+                # Operation-value drift, reported rather than dropped — the
+                # `type` axis alone cannot see it, because `queue-operation`
+                # IS a known type.
+                unknown.add("queue-operation/" + operation)
+            if not isinstance(operation, str) or operation not in _QOP_CONTENT_OPS:
+                continue
+            body = obj.get("content")
+            if isinstance(body, str):
+                stripped = body.strip()
+                if is_operator_text(stripped):
+                    messages.append(stripped)
+            continue
+
+        if rtype == "user":
+            if obj.get("isMeta") or obj.get("isSidechain"):
+                continue
+            content = obj.get("message", {}).get("content") if isinstance(obj.get("message"), dict) else None
+            for text in _text_parts(content):
+                stripped = text.strip()
+                if is_operator_text(stripped):
+                    messages.append(stripped)
+            for answer in _askq_answers(content, askq_ids):
+                stripped = answer.strip()
+                if stripped:
+                    messages.append(stripped)
+            continue
+
+        if rtype not in _KNOWN_IGNORED:
+            unknown.add(rtype)
+
+    return messages, unknown
+
+
+def extract_messages(records) -> list[str]:
+    """Ordered operator messages only — the thin wrapper `extract()` backs.
+
+    Retained as the stable public name (the test suite and any external caller
+    bind to it); callers needing the fail-loud signal use `extract()`.
+    """
+    return extract(records)[0]
 
 
 def _iter_records(path: Path):
     """Yield decoded JSON objects from a JSONL file, skipping blank/garbled lines."""
-    with path.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
+    # Opened in BINARY and decoded per line. Two failures on this Issue forced
+    # this shape, and both are re-tested (#555 Ralph Tier 2):
+    #
+    #   * A text handle decodes inside `for line in fh:`, which is OUTSIDE the try
+    #     below, so a raw invalid-UTF-8 byte raised UnicodeDecodeError from the
+    #     iterator itself. That is a ValueError, not an OSError, so it escaped
+    #     main()'s handler too and killed the whole transcript with EMPTY stdout,
+    #     losing every message already recovered from earlier lines.
+    #   * Decoding the whole file with errors="replace" cures the crash but turns
+    #     the bad byte into U+FFFD *in the text*, which shifts the noise-filter
+    #     predicates in is_operator_text(): one corrupt byte in front of a
+    #     `<command-name>`-style wrapper defeats its startswith() check, and the
+    #     harness noise is then emitted as a fabricated operator message. This
+    #     tool feeds the Chat Reconciliation panel, so INVENTING a message is
+    #     worse than dropping one — the inverse of the #552 loss, not a fix for it.
+    #
+    # Per-line strict decode gives the same skip-the-bad-line contract the
+    # JSONDecodeError/RecursionError catch below already uses, so all three
+    # corrupt-line classes now recover identically. Splitting on newlines before
+    # decoding is safe for UTF-8: 0x0A never occurs inside a multi-byte sequence.
+    # A genuine U+FFFD inside well-formed UTF-8 still round-trips untouched.
+    with path.open("rb") as fh:
+        for raw in fh:
+            try:
+                line = raw.decode("utf-8").strip()
+            except UnicodeDecodeError:
+                continue
             if not line:
                 continue
             try:
                 yield json.loads(line)
-            except json.JSONDecodeError:
+            except (ValueError, RecursionError):
                 # A single corrupt line must not abort the whole transcript.
+                # Caught BY HIERARCHY, not by symptom (#555 exhaustive sweep):
+                # json.JSONDecodeError IS a ValueError, so this strictly widens
+                # the old (JSONDecodeError, RecursionError) catch — every line
+                # skipped before is still skipped — while also covering the
+                # decoder's other ValueError exits. The one proven in this file:
+                # an integer literal of >=4301 digits trips CPython's
+                # sys.get_int_max_str_digits() limit inside the scanner and
+                # raises a PLAIN ValueError, which the narrower catch missed.
+                # RecursionError is separate because a deeply-nested line blows
+                # the decoder's stack instead of failing to parse, and it is not
+                # a ValueError at all.
+                # Guard-by-symptom is what made this Issue loop: four rounds
+                # each found one member of this class and widened for that one.
                 continue
 
 
@@ -324,20 +569,50 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # The emit at the bottom of main() is the ONE unguarded exception site left in
+    # this file, and an encode failure there costs the whole run: every recovered
+    # message is already in memory, and the process dies with EMPTY stdout (#555).
+    # Two proven triggers, one frame: a lone UTF-16 surrogate in a message (never
+    # encodable in UTF-8), and ordinary operator prose — a `£`, a curly quote, an
+    # em dash — when stdout's encoding is ascii (PYTHONIOENCODING, a POSIX-locale
+    # cron/CI shell). backslashreplace makes the offending character VISIBLE and
+    # emits every message, instead of trading the lot for a traceback.
+    #
+    # This is the OUTPUT side, which is why it is safe here and was not on input.
+    # An earlier round "fixed" a decode crash with errors="replace" while READING,
+    # which moved the corruption into the text where it defeated the noise filter
+    # and invented a fake operator message. Filtering is finished by the time
+    # anything reaches this stream, so an escape here cannot change what is kept.
+    #
+    # hasattr-guarded: under a closed stdout (`>&-`) sys.stdout is None, and an
+    # unguarded .reconfigure() would make this fix a new crash of its own.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
+
     try:
         sessions = resolve_sessions(args)
-    except (FileNotFoundError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         # ValueError = ambiguous bare-parent slug / --issue mismatch (dotfiles#528 AC 5.3).
+        # OSError (not just FileNotFoundError) because discovery stats paths it did
+        # not choose: `d.is_dir()` over --projects-root children and `p.stat()` as the
+        # mtime sort key. A dir entry that cannot be stat'ed — symlink loop (ELOOP),
+        # no execute bit (PermissionError), over-long name (ENAMETOOLONG) — raises an
+        # OSError that is NOT a FileNotFoundError, and the narrower catch turned it
+        # into a raw traceback with empty stdout. FileNotFoundError IS an OSError, so
+        # this strictly widens: the existing not-found paths are unchanged.
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
     messages: list[str] = []
+    unknown: set[str] = set()
     for sess in sessions:
         try:
-            messages.extend(extract_messages(_iter_records(sess)))
+            sess_messages, sess_unknown = extract(_iter_records(sess))
         except OSError as exc:
             print(f"ERROR: cannot read {sess}: {exc}", file=sys.stderr)
             return 1
+        messages.extend(sess_messages)
+        unknown |= sess_unknown
 
     if args.json:
         print(json.dumps({
@@ -347,6 +622,24 @@ def main() -> int:
         }, indent=2))
     else:
         print(render_markdown(messages, sessions))
+
+    # Fail loud BEFORE the zero-message check: an unknown class is the more
+    # specific diagnosis, and it is the likely CAUSE of a zero-message run.
+    if unknown:
+        print(
+            "ERROR: unrecognised transcript record type(s): "
+            + ", ".join(sorted(unknown))
+            + ". This tool parses "
+            + ", ".join(sorted(_PARSED_TYPES))
+            + " and knowingly ignores "
+            + str(len(_KNOWN_IGNORED))
+            + " others; anything else may be carrying operator decisions that "
+            "are being dropped. Re-derive the census (see _KNOWN_IGNORED in "
+            "this script), then either parse the new class or add it to the "
+            "ignore set with a reason.",
+            file=sys.stderr,
+        )
+        return 3
 
     if not messages:
         print("WARNING: recovered ZERO operator messages — check the session/dir.",
