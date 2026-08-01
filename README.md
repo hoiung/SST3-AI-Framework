@@ -99,7 +99,7 @@ Only then does Ralph run. Reviewer time is precious. Don't waste it on things th
 
 ### Ralph Review: three models, increasing depth
 
-Named after Ralph Wiggum (if Ralph can spot it, it's really wrong). Haiku handles surface checks (missing files, debug prints, naming). Sonnet traces logic (null propagation, scope drift, silent fallbacks). Opus audits architecture (wiring across modules, contract mismatches, overengineering). Any tier emits a machine-readable PASS token or the loop restarts from Haiku with the fixes applied. No shortcuts. No "looks good to me" without evidence.
+Named after Ralph Wiggum (if Ralph can spot it, it's really wrong). Haiku handles surface checks (missing files, debug prints, naming). Sonnet traces logic (null propagation, scope drift, silent fallbacks). Opus audits architecture (wiring across modules, contract mismatches, overengineering). Any tier emits a machine-readable PASS token or the loop restarts from Haiku with the fixes applied, up to 5 restarts. The bound counts RESTARTS, not rounds; at restart 6 the loop escalates to a class sweep and then resumes with the count reset to zero. No shortcuts. No "looks good to me" without evidence.
 
 ### Branch safety, commit-per-file, direct merge after Ralph
 
@@ -219,7 +219,7 @@ Ralph is a 3-tier automated quality review system. Every merge requires all thre
 | **2. Sonnet** | Claude Sonnet | Logic checks | Silent fallbacks, scope drift, duplicate modules, dead code |
 | **3. Opus** | Claude Opus | Architecture | Overengineering, standard violations, contract mismatches, design flaws |
 
-Each tier outputs a machine-readable token (`HAIKU_PASS`, `SONNET_PASS`, `OPUS_PASS`). If any tier fails, the main orchestrator agent fixes the issues and restarts from Tier 1. This creates a **responsible AI** feedback loop. Quality is enforced automatically, not by honour system.
+Each tier outputs a machine-readable token (`HAIKU_PASS`, `SONNET_PASS`, `OPUS_PASS`). If any tier fails, the main orchestrator agent fixes the issues and restarts from Tier 1, up to 5 restarts before escalating to a class sweep and resuming. This creates a **responsible AI** feedback loop. Quality is enforced automatically, not by honour system.
 
 ### What Ralph Catches (The 5 Common Culprits)
 
