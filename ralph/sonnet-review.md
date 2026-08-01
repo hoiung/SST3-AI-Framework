@@ -85,6 +85,13 @@ Medium-depth logic validation.
 - [ ] **Scope**: diff integrates operator-supplied source content into voice-bearing prose AND `invoked_skill ∈ {blog, voice-doc-repo}`? If no → "N/A — no operator-supplied prose in-diff". If yes → next mandatory.
 - [ ] **Twist check (if scope=YES)**: for each in-diff prose hunk, identify operator-supplied source phrasing; test polished output against STANDARDS.md "Polish vs Twist" TWIST-forbidden checklist (qualifier added changes interpretation / comparison reframed as verdict / hedge dropped or added / analytical lens imposed). Return PASS/FAIL **per hunk**. Any FAIL = section FAIL.
 
+### Claim Provenance — Cite-or-cut (semantic) — Conditional, dotfiles#557
+
+> The fifth member of the universal voice guard floor, and the only one no script can check: `voice_rules.py` and `check-ai-writing-tells.py` both exit 0 on a fabricated claim (proven at #557 Stage 1 against a fixture carrying six real fabrications). Same subagent-only shape as Voice-Frame Preservation above — AP #25 set the precedent that an un-automatable voice rule still gets a review-tier angle.
+
+- [ ] **Scope**: does the diff add or edit operator-voice prose (blog, CV, cover letter, LinkedIn, client-facing copy)? If no → "N/A — no operator-voice prose in-diff". If yes → next mandatory.
+- [ ] **Cite-or-cut check (if scope=YES)**: for every AI-drafted claim, number, date, metric or biographical assertion in the diff, name its source — a §1 persona doc, `MASTER_PROFILE.md`, or something the operator said in this conversation. Uncitable → it should have been CUT, not softened into a vaguer version of the same fabrication. Operator-authored prose is flagged, never deleted (AP #25). Return PASS/FAIL **per claim**; any uncitable claim that shipped = section FAIL. Canonical: `.claude/skills/voice/SKILL.md` §3, governed by `voice/base/VOICE_PROFILE.md` §0.
+
 ### Wrapper-Lane Checks (Required when available)
 
 > Doc-only exemption: [`_doc-only-exemption.md`](_doc-only-exemption.md). Preconditions: [`_wrapper-lane-preconditions.md`](_wrapper-lane-preconditions.md). Fallback: [`_fallback-clause.md`](_fallback-clause.md).
