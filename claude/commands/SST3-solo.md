@@ -126,7 +126,7 @@ This is the structural-query layer (graph) + governance-signal layer (github-che
 - Implement all phases, commit per file
 - **When-needed (NOT every run)**: for goal / discovery / analysis / iterate-until-met work, invoke `/goal-loop` (wraps native `/goal`, loops until every acceptance gate passes or an honest NO-GO is recorded)
 - Verification Loop (repeat until clean)
-- Ralph Review: Haiku → Sonnet → Opus (all 3 mandatory)
+- Ralph Review: Haiku → Sonnet → Opus (all 3 mandatory, dispatched with subagent_type=ralph-review), up to 5 restarts. Restart 6: escalate to a class-sweep Workflow, then resume Ralph with the count reset to zero. Signal the counter at both boundaries — `bash ~/.claude/hooks/sst3-ralph-restart-counter.sh --restart` on each restart, `bash ~/.claude/hooks/sst3-ralph-restart-counter.sh --escalate` on each escalation (the only reset). The counter cannot infer either from the event stream, so unsignalled it under-reports and the bound is never seen to be reached.
 - Merge to main BEFORE user review (Solo Branch Merge Safety: pull, diff, preserve both)
 - POST user-review-checklist.md from TEMPLATE (ALL sections mandatory)
 - POST a mandatory closing-summary comment before close (dotfiles#528 AC 3.7): carry the sentinel `<!-- sst3-closing-summary -->` + outcome + commit SHAs + completeness JSON + Ralph verdicts; then re-run `bash $SST3/leader-stage5-completeness-check.sh <N> --expect-closing-comment` (C18 fail-closed → PASS). Use `gh issue comment`, never `--body-file` (clobbers checkbox state, AC 5.5).
