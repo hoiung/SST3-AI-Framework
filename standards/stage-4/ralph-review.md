@@ -36,3 +36,27 @@ When ANY Tier-3 finding depends on `sst3-code-*.sh` wrapper output, Opus MUST di
 - `.claude/commands/Leader.md` Stage 4 step 7 — the operator-facing Ralph trigger.
 - `../../ralph/{haiku,sonnet,opus}-review.md` — per-tier canonical checklists.
 - `../docs/research/model-selection-haiku-4-5.md` — model-selection rationale.
+
+## Restart bound and escalation cycle
+
+A Ralph ROUND is one dispatch of the tier sequence starting at Tier 1. A RESTART is a return to Tier 1 after a FAIL, so round N+1 begins with restart N.
+The bound counts RESTARTS, not rounds.
+
+Restarts 1 to 5: on any tier FAIL, fix and restart from Tier 1.
+At the moment you restart, signal the counter: `bash ~/.claude/hooks/sst3-ralph-restart-counter.sh --restart`. This is REQUIRED, not optional bookkeeping. The SubagentStop event stream cannot see a restart at all — every tier dispatches under the same agent type, so a restart and an ordinary tier event are indistinguishable in it. The counter therefore derives NOTHING from event volume: unsignalled, the count stays 0 no matter how many events arrive, and the bound is never observed to be reached. (This paragraph previously said the stream "under-reports by up to 5x", which described an event-inference model that was removed — there is no partial credit, only 0.)
+
+At fix time, on every restart: if a finding shares a root mechanism with an earlier finding in this issue, sweep the whole class before fixing.
+Fix by the widest correct generalisation the evidence supports, not by the observed symptom. Guard-by-symptom fixing is what serialises one class member per restart.
+
+Only a finding that changes SHIPPED BEHAVIOUR restarts the sequence. A finding confined to tests, comments, or documentation is recorded and fixed, but does not restart from Tier 1.
+A finding that invalidates the EVIDENCE for an acceptance criterion counts as shipped behaviour and DOES restart. A vacuous test, a gate that passes without checking, and a surviving mutant are all evidence-invalidating.
+
+Restart 6 is NOT taken. Escalate instead: run ONE class-sweep Workflow, then resume Ralph with the restart count reset to zero.
+Effect that reset with `bash ~/.claude/hooks/sst3-ralph-restart-counter.sh --escalate`, which is the ONLY thing that resets the count. The counter is deliberately blind to the sweep's own subagents, so it cannot detect the escalation for itself; unsignalled, the count keeps climbing to 6, 7, 8 while this rule says 1 to 5 - wrong from cycle 2 onward, in exactly the repeating-cycle shape this bound exists to support.
+The escalation Workflow carries no agent-count bound - size it to the angles - and MUST record its agent count and token cost.
+Each escalation MUST use a different method from the previous escalation in this issue, and MUST record which method it used.
+Its prompt shape is hunt and adversarial refute: parallel hunt angles enumerate the whole class in one pass, adversarial refuters try to find a survivor, and closure is declared only on an empty survivor set. Every new guard is mutation-verified.
+
+The cycle repeats: up to 5 restarts, escalate, up to 5 restarts, escalate. Autonomy is never surrendered and there is no stop-and-ask terminal state.
+
+The counter observes; the main agent enforces. No hook can redirect a dispatch.
