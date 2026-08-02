@@ -34,4 +34,4 @@ The Workflow-Tier USE clause is canonically AP #18: real-CLI ≥3-repo-shape inv
 - `../../workflow/WORKFLOW.md` "Verification Loop" canonical tier checkboxes.
 - `../../standards/STANDARDS.md` "Three-Tier Testing Framework" subsection.
 - `../../standards/ANTI-PATTERNS.md` AP #18 — sample-invocation = Workflow Tier USE clause.
-- Per-shape recipes: see ANTI-PATTERNS.md AP #18 "Tier coverage" table.
+- Per-shape recipes: see the "Tier coverage (Unit / Workflow / E2E)" column of the per-shape recipe table in `../../standards/stage-4/ap18-workflow-tier.md` (the table lives there, NOT in ANTI-PATTERNS.md — #560 corrected this stale pointer).

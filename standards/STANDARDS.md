@@ -1200,7 +1200,7 @@ Three is canonical because it maps to the three real failure surfaces: a part is
 - **issue-template.md PREREQUISITE CHECKPOINT** — splits into three tier bullets so every Issue scopes all three at draft time.
 - **Ralph `sonnet-review.md`** — per-tier test sections + the E2E-Tier system gate (review-time verification).
 - **Anti-pattern / enforcement anchors** — Unit Tier = "Test-Prod Call Coverage Discipline" (call-seam grep); Workflow Tier = AP #18 "Smoke-Tested Pipeline … (Workflow-Tier validation)"; E2E Tier = AP #26 "E2E System Verification".
-- **Per-shape mapping** — ANTI-PATTERNS.md AP #18's per-shape recipe table carries a "Tier coverage (Unit / Workflow / E2E)" column; the CLAUDE.md per-repo narrative twin is annotated to match and kept in sync in the same pass (AP #9 single-source-edits).
+- **Per-shape mapping** — the per-shape recipe table in `../standards/stage-4/ap18-workflow-tier.md` carries a "Tier coverage (Unit / Workflow / E2E)" column (the table lives there, NOT in ANTI-PATTERNS.md — #560 corrected this stale pointer); the CLAUDE.md per-repo narrative twin is annotated to match and kept in sync in the same pass (AP #9 single-source-edits).
 
 ---
 
@@ -1257,7 +1257,7 @@ This gate fires at TWO ends of the workflow:
 
 Unit + smoke tests are necessary but NOT sufficient for pipeline / backtest / CLI-wiring / cross-module propagation changes. Every such change MUST pass a **real-CLI sample invocation** against real DB before the issue closes.
 
-**Per-shape recipes**: see ANTI-PATTERNS.md AP #18 per-shape sample-invocation table (#447 Phase 7) for the 6 repo shapes (Service, Docs-only, Static-blog, Config-heavy, Infra-as-code, GAS) and their respective sample-invocation patterns. The wrapper-script trigger (#447 Phase 5) is also enumerated there. For non-auto_pb repos, use the per-shape recipe in AP #18 rather than the auto_pb-shaped 8-item-liquid-basket pattern.
+**Per-shape recipes**: see the per-shape sample-invocation table (#447 Phase 7) in `../standards/stage-4/ap18-workflow-tier.md` — the table lives THERE, not in ANTI-PATTERNS.md (#560 corrected this stale pointer). The shape list is deliberately NOT restated here: it started at 6 and has grown with each consumer onboard, so any copy of it rots. Read the table for the current set. The wrapper-script trigger (#447 Phase 5) is also enumerated there. For non-auto_pb repos, use the per-shape recipe from that table rather than the auto_pb-shaped 8-item-liquid-basket pattern.
 
 Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation REQUIRED moments** + **AI-agent fallback heuristic** above ("Structural Code Queries" section) bound when raw-tool counter-queries become MANDATORY at the wrapper-lane boundary. AP #18 sample invocation and raw-tool cross-validation are complementary gates: AP #18 covers downstream-consumer verification, the raw-tool counter-query covers recall verification. Both fire on wrapper-script changes per Phase 5.
 
