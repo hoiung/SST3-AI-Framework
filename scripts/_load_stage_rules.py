@@ -69,9 +69,18 @@ def section_matches(stage_set: set[str], wanted: str) -> bool:
 
 
 def emit_canon(
-    canon: Path, stage_arg: str, root: Path | None = None
+    canon: Path, stage_arg: str, root: Path | None = None,
+    emit_preamble: bool = False,
 ) -> tuple[bool, bool]:
     """Emit this file's matching sections.
+
+    `emit_preamble=True` (the CLUSTER path — #555 Stage 5): when at least one
+    section matches, also emit the file's preamble (start of file to the first
+    ##-level heading, i.e. the H1 + intro). walk_sections only knows ##/###/####
+    headings, so no tag grammar can preserve an H1/preamble — but pre-#555 the
+    cluster loop cat'd whole files, so tag-filtering silently DROPPED that
+    load-bearing framing (caught by test_load_stage_rules case c). Canon files
+    keep the historical no-preamble behavior.
 
     Returns (emitted_anything, emitted_stage_specific).
 
@@ -131,6 +140,18 @@ def emit_canon(
             emitted_stage_specific = True
         if not file_emitted_header:
             print(f"\n<!-- ===== {canon_label(canon, root)} ===== -->")
+            if emit_preamble and sections:
+                pre_end = sections[0]["idx"]
+                # Same hygiene as the body-end strip: a trailing tag-comment
+                # (plus trailing blanks) belongs to the first heading, not the
+                # preamble.
+                back = pre_end - 1
+                while back >= 0 and not lines[back].strip():
+                    back -= 1
+                if back >= 0 and TAG_RE.search(lines[back]):
+                    pre_end = back
+                for pre_idx in range(pre_end):
+                    print(lines[pre_idx])
             file_emitted_header = True
         for body_idx in range(start_idx, end_idx):
             print(lines[body_idx])
@@ -147,6 +168,10 @@ def main(argv: list[str]) -> int:
     stage_arg = argv[1]
     rest = argv[2:]
     root: Path | None = None
+    emit_preamble = False
+    if rest and rest[0] == "--emit-preamble":
+        emit_preamble = True
+        rest = rest[1:]
     if rest and rest[0] == "--root":
         if len(rest) < 3:
             print("error: --root needs a path and at least one canon file", file=sys.stderr)
@@ -186,7 +211,10 @@ def main(argv: list[str]) -> int:
     # would fail closed on every legitimate edit; the common path is instead covered
     # by the `sst3-stage-tags` pre-commit hook, which validates tag well-formedness
     # at authoring time. State the bound rather than implying the stronger property.
-    results = {canon: emit_canon(canon, stage_arg, root) for canon in canon_files}
+    results = {
+        canon: emit_canon(canon, stage_arg, root, emit_preamble=emit_preamble)
+        for canon in canon_files
+    }
     silent = [canon for canon, (any_, _) in results.items() if not any_]
 
     # Second guard: a file that emitted ONLY via the always-carve-out has lost all

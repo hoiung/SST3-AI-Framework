@@ -1259,7 +1259,7 @@ Unit + smoke tests are necessary but NOT sufficient for pipeline / backtest / CL
 
 **Per-shape recipes**: see ANTI-PATTERNS.md AP #18 per-shape sample-invocation table (#447 Phase 7) for the 6 repo shapes (Service, Docs-only, Static-blog, Config-heavy, Infra-as-code, GAS) and their respective sample-invocation patterns. The wrapper-script trigger (#447 Phase 5) is also enumerated there. For non-auto_pb repos, use the per-shape recipe in AP #18 rather than the auto_pb-shaped 8-item-liquid-basket pattern.
 
-Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation REQUIRED moments** + **AI-agent fallback heuristic** above ("Structural Code Queries" section L249+) bound when raw-tool counter-queries become MANDATORY at the wrapper-lane boundary. AP #18 sample invocation and raw-tool cross-validation are complementary gates: AP #18 covers downstream-consumer verification, the raw-tool counter-query covers recall verification. Both fire on wrapper-script changes per Phase 5.
+Cross-link: the **three-signal contract policy** + **Raw-tool cross-validation REQUIRED moments** + **AI-agent fallback heuristic** above ("Structural Code Queries" section) bound when raw-tool counter-queries become MANDATORY at the wrapper-lane boundary. AP #18 sample invocation and raw-tool cross-validation are complementary gates: AP #18 covers downstream-consumer verification, the raw-tool counter-query covers recall verification. Both fire on wrapper-script changes per Phase 5.
 
 **Applies to (ANY match → gate active):**
 - New/modified CLI flags threaded into downstream function signatures

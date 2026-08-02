@@ -232,7 +232,10 @@ if [[ "$STAGE_ARG" =~ ^[1-5]$ ]]; then
       # tagged file must be FULLY tagged before it gains its first tag, or the
       # extractor silently drops its untagged sections).
       if grep -q '<!-- stages:' "$f"; then
-        python3 "$SCRIPT_DIR/_load_stage_rules.py" "$STAGE_ARG" --root "$REPO_ROOT" "$f" \
+        # --emit-preamble (#555 Stage 5): cluster files were cat'd whole
+        # pre-#555, so their H1 + intro must survive tag-filtering (an H1
+        # cannot carry a section tag — walk_sections starts at ##).
+        python3 "$SCRIPT_DIR/_load_stage_rules.py" "$STAGE_ARG" --emit-preamble --root "$REPO_ROOT" "$f" \
           || die "tag-filtered cluster extraction failed for $f (stage $STAGE_ARG)"
       else
         printf '\n<!-- ===== %s ===== -->\n' "${f#"$REPO_ROOT"/}"

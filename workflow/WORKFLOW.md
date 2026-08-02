@@ -95,7 +95,7 @@
 - [ ] User approves
 - [ ] Per-stage feedback per STANDARDS.md §Per-Stage Feedback Capture — write the Stage 4 block (per-Ralph-tier sub-bullets in `worked` + `ralph_restarts` in `friction`) before declaring complete
 
-<!-- stages: 1,4,5 -->
+<!-- stages: 1,5 -->
 ### Stage 5 — Post-Implementation Review (Subagent Swarm)
 
 - [ ] Review against issue body scope, goal alignment, and design doc
