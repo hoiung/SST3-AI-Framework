@@ -222,21 +222,23 @@ GENERIC_SECRET_PATTERNS: List[Dict] = [
 # `\\` (the same string after a JSON/Python escape), and `/`. These patterns used
 # to match only the escaped and forward-slash forms, so the raw single-backslash
 # paste passed the scanner clean on a public repo (Issue #559).
+# Windows and cloud-sync filesystems are case-insensitive, so every case spelling
+# is the same private path -- these patterns compile with IGNORECASE (Issue #561).
 _SEP = r"[\\/]{1,2}"
 
 
 def _private_path(pattern: str, message: str) -> Dict:
     return {
-        "pattern": re.compile(pattern),
+        "pattern": re.compile(pattern, re.IGNORECASE),
         "message": message,
         "fix": "Use environment variable or relative path",
     }
 
 
 PRIVATE_PATH_PATTERNS: List[Dict] = [
-    _private_path(r"/mnt/[a-z]/[Uu]sers/", "WSL Windows user path detected"),
+    _private_path(r"/mnt/[a-z]/Users/", "WSL Windows user path detected"),
     # Any drive letter, not just C: -- a second drive is still the operator's box.
-    _private_path(rf"[A-Za-z]:{_SEP}[Uu]sers{_SEP}", "Windows user path detected"),
+    _private_path(rf"[A-Za-z]:{_SEP}Users{_SEP}", "Windows user path detected"),
     _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
     _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
     _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
