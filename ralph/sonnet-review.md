@@ -1,6 +1,6 @@
 # Tier 2: Sonnet Review (Logic Checks)
 
-> **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings.
+> **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings. **Reviewer Isolation (#555 Phase 3):** any formatter/linter you invoke MUST run in its read-only check form (`cargo fmt -- --check`, `ruff format --check` — never the mutating form), and you must NEVER run a mutating git op (merge/checkout/stash/rebase/reset) — inspect the worktree read-only, so a review pass can never pollute the main agent's Gate-2 index.
 
 Medium-depth logic validation.
 
@@ -25,7 +25,7 @@ Medium-depth logic validation.
 
 ### State-Machine Mutation Correctness (Conditional, #477 AC 3.1 — Theme 3)
 - [ ] **Scope**: introduces or modifies counters / flags / state enums / queues / semaphores / variables gating downstream decisions? If YES, next checkbox mandatory. If NO, mark "N/A — no state machines in scope."
-- [ ] **Mutation-site audit** (if scope=YES): for every state variable, list mutation sites (`grep -n '<var>\\s*[+\\-*/]?=\\|<var>\\s*=\\s*[^=]' <file>`) and confirm exactly one mutation per logical event. Try/except: if `state += 1` occurs in try-block AND except-handler reaches same variable, confirm mutual exclusivity OR document intentional double-mutation inline. Authority duplication = FAIL.
+- [ ] **Mutation-site audit** (if scope=YES): for every state variable, list mutation sites (`grep -n '<var>\\s*[+\\-*/]?=\\|<var>\\s*=\\s*[^=]' <file>`) and confirm exactly one mutation per logical event. Try/except: if `state += 1` occurs in try-block AND except-handler reaches same variable, confirm mutual exclusivity OR document intentional double-mutation inline. Authority duplication = FAIL. **Decision-input selection (#555 Phase 4):** for any deliverable whose output is a decision/recommendation (classifier verdict, threshold call, ranking), confirm the decision rule reads the AC-MANDATED axis/field — not a convenient-but-different proxy — and cite the exact source field the rule reads as evidence.
 
 ### Test-Prod Call Coverage (Theme 9, #477 AC 3.4) — Unit Tier seam check (#484 T4.2)
 

@@ -224,8 +224,20 @@ if [[ "$STAGE_ARG" =~ ^[1-5]$ ]]; then
     _CLUSTER_EMITTED=0
     for f in "$STAGE_DIR"/*.md; do
       [[ -f "$f" ]] || continue
-      printf '\n<!-- ===== %s ===== -->\n' "${f#"$REPO_ROOT"/}"
-      cat "$f"
+      # #555 AC 2.4 (the F2 root cause): a cluster file carrying stage tags is
+      # TAG-FILTERED through the same extractor the canon files use, so routing
+      # content into a cluster no longer converts a taggable rule into an
+      # unconditionally-loaded one. An untagged cluster file still cat's whole —
+      # its directory IS its stage scope (backward compatible; a partially
+      # tagged file must be FULLY tagged before it gains its first tag, or the
+      # extractor silently drops its untagged sections).
+      if grep -q '<!-- stages:' "$f"; then
+        python3 "$SCRIPT_DIR/_load_stage_rules.py" "$STAGE_ARG" --root "$REPO_ROOT" "$f" \
+          || die "tag-filtered cluster extraction failed for $f (stage $STAGE_ARG)"
+      else
+        printf '\n<!-- ===== %s ===== -->\n' "${f#"$REPO_ROOT"/}"
+        cat "$f"
+      fi
       _CLUSTER_EMITTED=1
     done
     # The one case the loader CAN see unambiguously: the directory is present but

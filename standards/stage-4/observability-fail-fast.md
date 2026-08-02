@@ -3,6 +3,7 @@
 
 Two coupled invariants that fire AT WRITE TIME (not after first incident).
 
+<!-- stages: 4 -->
 ## Observability invariants (AP #12)
 
 Every new component MUST land with:
@@ -10,6 +11,7 @@ Every new component MUST land with:
 2. **Metrics** — counters for invocation count + error class; gauges for queue depth / cache size; histograms for duration percentiles. Wired into the runtime metrics export (Prometheus / OpenTelemetry / Postgres-backed counters — per repo).
 3. **Audit trail** — every state mutation (DB write / file write / external API call) writes one append-only row to an audit log. The audit log is separate from operational logs; it survives log rotation.
 
+<!-- stages: 4 -->
 ## Fail-Fast invariants
 
 - Error loudly. NO silent fallbacks. NO `try: ... except Exception: pass`.
@@ -17,10 +19,12 @@ Every new component MUST land with:
 - On error: log structured, emit metric, re-raise unless the function's contract is to swallow (and then the swallow is documented inline with WHY).
 - Retry logic is explicit (jittered backoff, max attempts) and the final failure surface is loud.
 
+<!-- stages: 4 -->
 ## Why coupled
 
 Observability without fail-fast = silent failures showing all-green mid-incident. Fail-fast without observability = loud failures with no context (which call site, which input class). Together = loud failure with diagnosable context.
 
+<!-- stages: 4 -->
 ## Cross-references
 
 - `../../standards/STANDARDS.md` "Fail Fast, No Silent Fallbacks" + "Observability — No Code Without Logs, Metrics, and Audit Trails".

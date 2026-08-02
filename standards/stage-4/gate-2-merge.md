@@ -3,6 +3,7 @@
 
 Stage-4 merge gate. Replaces the pre-#488 shared-tree branch-switch + pull + local-merge + push chain with a worktree-isolated remote FF push that touches NO shared working tree.
 
+<!-- stages: 4 -->
 ## Canonical procedure (dotfiles#488 AC 1.3)
 
 1. Ensure all work committed by exact pathspec (NEVER `git add -A`).
@@ -11,6 +12,7 @@ Stage-4 merge gate. Replaces the pre-#488 shared-tree branch-switch + pull + loc
 4. On non-fast-forward rejection (transient pre-push race): `git fetch origin master` then `git rebase origin/master` INSIDE the worktree, retry step 3. Bounded ≤3 attempts. **NEVER** `--force` / `--force-with-lease`.
 5. `ExitWorktree action:keep` until push confirmed landed (`git ls-remote origin master` == solo tip); then `ExitWorktree action:remove`; then `git push origin --delete <solo-branch>`; then `git fetch --prune`.
 
+<!-- stages: 4 -->
 ## Branch-switch invariant
 
 This gate runs ONLY `git push` / `git fetch` / `git rebase` INSIDE the isolated worktree. It NEVER:
@@ -20,10 +22,12 @@ This gate runs ONLY `git push` / `git fetch` / `git rebase` INSIDE the isolated 
 
 This is the dotfiles#488 chokepoint. The shared-clone branch-switch class moves every concurrent agent's HEAD; the worktree-isolated remote FF is the cure.
 
+<!-- stages: 4 -->
 ## When the rebase race fires
 
 `origin/master` advances between step 2 and step 3 (another solo branch landed in the same window). Fetch + rebase + retry handles it; the 3-attempt bound prevents indefinite spin on a real fault (protected-branch rule, server-side reject).
 
+<!-- stages: 4 -->
 ## Cross-references
 
 - `.claude/commands/Leader.md` Stage 4 Gate 2 — operator-facing procedure.

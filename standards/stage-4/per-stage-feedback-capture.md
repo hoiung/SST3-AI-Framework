@@ -5,6 +5,9 @@
 > STANDARDS.md keeps the heading + a redirect; section-name references
 > ("§Per-Stage Feedback Capture") still resolve to the STANDARDS.md heading.
 
+<!-- stages: 4 -->
+## Mechanism, storage and write-time schemas
+
 Canonical telemetry mechanism for the SST3 5-stage `/Leader` workflow. Each `/Leader` stage close writes a 10-field feedback record so we accumulate observed patterns across runs (which stage routinely catches what bug class, which subagent angles are wasted, which corrections came from the user vs the agent self-caught).
 
 **Write-time template (use it — do not hand-roll the structure)**: copy `<your-dotfiles-clone>/SST3/templates/leader-feedback-template.md` when creating a new `feedback-<repo>-<issue>.md`. It carries the canonical frontmatter (8 fields) + the `## Stage N — <Title>` H2 headings (matching `feedback_parser.py` `STAGE_HEADING_RE`) + the 10 per-stage `**field**:` lines. Hand-rolling from memory produces a bare `## Stage N` heading the strict parser rejects (it requires `— <Title>`) (dotfiles#486/#488).
@@ -39,6 +42,13 @@ Canonical telemetry mechanism for the SST3 5-stage `/Leader` workflow. Each `/Le
 
 **`improvement_status` enum**: `pending / applied / partial / superseded / rejected`. When status moves to `applied` or `partial`, set `applied_in: <issue#>`. Closure loop: future Stage 1 Step 0 picks up `pending` improvements from prior issues + marks them `applied` (or `partial` for multi-bullet improvements) when the next run satisfies them.
 
+<!-- stages: 1,5 -->
+### Closure-loop formats (Stage-1 ground / Stage-5 byte-match)
+
+> Tagged `stages: 1,5` (#555 AC 2.4): these formats are written at Stage-1 step 0b
+> (closure-loop pickup) and byte-matched at Stage 5 — `mark-improvements-applied.sh`
+> emits them mechanically, so the Stage-4 implementer never hand-writes the format.
+
 **Closure-loop content-match format (#460 Phase 5)**: Stage 1 closure-loop entries MUST quote the first 80 chars of the source improvement field verbatim so Stage 5 can byte-match without ambiguity:
 
 ```
@@ -57,6 +67,9 @@ The `[bullet=<i>]` qualifier is REQUIRED for multi-bullet improvement fields (1-
 ```
 
 Inline per-bullet markers go AFTER the bullet text using HTML comments — e.g. ``- **template-vs-mirror lane mapping** ...<!-- applied_in: 459 -->``. The aggregator and `check-closure-loop-applied.py` (Phase 6) parse these markers via `feedback_parser.py`; the parser emits `applied_in_bullets` + `carry_forward_bullets` into the NDJSON index for cross-issue reporting.
+
+<!-- stages: 4 -->
+### Write mechanics and enforcement (Stage-4 operative)
 
 **Soft-cap guidance**: tiny issues 10-20 lines per stage block / medium 30-60 / large 60-120 / >150 revisit. **Hard cap**: 10 fields exactly. Parser emits stderr WARNING (advisory, exit 0) if a per-stage block exceeds 80 lines. Tiny-issue terminal one-liners permitted (`rule_user_caught: none` / `friction: trivial`).
 
@@ -89,7 +102,7 @@ Inline per-bullet markers go AFTER the bullet text using HTML comments — e.g. 
 **Index**: `feedback-index.ndjson` regenerated post-commit (incremental — mtime-vs-files check; full rebuild via `--rebuild`). Queryable via `<your-dotfiles-clone>/SST3/scripts/leader-feedback-aggregate.sh --summarize | --report | --shape-match | --staleness`.
 
 **Enforcement (3 layers)**:
-- **Layer A**: pre-commit hook `sst3-metrics-feedback-present` (compact-resilient — survives context loss). Bypass for genuine emergencies: `SKIP=sst3-metrics-feedback-present git commit ...`.
+- **Layer A**: pre-commit hook `sst3-metrics-feedback-present` (compact-resilient — survives context loss). Bypass: `SKIP=sst3-metrics-feedback-present git commit ...` — an INTENDED path for non-code artifact commits on a solo branch (the metrics-feedback lane itself, e.g. committing the feedback file or aggregator output), not only emergencies (#555 Phase 3); reach for it up front on that lane rather than discovering it empirically. Any other use stays emergency-class with an in-message justification. The lenient-stub/strict-close-gate distinction is canonical HERE — Leader.md Stage-4 step 1 Stub-first points at it and no other placeholder-stub instruction exists (swept #555).
 - **Layer B**: persistent sentinel files in the gitignored `.sentinels/` subfolder catch Stages 1+2 (which don't produce commits). Auto-release after 24h staleness so compact-resume cycles can re-acquire. Layer B sentinels also catch compact-before-commit gaps — if `/Leader N` completes work that gets compacted before the per-stage feedback commit lands, the `.sentinels/` marker survives compaction and is detected at next session start, so the post-compact agent sees the unflushed feedback rather than silently bypassing it (#498 F-22).
 - **Layer C**: skill-body sign-off line in `../claude/commands/Leader.md` for each of the 5 stages — the redundant-by-design third layer (AP #20 case proved skill-body alone leaks).
 

@@ -1,6 +1,6 @@
 # Tier 3: Opus Review (Deep Analysis)
 
-> **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings.
+> **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings. **Reviewer Isolation (#555 Phase 3):** any formatter/linter you invoke MUST run in its read-only check form (`cargo fmt -- --check`, `ruff format --check` — never the mutating form), and you must NEVER run a mutating git op (merge/checkout/stash/rebase/reset) — inspect the worktree read-only, so a review pass can never pollute the main agent's Gate-2 index.
 
 Thorough architectural review.
 
@@ -45,7 +45,7 @@ Thorough architectural review.
 - [ ] **Scope completeness**: enumerate every Acceptance Criteria checkbox from issue body — each maps to specific file:line. Any without = NOT DONE.
 - [ ] **Data correction architecture**: bug producing bad DB state → fix includes BOTH (a) code fix for future AND (b) verified data repair for existing rows.
 - [ ] **Full-module re-run on contract change (AC 5.4)**: for any function contract change, re-run the FULL test module, not only the new tests — confirm zero regressions in the sibling tests that exercise the changed contract indirectly.
-- [ ] **Adversarial-overlap corpus for security gates (AC 5.4)**: for security gates (allowlists, blocklists, fail-loud gates), generate an adversarial-overlap corpus of malformed-but-truthy inputs (string-vs-bool, leading/trailing whitespace, `"0"` / `"false"` strings, empty-string, unicode look-alikes) and confirm the gate produces the correct outcome on each — a gate proven only on clean inputs is unproven against the inputs an attacker actually sends.
+- [ ] **Adversarial-overlap corpus for security gates (AC 5.4)**: for security gates (allowlists, blocklists, fail-loud gates), generate an adversarial-overlap corpus of malformed-but-truthy inputs (string-vs-bool, leading/trailing whitespace, `"0"` / `"false"` strings, empty-string, unicode look-alikes) and confirm the gate produces the correct outcome on each — a gate proven only on clean inputs is unproven against the inputs an attacker actually sends. **Scope + timing (#555 Phase 3):** this corpus requirement equally covers approval/consent/name-detection CLASSIFIERS (multi-message threads, non-Latin scripts, negated phrasing, re-edit-after-approval), and the corpus must be seeded at the first test pass (implementation write time) — Opus VERIFIES it exists in the checked-in tests; a corpus first discovered here forces a restart-from-Tier-1.
 
 ### Factual Claims Audit
 - [ ] Enumerate all numeric assertions in documentation, issue body, design rationale; verify each has source (benchmark, prior issue, measured observation, command output). No source = flag as unverified — must be sourced or removed before OPUS_PASS.

@@ -3,6 +3,7 @@
 
 Final Stage-4 gate. Runs AFTER Gate 2 merge lands on origin/master. Uses the `../../templates/user-review-checklist.md` template VERBATIM; do NOT invent custom checklist forms.
 
+<!-- stages: 4 -->
 ## Canonical procedure
 
 1. Read `../../templates/user-review-checklist.md`. Use the TEMPLATE — do NOT invent your own.
@@ -20,15 +21,17 @@ Final Stage-4 gate. Runs AFTER Gate 2 merge lands on origin/master. Uses the `..
 3. Post the completed checklist as a comment on the GitHub Issue.
 4. Report to operator: what was merged, Issue URL, checklist comment URL.
 
+<!-- stages: 4 -->
 ## §3 Gap Analysis — No-Excuses Gate (post-Cut-#9 contract)
 
 Every item in §3 "Items Not Fixed" MUST carry one of three explicit flags (canonical: template §3 + Leader.md Stage 5 §3-Deferral angle):
 - `[deferred-FP: <evidence>]` — confirmed false positive
 - `[deferred-N/A: <rationale>]` — intentional descope
-- `[deferred-tracking-issue: <issue#>]` — moved to a referenced OPEN issue
+- `[deferred-tracking-issue: <issue#>]` — moved to a referenced OPEN issue. **OPEN-state check (#555 Phase 3):** before recording, `gh issue view <N> --json state` must return OPEN — a closed target re-classifies as `deferred-N/A` (closure as the rationale) or gets a NEW tracking issue; a closed target silently collapses a tracked deferral into an unreviewed decision.
 
 Items without any flag default to UNVERIFIED → trigger Stage 5 re-litigation. **F-15 (#498)**: this applies to the AGENT's own §3 entries — no self-exemption.
 
+<!-- stages: 4 -->
 ## Cross-references
 
 - `../../templates/user-review-checklist.md` — the template (post-Cut-#9, ≤179 lines).

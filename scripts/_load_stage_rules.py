@@ -190,29 +190,18 @@ def main(argv: list[str]) -> int:
     silent = [canon for canon, (any_, _) in results.items() if not any_]
 
     # Second guard: a file that emitted ONLY via the always-carve-out has lost all
-    # of its stage-N content while still looking like a contributor. Scoped by
-    # MEASUREMENT rather than assumption, because a blanket rule false-positives:
-    #
-    #   python3 - <<'EOF'   # stage-specific section counts, per file per stage
-    #   ... walk_sections + section_matches, subtracting always-matches ...
-    #   EOF
-    #   STANDARDS.md      1..5 -> 10 11 11 84  9
-    #   ANTI-PATTERNS.md  1..5 ->  4  3  5 26  5
-    #   WORKFLOW.md       1..5 ->  3  2  0 10  2      <-- stage 3 is legitimately 0
-    #
-    # WORKFLOW.md genuinely carries no stage-3-specific section today, so it is
-    # exempted explicitly rather than the guard being weakened for everyone. If a
-    # future canon edit removes the last stage-specific section from some other
-    # file, this fails CLOSED and names it -- which is the intended direction: that
-    # is indistinguishable from the silent-drop this loader exists to prevent, and
-    # a deliberate removal should have to say so here.
-    stage_specific_exempt = {("WORKFLOW.md", "3")}
+    # of its stage-N content while still looking like a contributor. No file is
+    # exempt: every (file, stage) combination carries at least one stage-specific
+    # section (#555 AC 2.3 re-tagged WORKFLOW.md's Stage-3 checklist from `always`
+    # to `2,3`, closing the one legitimate zero this guard used to exempt). If a
+    # future canon edit removes the last stage-specific section from a file, this
+    # fails CLOSED and names it -- the intended direction: that state is
+    # indistinguishable from the silent-drop this loader exists to prevent, and a
+    # deliberate removal should have to declare an exemption here.
     always_only = [
         canon
         for canon, (any_, specific) in results.items()
-        if any_
-        and not specific
-        and (canon.name, stage_arg) not in stage_specific_exempt
+        if any_ and not specific
     ]
     # Report EVERY failure class present, not just the first. A silent file and
     # an always-only file can fail in the SAME invocation; returning after the

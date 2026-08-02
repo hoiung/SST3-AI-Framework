@@ -6,11 +6,20 @@
 > header (so `AP #18` citations resolve) + a redirect; the worked evidence + rule
 > detail live here.
 
+<!-- stages: 4 -->
+### Tier placement (Workflow vs E2E vs Unit)
+
 > **Three-Tier placement** (STANDARDS.md "Three-Tier Testing Framework"): this AP is the **Workflow Tier** gate — the assembled component (pipeline / orchestration / CLI-wiring) runs end-to-end. The distinct **E2E / System Tier** (the whole system, real DB + real downstream consumers, environmental drift) is **AP #26 "E2E System Verification"**. The **Unit Tier** primitive is the call-seam check (STANDARDS.md "Test-Prod Call Coverage Discipline"). The three compose; none substitutes for another.
+
+<!-- stages: 1 -->
+### Problem and evidence (research context — Stage-1 ground)
 
 **Problem**: Closing a pipeline / backtest / SL1 / SL2 / orchestration / CLI-wiring issue on the strength of unit tests + smoke tests + synthetic fixtures alone. Smoke validates local code paths; it does NOT validate multi-module workflow wiring across CLI flags → function signatures → DB writes → downstream consumers.
 
 **Evidence (#1424 / #1426 op_id=2501)**: #1424 shipped a workflow regression on green unit + synthetic smoke — `check_sl1_coverage` stayed window-agnostic (`is_production=TRUE` join) while downstream `_fetch_sl1_optimal_mvwaps_batch` became window-aware (exact `window_start`/`window_end`); pre-flight mis-reported coverage, auto-SL1 skipped, the fetch rejected the mismatch with `SL1WindowMismatchError`. Caught operationally (op_id=2501: "SL1 promoted 0 winners for 8 tickers"), not by the suite — unit tests mocked `**kwargs` and never asserted window propagation.
+
+<!-- stages: 4 -->
+### Rule and scope triggers
 
 **Rule — Sample Invocation Validates Workflow Logic**:
 For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CLI-wiring / cross-module function-arg propagation, run an actual end-to-end sample invocation matching the intended user workflow BEFORE closing the issue. Real DB. Real CLI. Real downstream consumers. Unit + smoke tests are necessary but NOT sufficient.
@@ -26,6 +35,15 @@ For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CL
 - **Idempotency re-run paths** (#477 Phase 5 AC 5.1a, dotfiles#474 evidence): for changes claiming idempotency or feature-detect logic (install-path scripts, bootstrap guards, "if X already configured: skip" branches), the sample invocation MUST cover BOTH the first-install path AND the re-run-with-feature-already-present path. Single-direction sample (only first install) hides the bug class where the re-run branch silently corrupts already-good state.
 - **Documentation cross-reference resolution** (#477 Phase 5 AC 5.1b, dotfiles#474 evidence): for infrastructure-shape work (homelab bootstrap, runbook scripts, multi-node setup), Stage 5 swarm MUST include an angle that walks every script-path / URL / file-reference / cross-link in the Issue's docs and confirms each resolves (`ls <path>` exit 0, `curl -fsI <url>` HTTP 2xx, `grep -F <ref> <target>` exit 0). Surfaces dangling references that ship with no immediate failure but break next runner.
 - **Every-return-path wiring** (#477 Phase 5 AC 5.1c, Issue #1451 evidence): for cache-read or guard-helper additions (functions whose job is "check state and return early"), Stage 4 must enumerate every `return` statement in the guarded function via `grep -n "return" <file>` and confirm each return path either (a) emits the new instrumentation/cache-write OR (b) is documented as exempt with rationale. Missing return-path = silent skip of the new behaviour on the missed branch.
+
+<!-- stages: 1,2 -->
+### Per-shape recipe table (authoring-time reference)
+
+> Tagged `stages: 1,2` (#555 AC 2.4): the whole-fleet table is an ISSUE-AUTHORING
+> reference; at Stage-4 execution the ACTIVE repo's recipe is already in that
+> repo's CLAUDE.md per-repo sample-invocation table (the AP #9 narrative twin,
+> loaded every session), so re-emitting all ten shapes into the Stage-4 canon
+> load duplicated what the session already carries.
 
 **Per-shape recipe table** (#447 Phase 7 seeded the first 6 repo shapes; the table has since grown to 10 as new consumer shapes onboarded; auto_pb is shape "Service" canonical above):
 
@@ -43,7 +61,8 @@ For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CL
 | **Pre-publication research-staging shape** (voice-guarded private staging before publish) | Operator-private consumer-repo sample-invocation — 6-step voice-guard + secret-scan + frontmatter chain | `check-ai-writing-tells.py --mode blog --no-check-only-new` exit 0 + iamhoi-marker balance + frontmatter validator | Run the 6-step gate against one representative prep file | New research file, draft-state transition, publish candidate | Drafts stay private until all gates pass; auto-promotion forbidden | Workflow + Unit + E2E (full sample-invocation recipe in operator-private consumer repo CLAUDE.md) |
 | **SEC/DEP gate** (#507 — code-bearing shapes ONLY: Service / eBay / Config-heavy; shape-gated via `sst3_utils.sec_dep_applicable`) | SEC: `sst3-check.sh --sec --strict --paths-from <ndjson>` (offline ast-grep, diff-scoped). DEP: `sst3-check.sh --dep --strict` (pip-audit / cargo audit / npm audit) | A net-new SEC finding on an added line FAILs (Ralph Sonnet + pre-commit); a dependency CVE FAILs (`sec-dep-audit.yml` GHA); engine-missing → `--strict` exit 2 (fail-loud, never silent-clean) | n/a — diff-scoped, not a basket | New/edited `.py`/`.rs`/`.js`/`.ts` in a code-bearing repo; new/upgraded dependency | Non-code shapes (Static-blog/-site, Voice-doc, Brainstorm, Business-ops, scaffold) AND GAS (`project-b` — `.gs` is not ast-grep-parseable; only a test-harness pyproject) skip-clean — no vacuous PASS (AC 2.1). Doctrine: STANDARDS.md "Security & Dependency Audit Gate"; AP #27 | Workflow (SEC diff-scan: Ralph Sonnet + pre-commit hook `sst3-sec`) + E2E/CI (DEP-cve in `sec-dep-audit.yml`); Unit = `tests/test_sec_dep_applicable.py` (shape map) + `test-fixtures/sst3-check-paths-from-strict` (forward + strict-exit-2) |
 
-**How to apply (MANDATORY in Stage 4 Verification Loop)**:
+<!-- stages: 4 -->
+### How to apply (MANDATORY in Stage 4 Verification Loop)
 1. Run real-CLI sample invocation on a small liquid basket (8 tickers typical) exercising the full pipeline end-to-end.
 2. Verify row counts land in DB, contamination audit passes, downstream consumers succeed.
 3. Smoke first (cheap, fast). If smoke passes → STILL run the sample. Exit gate = sample succeeds.
@@ -59,5 +78,8 @@ For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CL
 - ✗ DON'T: rely on mocks that discard kwargs to prove propagation
 
 **Self-Healing**: If you catch yourself about to close a pipeline/wiring issue without running a real sample → run the sample first. If you already closed one → reopen, run the sample, and add the missing Workflow-Tier test (the integration / sample-invocation coverage that would have caught it — STANDARDS.md "Three-Tier Testing Framework"; not a bare "regression test", which is the union suite, not a single tier) in the same fix.
+
+<!-- stages: 1 -->
+### Enforcement map
 
 **Enforcement**: STANDARDS.md "Workflow Validation Gate (AP #18 — MANDATORY)"; `WORKFLOW.md` Verification Loop (canonical gate); `CLAUDE_TEMPLATE.md` behavioural rule bullet; `issue-template.md` PREREQUISITE CHECKPOINT includes sample-run confirmation; Ralph `sonnet-review.md` AP #18 checklist (three sub-checks covering scope, evidence, and mock-assertion discipline). Note: all five enforcement points are documentation-level + honour-system checklists — there is currently no CI job that blocks a merge when a pipeline-touching diff lacks a sample log. Adding such a CI gate is tracked as a future hardening task.

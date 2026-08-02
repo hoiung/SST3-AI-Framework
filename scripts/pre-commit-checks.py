@@ -13,6 +13,7 @@ Exit codes:
   1 = Error (commit blocked)
 """
 
+import os
 import sys
 import subprocess
 import time
@@ -69,13 +70,23 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str, str]:
         return 1, "", f"{description} failed: {type(e).__name__}: {e}"
 
 def check_size_limits(base_path: Path) -> Tuple[bool, str]:
-    """Run check-size-limits.py."""
+    """Run check-size-limits.py.
+
+    #555 AC 2.2: the opt-in enforce lane. Default stays advisory; setting
+    SST3_ENFORCE_SIZE=1 makes a breach BLOCK — deliberately env-gated because
+    the tree sits over cap and an unconditional --enforce here would brick
+    every commit fleet-wide (the AC's measured exclusion).
+    """
     script = base_path / 'SST3' / 'scripts' / 'check-size-limits.py'
     if not script.exists():
         return True, "check-size-limits.py not found (skipping)"
 
+    cmd = [sys.executable, str(script)]
+    if os.environ.get('SST3_ENFORCE_SIZE') == '1':
+        cmd.append('--enforce')  # named caller: check-size-limits.py --enforce (#555 AC 2.2)
+
     returncode, stdout, stderr = run_command(
-        [sys.executable, str(script)],
+        cmd,
         "Size limits check"
     )
 

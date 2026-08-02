@@ -3,6 +3,7 @@
 
 Three-tier code-delivery verification: Haiku surface → Sonnet logic → Opus deep. Sequential (not parallel); restart from Tier 1 on any tier FAIL. Runs INSIDE Stage 4 implementation BEFORE the Verification Loop's Gate 1.
 
+<!-- stages: 4 -->
 ## Tier sequence
 
 | Tier | Model | Lens | Canonical checklist |
@@ -11,6 +12,7 @@ Three-tier code-delivery verification: Haiku surface → Sonnet logic → Opus d
 | 2    | `sonnet` | Logic — control flow, edge cases, contract adherence, test seam | `../../ralph/sonnet-review.md` |
 | 3    | `opus`   | Deep — architecture, cross-cutting, governance drift, wrapper-vs-raw counter-query | `../../ralph/opus-review.md` |
 
+<!-- stages: 4 -->
 ## Shared blocks (#498 Cut #10)
 
 The three checklists `_*.md` shared blocks live in `../../ralph/`:
@@ -19,24 +21,29 @@ The three checklists `_*.md` shared blocks live in `../../ralph/`:
 - `_doc-only-exemption.md` — doc-only PR exemption + #484 W6.3 doc-lane / sync-lane diff-trigger exceptions.
 - `_fallback-clause.md` — retry-aware, evidence-required fallback clause.
 
+<!-- stages: 4 -->
 ## On FAIL
 
 Fix → restart from Tier 1 (NOT continue from failed tier). Tier dependencies cascade: a Sonnet fix can re-break a Haiku check (e.g. introducing debug code) so the cheapest way to confirm clean is full re-run.
 
+<!-- stages: 4 -->
 ## On PASS (all 3)
 
 Proceed to Verification Loop (Gate 1). Ralph PASS verifies code DELIVERY against the Issue's Acceptance Criteria; it does NOT substitute for Stage 5 adversarial audit (TB-3 N36 — different lens, different class of findings).
 
+<!-- stages: 4 -->
 ## Tier 3 wrapper-vs-raw counter-query (#447 Phase 5)
 
 When ANY Tier-3 finding depends on `sst3-code-*.sh` wrapper output, Opus MUST dispatch ≥1 raw-tool counter-query subagent on the same target before signing PASS. Recall delta + reconciliation recorded inline in the Tier-3 review comment. Skipping when wrapper output is load-bearing = Tier-3 FAIL.
 
+<!-- stages: 4 -->
 ## Cross-references
 
 - `.claude/commands/Leader.md` Stage 4 step 7 — the operator-facing Ralph trigger.
 - `../../ralph/{haiku,sonnet,opus}-review.md` — per-tier canonical checklists.
 - `../docs/research/model-selection-haiku-4-5.md` — model-selection rationale.
 
+<!-- stages: 4 -->
 ## Restart bound and escalation cycle
 
 A Ralph ROUND is one dispatch of the tier sequence starting at Tier 1. A RESTART is a return to Tier 1 after a FAIL, so round N+1 begins with restart N.

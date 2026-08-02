@@ -23,6 +23,14 @@ LIMITS = {
     "SST3/standards": 25000,   # raised 2026-04-08 18000->20000 for AP #9-#14 + Subagent Discipline; raised 2026-04-19 20000->22000 for AP #19 + Structural Code Queries subsection (#419). Partially offset by compressing the inline 12-moment prose (now an AP #19 pointer in the "Structural Code Queries" section, STANDARDS.md:346) (saved ~130 words, #420 Phase 2 item 13). Raised 2026-04-21 22000->25000 for round-5 N32 Double-Guardrail Principle + TA-7 data-layer gate (STANDARDS.md 6th pre-query gate) + TB-5 Rule 8 orchestrator-prop (#427).
     "SST3/templates": 18000,   # actual ~12,062 post-cleanup — was 14000
     "SST3/reference": 16000,   # actual ~13,168 post-cleanup — was 21000
+    # Registered #555 AC 2.1 — the slash-command session-load surface (Leader.md
+    # alone was 104,913 B with zero stage tags). Sized to the post-AC-2.6
+    # relocation target (~27K tokens actual once Leader.md drops under 70,000 B);
+    # over-budget at registration time by design — the breach is the Phase-2
+    # work-signal, and the default run stays advisory (AC 2.2). In the public
+    # mirror the directory is `claude/commands` (no leading dot) — the size
+    # walker tolerates both layouts.
+    ".claude/commands": 30000,
 
     # Special file with LINE limit (not tokens)
     "CLAUDE.md": 500  # lines, not tokens - user-specified limit
