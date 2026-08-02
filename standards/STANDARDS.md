@@ -579,7 +579,9 @@ AP #12 builds the observability surfaces; AP #16 enforces reading them.
 - Duplicate rule data outside `voice_rules.py`.
 - Mix HTML `<!-- iamhoi -->` and `# iamhoi` syntax in the same file (hard fail).
 
-**Enforcement**: pre-commit hook + CI in dotfiles (`validate.yml` voice-tells job) and hoiboy-uk (`ci.yml` voice-tells step). Drift between canonical and vendored copies enforced via `cmp -s` bash hook.
+**Enforcement**: a pre-commit hook in every voice-guarded consumer, plus CI in dotfiles (`validate.yml` voice-tells job) and hoiboy-uk (`ci.yml` voice-tells step). The consumer set is deliberately NOT enumerated here — read the `voice_rules.py` mirrors in `SST3/drift-manifest.json`, which is the authority (#560 grew the set, and a hand-listed copy rots on the next onboard). Drift between canonical and vendored copies is enforced by `check-mirror-drift.py` (manifest-driven), not a `cmp -s` hook.
+
+**Known coverage boundary**: the CI half of the above is NOT universal — a consumer whose voice guard is pre-commit-only is bypassable with `git commit -n` / `SKIP=`. Before relying on the double guardrail for a given repo, check that repo's `.github/workflows/` for a voice job rather than assuming this section grants it. Full boundary detail, including which registers each hook does and does not scan: `check-iamhoi-wrapping.py` `has_voice_prose` docstring.
 
 **Reference**: dotfiles#404, hoiboy-uk#3.
 
