@@ -68,9 +68,12 @@ except ImportError:
         base = Path(base_path)
         if not base.exists():
             return []
-        files = []
-        for ext in extensions:
-            files.extend(base.rglob(f"*{ext}"))
+        # Case-folded like the sst3_utils canonical: KEY.PEM is key.pem on
+        # the case-insensitive filesystems this gate guards (Issue #561).
+        wanted = tuple(ext.lower() for ext in extensions)
+        files = [
+            f for f in base.rglob("*") if f.name.lower().endswith(wanted)
+        ]
         if ignore_patterns:
             files = [f for f in files if not should_ignore_path(f, ignore_patterns)]
         return sorted(set(files))
@@ -195,23 +198,25 @@ GENERIC_SECRET_PATTERNS: List[Dict] = [
         "message": "Database password assignment",
         "fix": "Move to .env (gitignored) and reference via environment variable",
     },
+    # URI schemes are case-insensitive (RFC 3986), so the scheme group
+    # carries a scoped (?i:) -- credentials stay case-exact (Issue #561).
     {
-        "pattern": re.compile(r"postgres(?:ql)?://[^:]+:[^@]{3,}@[^\s'\"]+"),
+        "pattern": re.compile(r"(?i:postgres(?:ql)?)://[^:]+:[^@]{3,}@[^\s'\"]+"),
         "message": "PostgreSQL connection string with embedded credentials",
         "fix": "Move credentials to .env and construct connection string at runtime",
     },
     {
-        "pattern": re.compile(r"mongodb(?:\+srv)?://[^:]+:[^@]{3,}@[^\s'\"]+"),
+        "pattern": re.compile(r"(?i:mongodb(?:\+srv)?)://[^:]+:[^@]{3,}@[^\s'\"]+"),
         "message": "MongoDB connection string with embedded credentials",
         "fix": "Move credentials to .env and construct connection string at runtime",
     },
     {
-        "pattern": re.compile(r"redis(?:s)?://[^:]*:[^@]{3,}@[^\s'\"]+"),
+        "pattern": re.compile(r"(?i:redis(?:s)?)://[^:]*:[^@]{3,}@[^\s'\"]+"),
         "message": "Redis connection string with embedded credentials",
         "fix": "Move credentials to .env and construct connection string at runtime",
     },
     {
-        "pattern": re.compile(r"mysql://[^:]+:[^@]{3,}@[^\s'\"]+"),
+        "pattern": re.compile(r"(?i:mysql)://[^:]+:[^@]{3,}@[^\s'\"]+"),
         "message": "MySQL connection string with embedded credentials",
         "fix": "Move credentials to .env and construct connection string at runtime",
     },
@@ -319,6 +324,8 @@ SCAN_EXTENSIONS: List[str] = [
     # omitted — is_binary_file null-byte-skips them, so listing them is inert.
     # Legitimate committed test-fixture keys are suppressed per-repo via
     # .secret-allowlist, not by excluding the extension.
+    # Matching is case-folded at every consumer -- KEY.PEM is key.pem on the
+    # case-insensitive filesystems this gate guards (Issue #561).
     ".pem", ".key", ".asc", ".p8", ".pk8",
 ]
 
@@ -851,13 +858,15 @@ def main() -> int:
         repo_root = scan_path.resolve()
 
     # Public repo check — exit 0 if not public (no-op by design), unless
-    # --enforce-on-private is set for private-repo blocklist defence-in-depth.
+    # --enforce-on-private is set for private-repo defence-in-depth (falls
+    # through to the FULL scan_file scan — all five categories, not only
+    # the blocklist).
     # Note: --scan-commit-messages and --scan-issue-body remain public-only
     # because their threat model (GitHub Actions log amplification) does not
     # apply on private repos.
     if not is_public_repo(repo_root):
         if args.enforce_on_private and not (args.scan_commit_messages or args.scan_issue_body):
-            pass  # fall through to blocklist scan
+            pass  # fall through to the full scan_file scan (all categories)
         else:
             return 0
 
@@ -965,7 +974,7 @@ def main() -> int:
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error: Could not get staged files: {e}", file=sys.stderr)
             return 1
-        files_to_scan = [repo_root / f for f in staged if Path(f).suffix in SCAN_EXTENSIONS]
+        files_to_scan = [repo_root / f for f in staged if Path(f).suffix.lower() in SCAN_EXTENSIONS]
     elif scan_path.is_file():
         files_to_scan = [scan_path]
     else:
