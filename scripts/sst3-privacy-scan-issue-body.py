@@ -14,8 +14,11 @@ Pattern policy (AC 2.6c PRIVACY BOUNDARY):
   canonical blocklist file at:
     scripts/.secret-blocklist-canonical
   This matches the precedent in check-public-repo-secrets.py — both scripts are
-  in `unmirrored_canonical_files` per the propagate-mirrors manifest because the
-  blocklist itself is the sensitive surface.
+  vendored to the public SST3-AI-Harness mirror (with scrub transforms), while
+  the blocklist itself is the sensitive surface: it ships only as the
+  blocklist_subset mirror at the repo root, never as this script's sibling, so
+  in the flattened public mirror the literal layer loud-degrades and the
+  generic patterns below are the whole detection surface there.
 
 Exit codes:
   0  clean — no patterns matched
@@ -62,8 +65,12 @@ GENERIC_PATTERNS: dict[str, re.Pattern[str]] = {
     "windows_user_path": re.compile(r"/mnt/[a-z]/Users/", re.IGNORECASE),
     # Cloud-sync mounted path patterns. The literal directory names ("My Drive",
     # "Google Drive", "OneDrive") are NOT in the script — they load from the
-    # blocklist file. Generic shape catches the "Drive/" suffix as a fallback.
-    "drive_root_suffix": re.compile(r"\b[A-Z][a-zA-Z]+ Drive/", re.IGNORECASE),
+    # blocklist file. Generic shape catches a "Drive" root followed by a path
+    # separator as a fallback — optional space so no-space product spellings
+    # match, and both separator styles (#562 Stage 5: the space-and-forward-
+    # slash-only shape left the flattened public mirror, where the blocklist
+    # sibling is absent by design, blind to every backslash form).
+    "drive_root_suffix": re.compile(r"\b[A-Z][a-zA-Z]+ ?Drive[\\/]", re.IGNORECASE),
 }
 
 
