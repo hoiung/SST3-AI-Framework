@@ -68,9 +68,10 @@ repos:
 
       # secret-rules-drift (legacy byte-identity check for scripts/check-public-repo-secrets.py)
       # REMOVED #497 E.4.3: superseded by manifest-driven sst3-mirror-drift below.
-      # The check-public-repo-secrets.py file now carries `private_term_scrub` transform
-      # (canonical My Drive/Google Drive/OneDrive → mirror UserHome), so canonical and
-      # mirror are intentionally non-byte-identical. The manifest-driven drift check
+      # The check-public-repo-secrets.py file carries the `private_term_scrub` transform,
+      # so canonical and mirror can be intentionally non-byte-identical. (Since Issue
+      # #562 the three cloud-drive detector names are no longer scrubbed -- detector
+      # needles stay functional in this public mirror.) The manifest-driven drift check
       # applies transforms before comparing, which is the correct semantics; the legacy
       # cmp -s hook would always FAIL for this file under the new architecture.
 

@@ -28,7 +28,7 @@ Automation scripts for SST3 workflow validation and enforcement.
 
 **Purpose**: Detects secrets, business identifiers, and private filesystem paths in public repositories. Runs as a pre-commit hook (staged files only) and in CI (full repo scan). Only activates when `.public-repo` marker file exists at repo root.
 
-**Pattern categories**: PLATFORM_TOKEN (GitHub PATs, AWS, GCP, Stripe, JWT), PRIVATE_KEY (PEM headers, PGP), GENERIC_SECRET (password/token/credential assignments, connection strings), PRIVATE_PATH (WSL, Windows, UserHome, UserHome), BLOCKLIST (per-repo `.secret-blocklist` terms).
+**Pattern categories**: PLATFORM_TOKEN (GitHub PATs, AWS, GCP, Stripe, JWT), PRIVATE_KEY (PEM headers, PGP), GENERIC_SECRET (password/token/credential assignments, connection strings), PRIVATE_PATH (WSL, Windows, Google Drive, OneDrive), BLOCKLIST (per-repo `.secret-blocklist` terms).
 
 **Per-repo config**: `.secret-blocklist` (terms to block, one per line), `.secret-allowlist` (false positive suppressions, `path/file` or `path/file:line` format).
 

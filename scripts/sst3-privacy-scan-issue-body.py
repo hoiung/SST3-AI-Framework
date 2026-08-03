@@ -60,8 +60,8 @@ GENERIC_PATTERNS: dict[str, re.Pattern[str]] = {
     # Windows user-profile path with arbitrary drive letter (drive letter is a
     # char class — no literal `c` here).
     "windows_user_path": re.compile(r"/mnt/[a-z]/Users/", re.IGNORECASE),
-    # Cloud-sync mounted path patterns. The literal directory names ("UserHome",
-    # "UserHome", "UserHome") are NOT in the script — they load from the
+    # Cloud-sync mounted path patterns. The literal directory names ("My Drive",
+    # "Google Drive", "OneDrive") are NOT in the script — they load from the
     # blocklist file. Generic shape catches the "Drive/" suffix as a fallback.
     "drive_root_suffix": re.compile(r"\b[A-Z][a-zA-Z]+ Drive/", re.IGNORECASE),
 }

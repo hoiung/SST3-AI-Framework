@@ -244,9 +244,9 @@ PRIVATE_PATH_PATTERNS: List[Dict] = [
     _private_path(r"/mnt/[a-z]/Users/", "WSL Windows user path detected"),
     # Any drive letter, not just C: -- a second drive is still the operator's box.
     _private_path(rf"[A-Za-z]:{_SEP}Users{_SEP}", "Windows user path detected"),
-    _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
-    _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
-    _private_path(rf"UserHome{_SEP}", "UserHome path detected"),
+    _private_path(rf"My Drive{_SEP}", "Google Drive path detected"),
+    _private_path(rf"Google Drive{_SEP}", "Google Drive path detected"),
+    _private_path(rf"OneDrive{_SEP}", "OneDrive path detected"),
 ]
 
 # Placeholder values that should NOT trigger GENERIC_SECRET findings
