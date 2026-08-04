@@ -328,9 +328,22 @@ SCAN_FILENAMES: Set[str] = {
 }
 
 # Families written as `<base>.<variant>`: `.env.local`, `.env.production`,
-# `Dockerfile.prod`. A set-membership test alone misses every variant, which is
-# the common real-world spelling for the one that holds production values.
-SCAN_FILENAME_PREFIXES: tuple = (".env.", "dockerfile.")
+# `Dockerfile.prod`, `.dev.vars.staging`. A set-membership test alone misses
+# every variant, which is the common real-world spelling for the one that holds
+# production values.
+SCAN_FILENAME_PREFIXES: tuple = (".env.", "dockerfile.", ".dev.vars.")
+
+# Families written the OTHER way round, `<name><suffix>`. Set membership and a
+# prefix rule both miss these, because the varying part is on the left:
+#   prod.env / staging.env / local.env   an env file NOT named `.env`
+#   .dev.vars                            Cloudflare Pages / wrangler local secrets
+# Both spellings hold live credentials and both scored CLEAN on the pre-commit
+# hook AND the blocking CI scan of a PUBLIC repo. `.gitignore` is commonly blind
+# on the identical spellings, so the file is not even untracked-by-default.
+# These are suffixes, not extensions, so they cannot live in SCAN_EXTENSIONS:
+# `Path("prod.env").suffix` is `.env`, but `Path(".dev.vars").suffix` is
+# `.vars`, and matching `.vars` broadly would pull in unrelated data files.
+SCAN_FILENAME_SUFFIXES: tuple = (".env", ".dev.vars")
 
 
 def should_scan_file(file_path: Path) -> bool:
@@ -348,6 +361,8 @@ def should_scan_file(file_path: Path) -> bool:
     if name in SCAN_FILENAMES:
         return True
     if name.startswith(SCAN_FILENAME_PREFIXES):
+        return True
+    if name.endswith(SCAN_FILENAME_SUFFIXES):
         return True
     return name.endswith(tuple(ext.lower() for ext in SCAN_EXTENSIONS))
 
