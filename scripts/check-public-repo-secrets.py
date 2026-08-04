@@ -329,10 +329,74 @@ SCAN_EXTENSIONS: List[str] = [
     ".pem", ".key", ".asc", ".p8", ".pk8",
 ]
 
+# Credential-bearing config files that carry NO scannable extension. A suffix
+# allowlist alone never opens them, so a live npm auth token in `.npmrc`, an
+# `ENV DB_PASSWORD=` line in a `Dockerfile`, or a real `.env.local` scored
+# CLEAN — the gate reported them safe rather than declining to judge them.
+# EXEMPT_FILENAMES already listed `.env.example` / `.env.template`, which only
+# makes sense if such files were believed reachable; they were not, so that
+# exemption was dead code until this landed. It is live now.
+# Matched case-folded, like SCAN_EXTENSIONS (Issue #561).
+SCAN_FILENAMES: Set[str] = {
+    ".env", ".envrc", ".netrc", ".npmrc", ".pypirc", ".dockercfg",
+    ".htpasswd", ".gitconfig", ".terraformrc",
+    ".bashrc", ".zshrc", ".profile", ".bash_profile",
+    "dockerfile", "makefile", "procfile",
+}
+
+# Families written as `<base>.<variant>`: `.env.local`, `.env.production`,
+# `Dockerfile.prod`. A set-membership test alone misses every variant, which is
+# the common real-world spelling for the one that holds production values.
+SCAN_FILENAME_PREFIXES: tuple = (".env.", "dockerfile.")
+
+
+def should_scan_file(file_path: Path) -> bool:
+    """Single authority on whether a path enters the scan.
+
+    This gate previously asked the question two different ways: the directory
+    walk matched `f.name.lower().endswith(<ext tuple>)` while the staged-only
+    path matched `Path(f).suffix.lower() in SCAN_EXTENSIONS`. Two matchers for
+    one contract drift apart silently — they already disagreed on a dotfile
+    whose whole name is an extension (`Path('.py').suffix` is `''`, so
+    staged-only skipped a file the directory walk scanned). Both callers now
+    ask this function, so there is one answer and one place to change it.
+    """
+    name = file_path.name.lower()
+    if name in SCAN_FILENAMES:
+        return True
+    if name.startswith(SCAN_FILENAME_PREFIXES):
+        return True
+    return name.endswith(tuple(ext.lower() for ext in SCAN_EXTENSIONS))
+
 
 # ---------------------------------------------------------------------------
 # Core functions
 # ---------------------------------------------------------------------------
+
+def _drop_git_ignored(scan_path: Path, candidates: List[Path]) -> List[Path]:
+    """Remove candidates git ignores. Returns the input unchanged if it cannot ask.
+
+    One batched `git check-ignore --stdin` rather than a subprocess per file.
+    Exit status 0 = some paths matched, 1 = none matched, anything else (not a
+    repo, git missing) = cannot answer, in which case every candidate is kept.
+    """
+    if not candidates:
+        return candidates
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(scan_path), "check-ignore", "--stdin"],
+            input="\n".join(str(p) for p in candidates),
+            capture_output=True, text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return candidates
+    if result.returncode not in (0, 1):
+        return candidates
+    ignored = {line.strip() for line in result.stdout.splitlines() if line.strip()}
+    if not ignored:
+        return candidates
+    return [p for p in candidates if str(p) not in ignored]
+
 
 def is_public_repo(repo_root: Path) -> bool:
     """Check if repo has a .public-repo marker file."""
@@ -974,15 +1038,31 @@ def main() -> int:
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error: Could not get staged files: {e}", file=sys.stderr)
             return 1
-        files_to_scan = [repo_root / f for f in staged if Path(f).suffix.lower() in SCAN_EXTENSIONS]
+        files_to_scan = [repo_root / f for f in staged if should_scan_file(Path(f))]
     elif scan_path.is_file():
         files_to_scan = [scan_path]
     else:
-        files_to_scan = collect_source_files(
-            scan_path,
-            extensions=SCAN_EXTENSIONS,
-            ignore_patterns=IGNORE_PATTERNS,
+        # Walked here rather than through collect_source_files: that helper's
+        # matching contract is an extension suffix list, which cannot express
+        # "this exact filename" (`.npmrc`, `Dockerfile`) or "this family"
+        # (`.env.local`). Expressing membership through should_scan_file is
+        # what keeps the directory walk and the staged-only path on ONE
+        # matcher. should_ignore_path — the shared helper — is still reused.
+        files_to_scan = sorted(
+            p for p in scan_path.rglob("*")
+            if p.is_file()
+            and should_scan_file(p)
+            and not should_ignore_path(p, IGNORE_PATTERNS)
         )
+        # Drop files git already ignores. A directory scan walks the FILESYSTEM,
+        # so on a developer clone it reaches the very files secrets are supposed
+        # to live in — a gitignored `.env`, or the `.env` symlink a worktree
+        # gets from setup-worktree-deps.sh. Those are not public-repo leaks, and
+        # firing on them is how a gate teaches people to bypass it. CI scans a
+        # fresh checkout where none exist, so this narrows nothing there.
+        # Not a git repo, or no git: keep every candidate. Over-reporting is the
+        # safe direction for a secret scanner; silently scanning less is not.
+        files_to_scan = _drop_git_ignored(scan_path, files_to_scan)
 
     # Scan (ignore-path filtering already done by collect_source_files for dir scans;
     # staged-only and single-file paths need it here)
