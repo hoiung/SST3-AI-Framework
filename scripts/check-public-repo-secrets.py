@@ -27,7 +27,6 @@ from typing import Dict, List, NamedTuple, Optional, Set
 try:
     from sst3_utils import (
         SST3UtilError,
-        collect_source_files,
         fix_windows_console,
         get_repo_root,
         log_event,
@@ -61,22 +60,6 @@ except ImportError:
             if clean in parts:
                 return True
         return False
-
-    def collect_source_files(
-        base_path: Path, extensions, ignore_patterns=(), allowed_files=(),
-    ) -> list:
-        base = Path(base_path)
-        if not base.exists():
-            return []
-        # Case-folded like the sst3_utils canonical: KEY.PEM is key.pem on
-        # the case-insensitive filesystems this gate guards (Issue #561).
-        wanted = tuple(ext.lower() for ext in extensions)
-        files = [
-            f for f in base.rglob("*") if f.name.lower().endswith(wanted)
-        ]
-        if ignore_patterns:
-            files = [f for f in files if not should_ignore_path(f, ignore_patterns)]
-        return sorted(set(files))
 
     def get_repo_root() -> Path:
         result = subprocess.run(
@@ -378,24 +361,57 @@ def _drop_git_ignored(scan_path: Path, candidates: List[Path]) -> List[Path]:
 
     One batched `git check-ignore --stdin` rather than a subprocess per file.
     Exit status 0 = some paths matched, 1 = none matched, anything else (not a
-    repo, git missing) = cannot answer, in which case every candidate is kept.
+    repo, git missing, a candidate beyond a symlink) = cannot answer, in which
+    case every candidate is kept. Keeping is the safe direction: this filter
+    only ever REMOVES files from a secret scan, so failing to answer must never
+    remove anything.
+
+    Paths are resolved to absolute before being handed to git. `-C <scan_path>`
+    makes git interpret each line relative to scan_path, while the candidates
+    produced by `scan_path.rglob("*")` already carry that prefix — so a
+    relative, non-"." scan_path had the prefix applied twice and git matched
+    nothing. That failed safe (an ignored file was kept and scanned) but it was
+    still wrong, and it silently disabled the filter. Resolving both sides
+    removes the ambiguity entirely.
     """
     if not candidates:
         return candidates
+    resolved = {}
+    for p in candidates:
+        try:
+            # Resolve the candidate AS GIVEN. Do not join it onto scan_path:
+            # these come from `scan_path.rglob("*")`, so they already carry
+            # that prefix, and joining would apply it a second time.
+            resolved[p] = str(p.resolve())
+        except OSError:
+            resolved[p] = str(p)
     try:
         result = subprocess.run(
             ["git", "-C", str(scan_path), "check-ignore", "--stdin"],
-            input="\n".join(str(p) for p in candidates),
+            input="\n".join(resolved[p] for p in candidates),
             capture_output=True, text=True,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        log_event(
+            "check-public-repo-secrets", "gitignore_filter_unavailable",
+            level="warning", reason=type(exc).__name__, detail=str(exc),
+            candidates=len(candidates),
+        )
         return candidates
     if result.returncode not in (0, 1):
+        # Reachable in the real world: a candidate beyond a symlinked directory
+        # makes git exit 128 ("beyond a symbolic link"), and a worktree gets
+        # symlinked node_modules/.venv from setup-worktree-deps.sh.
+        log_event(
+            "check-public-repo-secrets", "gitignore_filter_unavailable",
+            level="warning", reason=f"git exit {result.returncode}",
+            detail=result.stderr.strip()[:200], candidates=len(candidates),
+        )
         return candidates
     ignored = {line.strip() for line in result.stdout.splitlines() if line.strip()}
     if not ignored:
         return candidates
-    return [p for p in candidates if str(p) not in ignored]
+    return [p for p in candidates if resolved[p] not in ignored]
 
 
 def is_public_repo(repo_root: Path) -> bool:
@@ -1042,12 +1058,13 @@ def main() -> int:
     elif scan_path.is_file():
         files_to_scan = [scan_path]
     else:
-        # Walked here rather than through collect_source_files: that helper's
-        # matching contract is an extension suffix list, which cannot express
-        # "this exact filename" (`.npmrc`, `Dockerfile`) or "this family"
-        # (`.env.local`). Expressing membership through should_scan_file is
-        # what keeps the directory walk and the staged-only path on ONE
-        # matcher. should_ignore_path — the shared helper — is still reused.
+        # Walked inline rather than through the shared sst3_utils
+        # `collect_source_files`: that helper's matching contract is an
+        # extension suffix list, which cannot express "this exact filename"
+        # (`.npmrc`, `Dockerfile`) or "this family" (`.env.local`). Routing
+        # membership through should_scan_file is what keeps the directory walk
+        # and the staged-only path on ONE matcher. `should_ignore_path` — the
+        # other shared helper — is still reused as-is.
         files_to_scan = sorted(
             p for p in scan_path.rglob("*")
             if p.is_file()
@@ -1064,8 +1081,8 @@ def main() -> int:
         # safe direction for a secret scanner; silently scanning less is not.
         files_to_scan = _drop_git_ignored(scan_path, files_to_scan)
 
-    # Scan (ignore-path filtering already done by collect_source_files for dir scans;
-    # staged-only and single-file paths need it here)
+    # Scan. The directory-walk branch above already applied should_ignore_path
+    # inline; the staged-only and single-file paths did not, so they need it here.
     all_findings: Dict[Path, List[Finding]] = {}
     needs_ignore_check = args.staged_only or scan_path.is_file()
     for file_path in files_to_scan:
