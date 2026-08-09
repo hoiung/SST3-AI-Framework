@@ -56,7 +56,19 @@ jobs:
             echo "No issue/PR number in event context; skipping scan."
             exit 0
           fi
+          # Per-repo flag seam — same contract as commit-message-scan.yml, where
+          # the full rationale lives: --require-public is exit-2 on any repo
+          # without a .public-repo marker and --allow-degraded-blocklist is only
+          # correct where the clone cannot hold the hashes manifest, so neither
+          # can be hardcoded for all mirrors. A repo declares its own in
+          # .github/secret-scan-flags, one flag per line, `#` comments allowed.
+          EXTRA_FLAGS=""
+          if [ -f .github/secret-scan-flags ]; then
+            EXTRA_FLAGS=$(sed -e 's/#.*//' .github/secret-scan-flags | tr '\n' ' ')
+            echo "Repo-declared secret-scan flags: $EXTRA_FLAGS"
+          fi
+          # shellcheck disable=SC2086  # EXTRA_FLAGS is a flag list, must split
           python3 scripts/check-public-repo-secrets.py \
             --scan-issue-body \
             --issue-number "$NUMBER" \
-            --repo "${{ github.repository }}"
+            --repo "${{ github.repository }}" $EXTRA_FLAGS

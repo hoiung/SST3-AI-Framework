@@ -67,10 +67,42 @@ jobs:
             echo "BEFORE SHA $BEFORE not reachable in fetched history (likely force-push or rebase) — skipping commit-message scan."
             exit 0
           fi
+          # Per-repo flag seam. Some mirrors need caller-declared flags this
+          # canonical cannot carry for everyone: --require-public is exit-2 on
+          # any repo WITHOUT a .public-repo marker, so hardcoding it here would
+          # red every private mirror, while --allow-degraded-blocklist is only
+          # correct where the clone genuinely cannot hold the hashes manifest.
+          # A repo declares its own in .github/secret-scan-flags, one flag per
+          # line, `#` comments allowed. The declaration is deliberately a
+          # SEPARATE tracked file from .public-repo: deriving --require-public
+          # from `[ -f .public-repo ]` would make deleting the marker silently
+          # drop the very assertion that exists to catch that deletion.
+          EXTRA_FLAGS=""
+          if [ -f .github/secret-scan-flags ]; then
+            EXTRA_FLAGS=$(sed -e 's/#.*//' .github/secret-scan-flags | tr '\n' ' ')
+            echo "Repo-declared secret-scan flags: $EXTRA_FLAGS"
+          fi
           # Pass --enforce-on-private so the scan runs even on private repos
           # (the canonical script defaults to no-op on private; commit-message
           # scanning is a defence-in-depth use case worth running everywhere).
+          # shellcheck disable=SC2086  # EXTRA_FLAGS is a flag list, must split
           python3 scripts/check-public-repo-secrets.py \
             --scan-commit-messages \
             --since "$BEFORE" \
-            --enforce-on-private
+            --enforce-on-private $EXTRA_FLAGS
+
+# GOTCHA, learned the hard way (hoiboy-uk#56): do NOT quote a flagged literal in
+# the commit message that removes it. This scan reads commit MESSAGES, so a
+# message explaining "changed <address> to an example.com one" re-introduces the
+# exact string the commit deletes, and the scan fails on the fix itself. Describe
+# the change without reproducing the value.
+#
+# If it has already happened: commit messages are immutable and force-push is
+# forbidden here, so the commit cannot be edited. Two remedies exist, and the
+# earlier wording here claimed only the second, which was wrong. (1) Add a
+# `<full-sha>::<CATEGORY>` entry to .secret-allowlist — scan_text_content passes
+# the commit SHA as the source label, so the same category-scoped suppression
+# that works for a file path works for a commit, scoped to that ONE commit and
+# that ONE category. (2) Correct forward and let the next push's range start
+# after the offending commit. Prefer (1): it is explicit and auditable, whereas
+# (2) leaves the range re-scannable by any later run that spans the commit.
