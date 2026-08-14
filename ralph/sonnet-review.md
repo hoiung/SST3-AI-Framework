@@ -1,6 +1,8 @@
 # Tier 2: Sonnet Review (Logic Checks)
 
 > **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings. **Reviewer Isolation (#555 Phase 3):** any formatter/linter you invoke MUST run in its read-only check form (`cargo fmt -- --check`, `ruff format --check` — never the mutating form), and you must NEVER run a mutating git op (merge/checkout/stash/rebase/reset) — inspect the worktree read-only, so a review pass can never pollute the main agent's Gate-2 index.
+>
+> **STEP-0 tree-lock (MANDATORY first action):** subagents START in the main clone, which is a DIFFERENT, stale tree from the implementing agent's worktree — a review run there returns a false verdict against the wrong code. Before ANY check: run `git rev-parse --show-toplevel`, paste its output in your RESULT block, and confirm it matches the worktree path the dispatcher named; prefix every shell command with `cd <worktree> && `; verify the dispatcher-supplied tree FINGERPRINT (a file- or test-count true only in the worktree) and STOP with verdict FAIL "wrong tree" on any mismatch. A dispatch prompt that names no worktree path or fingerprint is itself a finding.
 
 Medium-depth logic validation.
 
@@ -107,7 +109,7 @@ Medium-depth logic validation.
 > Offline ast-grep SEC scan of the changed code. Canonical doctrine: STANDARDS.md "Security & Dependency Audit Gate"; AP #27. This is a GATE (mirrors the doc-lane FAIL semantics), not a run-record.
 
 - [ ] **SEC scope gate**: does the diff touch code files (`.py`/`.rs`/`.js`/`.ts`) in a SEC-applicable repo? Resolve via `python3 -c "from SST3.scripts.sst3_utils import sec_dep_applicable as f; print(f('<repo>')['sec'])"`. If `False` (non-code shape / GAS / scaffold) OR the diff touches no code file → "N/A — shape-gated skip-clean" and the two FAIL conditions below do not apply. If `True` and code files changed → next two are mandatory.
-- [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 (engine-missing) = FAIL** — an engine-missing run did NOT confirm the diff is clean; it must be re-run with the engine installed (`<your-dotfiles-clone>/scripts/install.sh`), not waved through.
+- [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 = FAIL** — exit 2 is the could-not-look signal and covers EVERY route by which a phase failed to probe — engine-missing, phase-timeout, phase-error, a wrapper missing from disk, and a wrapper that is present but not executable (dotfiles#565). Treat that list as open, not closed: it said three until round 10 measured a fourth and fifth. Such a run did NOT confirm the diff is clean: re-run it with the engine installed (`<your-dotfiles-clone>/scripts/install.sh`) or with a larger `SST3_CHECK_PHASE_TIMEOUT` (default 90s/phase), never wave it through. Note a timed-out phase reports FEWER findings than a complete one, so a shrinking count is a symptom, not progress.
 - [ ] **SEC no-net-new-finding (FAIL condition b)**: **any SEC finding on an added/modified line in the diff = FAIL** (fix it; do not defer). Pre-existing findings on unchanged lines of a touched file are out of scope for this diff (they predate it). Record the wrapper exit + finding count in the RESULT block.
 
 ## Pass Criteria
