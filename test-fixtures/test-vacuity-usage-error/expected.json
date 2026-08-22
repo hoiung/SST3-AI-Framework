@@ -1,0 +1,13 @@
+{
+  "fixture": "test-vacuity-usage-error",
+  "issue": 567,
+  "phase": 4,
+  "scope": "Input validation (#567 Ralph T3 F4 / Engineering Requirements type-contract): a non-integer --threshold is a USAGE ERROR at exit 2 with an actionable stderr message — never a raw ValueError traceback at exit 1, which collides with the findings exit code and reads as a gate finding.",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["--threshold", "notanumber", "test_target.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 2,
+    "stdout_min_records": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "fixture": "test-vacuity-forms",
+  "issue": 567,
+  "phase": 4,
+  "scope": "AC 4.1 — the vacuity sweep exits non-zero on a fixture containing each unfalsifiable-assertion form: assert <literal> (truthy constant + string + tuple), assert X or True, and a self-comparing assertion. The file also carries one GENUINE assertion as an in-fixture negative control that must not be flagged (5 findings, not 6).",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["test_vacuous.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 1,
+    "stdout_min_records": 5,
+    "stdout_must_contain_files": ["test_vacuous.py"]
+  }
+}

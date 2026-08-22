@@ -1,0 +1,13 @@
+{
+  "fixture": "test-vacuity-nothing-scanned",
+  "issue": 567,
+  "phase": 4,
+  "scope": "Could-not-look hardening (#567 Ralph T3 F2): bare-mode discovery finding zero test files exits 2 with a NOTHING SCANNED stderr line — a run that scanned nothing proved nothing and must never read as clean, even while a vacuous assert sits in an undiscoverable file beside it. Mirrors sst3-check --strict exit-2 semantics.",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": [],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 2,
+    "stdout_min_records": 0
+  }
+}

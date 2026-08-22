@@ -97,6 +97,12 @@ class CrossRepoPathChecker:
         # Track violations
         self.violations: List[Dict] = []
 
+        # dotfiles#565 AC 5.2. A file this gate could not READ used to return
+        # zero violations, indistinguishable from a file it read and found
+        # clean. Unreadable files are collected here and reported as their own
+        # could-not-look channel, and they fail the run.
+        self.probe_failures: List[str] = []
+
         # Patterns to catch (backticked paths referencing SST3 files)
         # Match backticked paths like `SST3/...`, `../templates/...`, etc.
         # Extended 2026-04-19 (#420 Phase 2 item 17) to cover blind spots:
@@ -174,7 +180,14 @@ class CrossRepoPathChecker:
                 content = f.read()
                 lines = content.split('\n')
         except Exception as e:
-            print(f"ERROR: Could not read {file_path}: {e}")
+            # dotfiles#565 AC 5.2: record the could-not-look rather than
+            # returning a clean-looking empty list.
+            self.probe_failures.append(f"{file_path}: {e}")
+            print(
+                f"SST3_PROBE_FAILED: check-crossrepo-paths — could not look: "
+                f"unreadable file {file_path}: {e}",
+                file=sys.stderr,
+            )
             return []
 
         violations = []
@@ -366,6 +379,16 @@ class CrossRepoPathChecker:
         self.violations = violations
 
         self.print_violations(violations, show_fixes)
+
+        # dotfiles#565 AC 5.2: a scan that could not read part of its input is
+        # not a scan that found nothing there. Reported in its OWN labelled
+        # block so it is never confused with a violation count.
+        if self.probe_failures:
+            print()
+            print("PROBE FAILURES (could not look — this run is NOT clean):")
+            for pf in self.probe_failures:
+                print(f"  - {pf}")
+            return False
 
         return len(violations) == 0
 

@@ -1,0 +1,16 @@
+{
+  "fixture": "test-vacuity-detector-precision",
+  "issue": 567,
+  "phase": 4,
+  "scope": "T3 S6a+S6b precision pins: non-empty dict/set literal asserts ARE findings (previously an undisclosed blind spot), and always-FALSE self-compares (!=, <) are deliberately NOT claimed under the 'cannot fail' contract — they redden the suite themselves. The stderr sentinel pins EXACTLY 2 findings, so reclaiming the always-false forms (or missing a container literal) drifts this fixture and forces the header disclosure to change in the same commit.",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["test_precision.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 1,
+    "stdout_min_records": 2,
+    "stdout_kind_records": ["assert-literal"],
+    "stdout_must_contain_files": ["test_precision.py"],
+    "stderr_must_contain": ["sst3-test-vacuity: scanned 1 file(s), 2 finding(s)"]
+  }
+}

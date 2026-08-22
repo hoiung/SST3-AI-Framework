@@ -10,7 +10,10 @@ Graceful skip: if `../dotfiles/` not present (mirror cloned standalone),
 print SKIP to stderr and exit 0. Matches existing secret-rules-drift /
 voice-rules-drift pattern.
 
-Byte-identical across canonical (dotfiles/SST3/scripts/) and all 3 mirrors.
+Byte-identical across canonical (dotfiles/SST3/scripts/) and every mirror
+row this file carries in SST3/drift-manifest.json — the row set is the
+authority; a hand-pinned count here rots on the next consumer onboard
+(this line pinned the mirror count at 3 against a measured 20, #567).
 A `cmp -s` self-drift hook in each mirror enforces byte-identity.
 
 Staged-aware gate (Issue #492): a drifted mirror only BLOCKS a commit when

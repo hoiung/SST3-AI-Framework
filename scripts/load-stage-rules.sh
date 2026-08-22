@@ -212,8 +212,8 @@ cat "$EXTRACT_OUT"
 # Asserting an expected per-stage file count here would fail closed on every
 # legitimate canon edit instead.
 #
-# It is closed one layer out, where the information actually exists: all 16
-# standards/stage-*/*.md files are declared MIRRORED in drift-manifest.json (0
+# It is closed one layer out, where the information actually exists: every
+# standards/stage-*/*.md file is declared MIRRORED in drift-manifest.json (0
 # canonical-only, 0 undeclared), and `check-mirror-drift.py --repo <mirror> --strict`
 # exits non-zero on a MISSING mirror file, naming it. That check works today and is
 # wired to nothing -- wiring it is sequenced after Gate-2 propagation, because the

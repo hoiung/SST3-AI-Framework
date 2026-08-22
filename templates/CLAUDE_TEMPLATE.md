@@ -73,7 +73,7 @@ See: `reference/research-reference-guide.md` for complete guide
 
 **Subagents are PLANNING ONLY** - they review, they do NOT write code.
 
-**Flow**: Implement → Haiku → Sonnet → Opus (up to 5 restarts, then escalate) → **Merge to main** → User Review
+**Flow**: Implement → Haiku → Sonnet → Opus (up to 3 restarts, then ONE escalation, then ONE final loop, then stop-and-report) → **Merge to main** → User Review
 
 | Tier | Model | Purpose | Invocation |
 |------|-------|---------|------------|
@@ -81,7 +81,7 @@ See: `reference/research-reference-guide.md` for complete guide
 | 2 | `sonnet` (MANDATORY) | Logic checks | `Task(model=sonnet, prompt="Review per SST3/ralph/sonnet-review.md...")` |
 | 3 | `opus` (MANDATORY) | Deep analysis | `Task(model=opus, prompt="Review per SST3/ralph/opus-review.md...")` |
 
-**On FAIL any tier**: Main agent fixes → Restart from Tier 1 (Haiku), up to 5 restarts. Restart 6: escalate to a class-sweep Workflow, then resume Ralph with the count reset to zero.
+**On FAIL any tier**: Main agent fixes → Restart from Tier 1 (Haiku), up to 3 restarts. Restart 4: NOT taken — escalate to a class-sweep Workflow, then resume Ralph with the count reset to zero for exactly ONE further loop; if that loop does not PASS, STOP and report the outstanding findings + classes to the operator (terminal state — never a silent abandon).
 **On PASS all 3**: Merge to main immediately (protects work), then user review
 
 **Checklists**: `ralph/`

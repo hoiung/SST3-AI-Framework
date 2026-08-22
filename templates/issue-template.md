@@ -220,7 +220,7 @@ Every Acceptance Criteria checkbox MUST have an explicit verification command/me
 
 ### Ralph Review Loop (MANDATORY - Automated 3-Tier Review)
 
-> **REQUIRED**: Implement → Haiku → Sonnet → Opus. **Subagents are PLANNING ONLY** (review, do NOT write code). FAIL any tier: fix + restart Tier 1, up to 5 restarts, then escalate.
+> **REQUIRED**: Implement → Haiku → Sonnet → Opus. **Subagents are PLANNING ONLY** (review, do NOT write code). FAIL any tier: fix + restart Tier 1, up to 3 restarts, then ONE escalation, then ONE final loop, then STOP-and-report (terminal state).
 
 #### Tier 1: Haiku Subagent (Surface Checks)
 **Model**: `haiku` (MANDATORY)

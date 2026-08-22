@@ -21,7 +21,8 @@ BUILD-vs-USE testing model: the canonical (BUILD) requires all 3 tiers to EXIST;
   - E2E may be *sized* to the change — a small backtest, or an actual execution change + cleanup — but it still RUNS.
   - **E2E synthetic seeding (#555 Phase 3):** an E2E test needing real SQL execution seeds SYNTHETIC rows — it never reads prod data, and never gates a prod-read behind `requires_postgres`.
   - The ONLY non-run is a tier recorded `structural-inapplicable: <reason>` (rare; e.g. a pure-doc diff has no Unit surface).
-- "Tests pass" means all 3 tiers RAN and PASS (or are documented `structural-inapplicable`), recorded in the required tier-evidence line (canonical: STANDARDS.md "Three-Tier Testing Framework"): `tiers: U=.. W=.. E2E=.. | BUILD-evidence:<file:line per tier>`.
+- "Tests pass" means all 3 tiers RAN and PASS (or are documented `structural-inapplicable`), recorded in the required tier-evidence line (canonical: STANDARDS.md "Three-Tier Testing Framework"): `tiers: U=.. W=.. E2E=.. M=.. | BUILD-evidence:<file:line per tier>`.
+- **PROVE (third requirement beside EXIST and RUN — #567)**: for any diff that adds or modifies a **gate** (a test or check whose purpose is to reject a defect class), the tier-evidence line ALSO carries a mutation result — the gate shown to REDDEN on its re-injected defect, with ≥1 negative control that stays green — applied WITHIN whichever tier holds that gate. A gate that merely EXISTs and RUNs can pass unconditionally; only failure proves it. Absent the mutation table, the ACs that gate protects are recorded `unproven`, not `passed`. Spec + sweep quality gates: `mutation-verification.md` (single canonical — do not restate it here). Append `M=<reddened+control-green|unproven|n/a:no-gate-in-diff>` to the tier-evidence line.
 
 <!-- stages: 4 -->
 ## AP #18 sample-invocation = the Workflow Tier USE clause

@@ -906,7 +906,7 @@ Canonical audit signal for verifying that `mcp__github-checkbox__update_issue_ch
 
 **Why the body section, not the timeline**: GitHub's timeline API (`mcp__github-checkbox__get_issue_events`) does not emit `edited` events for an issue author's own body edits on their own issue — a documented API behavior. Since solo-workflow agents ARE the issue author in ~99% of cases, PATCH-event-based audit false-negatives every honored invocation. The body content itself, however, is always externally readable via `mcp__github__get_issue` or `mcp__github-checkbox__get_issue_checkboxes`, regardless of who authored the edit.
 
-**Structure of the signal**: `<MCP servers — operator-only>/github-checkbox/server.py` function `append_to_proof_of_work` (lines 214-261, invoked at :322) appends a structured entry per invocation to the body's `## Proof of Work` section. Each entry contains the checkbox text + evidence string supplied at call time. The body PATCH that toggles `[ ]` → `[x]` is the SAME PATCH that appends the entry, so presence in Proof of Work strictly implies the tool was called.
+**Structure of the signal**: `<MCP servers — operator-only>/github-checkbox/server.py` function `append_to_proof_of_work` (defined at `:225`, invoked at `:333` — re-derive with `grep -n 'append_to_proof_of_work' mcp-servers/github-checkbox/server.py` rather than trusting these; the figures here read "lines 214-261, invoked at :322" until #565 Ralph T3 round 3 measured them) appends a structured entry per invocation to the body's `## Proof of Work` section. Each entry contains the checkbox text + evidence string supplied at call time. The body PATCH that toggles `[ ]` → `[x]` is the SAME PATCH that appends the entry, so presence in Proof of Work strictly implies the tool was called.
 
 **Verification procedure** (for Ralph tiers and any external auditor):
 1. Fetch issue body via `mcp__github__get_issue` (or `mcp__github-checkbox__get_issue_checkboxes` for live-state cross-check).
@@ -989,21 +989,77 @@ C:/temp/                  ← Shared temp folder
 <!-- stages: 4 -->
 ### DevProjects Cleanliness Enforcement
 
-**Pre-commit hook** `check-devprojects-clean` validates DevProjects/ before every commit:
+**Pre-commit hook** `check-devprojects-clean` validates DevProjects/ before
+every commit. It is `always_run: true`, so it fires on its own changes.
+
+The hook resolves DevProjects/ through
+`sst3_mirror_utils.resolve_main_clone_root`, NOT through
+`git rev-parse --show-toplevel`. From a linked worktree the latter returns the
+worktree, whose parent is `<clone>/.claude/worktrees` — a directory that
+exists, so the fail-fast passed and the hook exited 0 having opened no repo at
+all (#565).
 
 **Allowed:**
-- Known repos: `dotfiles/`, `project-a/`, `project-b/`
+
+- Known repos: read from `sst3_utils.KNOWN_REPOS` — never hand-listed here.
+  This line used to enumerate three repos against a real twenty-two; a
+  hand-maintained tally rots on the next onboard, which is how it got that far
+  out. The probed set is `probed_repos()`, read by every caller so no two can
+  disagree. It is ROLE-SCOPED via `sst3_utils.expected_clones()`: on a `master`
+  host it is KNOWN_REPOS plus the two mirror clones; on a `lab`/`prod` host it
+  is `dotfiles` + `LAB_ROLE_REPOS`, which is what `install.sh` actually creates
+  there. The role comes from `${XDG_CONFIG_HOME:-$HOME/.config}/sst3/node-role`,
+  written by `install.sh`, and defaults to `master` when absent — the strict
+  superset, so a missing marker fails loud instead of quietly narrowing the
+  claim. A non-master run prints its scope on the paths that reach a scoped
+  claim — the could-not-look arms and the role-scoped pass. It is NOT every
+  path: `main()` has ten return points and the early ones exit before a role
+  is resolved, so there is no scoped claim to qualify. (This bullet asserted
+  "on every path, pass or fail" until #565 Ralph T3 round 3 measured it — the
+  canonical twin of the same false claim in `scope_note()`'s docstring.
+  Fixing the docstring alone would have left the STANDARD asserting it: AP #9.)
 - Shared temp: `temp/`
 - New git repos: Any directory containing `.git/`
 - Disabled git: `.git.DISABLED.*` pattern
 
 **Blocked:**
+
 - Files at DevProjects/ root
 - Folders not matching allowed criteria
+- A `scaffold`-shaped repo that has grown a dependency manifest or a source
+  root — `_SHAPE_SEC_DEP['scaffold']` is `(False, False)`, so both audit lanes
+  report clean without running until `_REPO_SHAPE` is re-pointed
+- A probed clone absent from disk, or a root holding none of them — a repo the
+  hook never opened cannot support its "DevProjects is clean" claim, so it
+  reports `PROBE_FAILED` rather than skipping silently. "Probed" is role-scoped
+  (above), so a repo `install.sh` never clones on THIS role is not a failure;
+  one it does clone still is. This line previously said `install.sh` "clones
+  every one of them, so the printed remedy actually resolves the failure" —
+  false on a `lab`/`prod` node, where the installer clones three repos and the
+  gate demanded twenty-four, making an `always_run` pre-commit AND pre-push hook
+  unpassable by construction while printing a remedy that could not fix it
+- A probed clone holding commits that exist on no remote. Primitive:
+  `git rev-list --count --branches --not --remotes=origin` — no network, no
+  default-branch resolution. In-flight `solo/*` worktree branches and commits
+  touching only `SST3-metrics/` are excluded by design; both are unpushed on
+  purpose
+
+Every could-not-look path reports `PROBE_FAILED` and exits non-zero. A probe
+that could not run must never be indistinguishable from a probe that ran and
+found nothing.
+
+The exit-code half of that has always held. The MARKER half was false in
+`check-devprojects-clean.py` until #565 Ralph T3 round 3: its
+`except PermissionError` / `except OSError` arms printed a bare `ERROR: ...`,
+demonstrated with a chmod-000 DevProjects root. Nothing passed vacuously —
+both arms returned 1 — but anything ENUMERATING could-not-look outcomes by
+grepping for the marker under-counted them. Both arms now carry it. The
+lesson generalises: when a standard states two conjoined properties, verify
+them separately, because the weaker one is where the drift hides.
 
 **Script:** `../scripts/check-devprojects-clean.py`
 
-**Reference:** Issue #249
+**Reference:** Issue #249, Issue #565
 
 <!-- stages: 4 -->
 ## Documentation Requirements
@@ -1166,9 +1222,9 @@ Run this at authoring time AND again at the Verification Loop:
 
 **Required tier-evidence line (defined ONCE here — `WORKFLOW.md` Verification Loop + `issue-template.md` PREREQUISITE CHECKPOINT point to this definition, never redefine it):**
 ```
-tiers: U=<pass|fail|structural-inapplicable:reason> W=<pass|fail|structural-inapplicable:reason> E2E=<pass|fail|structural-inapplicable:reason> | BUILD-evidence:<file:line of the checked-in test per tier>
+tiers: U=<pass|fail|structural-inapplicable:reason> W=<pass|fail|structural-inapplicable:reason> E2E=<pass|fail|structural-inapplicable:reason> M=<reddened+control-green|unproven|n/a:no-gate-in-diff> | BUILD-evidence:<file:line of the checked-in test per tier>
 ```
-All 3 tiers must show `pass` (or a documented `structural-inapplicable:<reason>`). A `fail` blocks the Verification Loop; a bare "tests pass" without this line does not satisfy the gate.
+All 3 tiers must show `pass` (or a documented `structural-inapplicable:<reason>`). A `fail` blocks the Verification Loop; a bare "tests pass" without this line does not satisfy the gate. The `M=` field is the mutation-verification result for gate-bearing diffs (#567 — spec: `stage-4/mutation-verification.md`, duty site: the `stage-4/three-tier-testing.md` USE clause): `M=unproven` blocks exactly as a `fail` does — a gate-bearing diff without its mutation table is `unproven`, never `passed`; `M=n/a:no-gate-in-diff` records that the diff carries no gate.
 
 <!-- stages: 2 -->
 ### Tier composition — never substitute (worked illustration, general)
@@ -1181,7 +1237,7 @@ Higher tiers do NOT substitute for lower (a passing system does not prove every 
 
 <!-- stages: 2 -->
 ### Why three — not two, not four
-Three is canonical because it maps to the three real failure surfaces: a part is wrong (Unit), the parts are wired wrong (Workflow), the whole system meets reality wrong (E2E). Collapsing Workflow into Unit loses the wiring-gap class; collapsing E2E into Workflow loses the real-environment / real-downstream class. Adding a fourth tier (mutation / property / contract testing) is explicitly out of scope — those are *techniques applied within* a tier, not a fourth surface. the operator's 3-tier framing is the canonical taxonomy; do not split or merge it.
+Three is canonical because it maps to the three real failure surfaces: a part is wrong (Unit), the parts are wired wrong (Workflow), the whole system meets reality wrong (E2E). Collapsing Workflow into Unit loses the wiring-gap class; collapsing E2E into Workflow loses the real-environment / real-downstream class. Adding a fourth tier (mutation / property / contract testing) is explicitly out of scope — those are *techniques applied within* a tier, not a fourth surface — and for GATES that is a duty, not an option: any diff adding or modifying a gate carries mutation verification per the `stage-4/three-tier-testing.md` USE clause and `stage-4/mutation-verification.md` (a gate is unproven until it has been shown to fail; #567). the operator's 3-tier framing is the canonical taxonomy; do not split or merge it.
 
 <!-- stages: always -->
 ### Glossary: "regression test" vs the three tiers
@@ -1212,10 +1268,10 @@ Three is canonical because it maps to the three real failure surfaces: a part is
 Doctrine home for the SEC lane (`sst3-sec-*`, offline ast-grep) and the DEP lane (`sst3-dep-*`, dependency/CVE audit). Pointer: ANTI-PATTERNS.md AP #27 (built-but-unwired = false comfort). An audit lane is not done until it fires automatically in a cadence — building it is necessary but not sufficient.
 
 **Shape-gating (no vacuous PASS).** SEC/DEP run only where they can actually parse the production surface. Applicability is resolved by `sst3_utils.sec_dep_applicable(repo_or_shape) -> {sec, dep}`:
-- **Code-bearing → run**: Service, eBay-MCP, Config-heavy (ast-grep-parseable Python/Rust/JS + a dependency manifest).
+- **Code-bearing → run**: Service, eBay-MCP, Config-heavy (ast-grep-parseable Python/Rust/JS + a dependency manifest — SEC and DEP both run), and mt5-ea (SEC only: ast-grep-parseable Python production surface but NO dependency manifest, so DEP skip-clean is honest, not vacuous — the `(True, False)` pair in `_SHAPE_SEC_DEP`, #567 Phase 7).
 - **Skip-clean → do NOT run**: non-code shapes (Static-blog/Static-site/Voice-doc/Brainstorm/Business-ops), day-1 scaffolds, AND surfaces ast-grep/pip-audit cannot parse — GAS (`.gs`, test-harness Python only) and lab-automation (PowerShell + bash). Running SEC/DEP there would scan nothing meaningful and report a clean PASS that means nothing — the precise false-PASS this gate exists to prevent. The helper fails loud on an unknown repo/shape rather than defaulting to a silent skip.
 
-**Fail-loud contract (three signals).** SEC/DEP use the existing `sst3-check.sh` orchestrator. `--strict` escalates any engine-missing wrapper to **exit 2** (distinct from findings=1 and clean=0); the per-phase stderr-sentinel must be present to confirm a wrapper actually ran. An engine-missing run is NOT a clean run — it must be re-run after `<your-dotfiles-clone>/scripts/install.sh`, never waved through. Diff-scope with `--paths-from <ndjson>` (forwarded to the SEC/DEP wrappers).
+**Fail-loud contract (three signals).** SEC/DEP use the existing `sst3-check.sh` orchestrator. `--strict` escalates any wrapper that **could not look** to **exit 2** (distinct from findings=1 and clean=0); the per-phase stderr-sentinel must be present to confirm a wrapper actually ran. Could-not-look is **engine-missing OR phase-timeout OR phase-error OR a missing wrapper script OR a non-executable wrapper** — every one means the run did not establish that the target is clean, and none may be waved through. Do not read that list as closed: it is the set of routes MEASURED so far, and it has grown twice. It said "all three" until #565 Ralph round 10 measured a fourth and fifth — a wrapper absent from disk, and a wrapper present but not executable, both recorded as `skipped`, which nothing consumed, so `--strict` returned **0** with an EMPTY stderr, byte-identical to a run where every phase completed. The lesson generalises past this contract: when you convert the members in front of you, go and look for the ones that arrive by a different path first. Engine-missing is re-run after `<your-dotfiles-clone>/scripts/install.sh`; a timeout is re-run with a larger `SST3_CHECK_PHASE_TIMEOUT` (default 90s per phase). Timeout was added to this contract by dotfiles#565 escalation-1, which measured the orchestrator recording `doc-lint:timeout` in its phases array while nothing gated on it: only engine-missing and findings drove the exit code, so a timed-out phase on an otherwise-clean tree exited **0**. Worse, a timeout REDUCES the finding count (measured: 326 with all phases complete, 189 with two timed out), so the vacuous run looks like an improvement. Diff-scope with `--paths-from <ndjson>` (forwarded to the SEC/DEP wrappers).
 
 **dependabot boundary (no duplication).** `.github/dependabot.yml` and the `sst3-dep-cve` lane do NOT overlap: **dependabot** opens *scheduled upgrade PRs* (it bumps versions), while **`sst3-dep-cve`** is an *on-demand / PR-time CVE scan* emitting NDJSON findings (it reports, it does not bump). They are complementary — keep both.
 

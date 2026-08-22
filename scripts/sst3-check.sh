@@ -14,7 +14,14 @@
 #          The orchestrator-complete sentinel is emitted via EXIT trap so it
 #          appears EVEN on early termination — lets consumers distinguish
 #          "all phases done" from "killed mid-stream".
-# Exit:    0 = no findings; 1 = findings emitted; 127 = required engine missing.
+# Exit:    0 = no findings
+#          1 = findings emitted
+#          2 = --strict and at least one phase COULD NOT LOOK (see below)
+#          64 = usage error (unreadable --paths-from)
+#          This line previously read "127 = required engine missing", which this
+#          script has never returned — engine-missing is an inner wrapper's exit
+#          code, escalated here to 2. Corrected in the same pass as the fourth
+#          could-not-look route (#565 Ralph round 10 T3).
 # Engines: composes sst3-code-* (Phase A) + sst3-doc-* (Phase B) + sst3-sync-* (Phase C).
 #
 # #445 R4 Bug B fix: pre-fix, the FINDINGS counter was incremented inside a
@@ -129,9 +136,14 @@ run_or_skip() {
     # Started sentinel
     jq -nc --arg p "$LABEL" '{kind:"orchestrator-progress", phase:$p, status:"started"}'
 
+    # A wrapper that is not on disk did not probe anything. It used to record
+    # `skipped`, which nothing consumed, so `--strict` returned 0 — byte-identical
+    # to a run where every phase completed clean (#565 Ralph round 10 T3). The
+    # status is now DISTINCT from a by-design skip so the could-not-look gate
+    # below can escalate it without swallowing any legitimate skip.
     if [[ ! -f "$SCRIPT" ]]; then
-        jq -nc --arg p "$LABEL" '{kind:"orchestrator-progress", phase:$p, status:"skipped", reason:"script not found"}'
-        PHASES_DONE+=("$LABEL:skipped")
+        jq -nc --arg p "$LABEL" '{kind:"orchestrator-progress", phase:$p, status:"missing-script", reason:"script not found"}'
+        PHASES_DONE+=("$LABEL:missing-script")
         return 0
     fi
 
@@ -199,7 +211,10 @@ run_or_skip() {
         0)        status=complete ;;
         124|143)  status=timeout ;;       # 124 = `timeout` direct, 143 = SIGTERM via --preserve-status
         127)      status=engine-missing ;;
-        126)      status=skipped ;;
+        # 126 = found but not executable (bad mode bits, noexec mount). The
+        # wrapper never ran, so this is could-not-look, not a skip. It was
+        # labelled `skipped` and exited 0 under --strict until #565 round 10 T3.
+        126)      status=not-executable ;;
         *)        status=error ;;
     esac
 
@@ -293,6 +308,45 @@ jq -nc \
 # clean" (0). /Leader Stage 1a runs --strict by default per Phase 5 edits.
 if [[ "$STRICT" -eq 1 ]] && [[ "$ENGINE_MISSING_COUNT" -gt 0 ]]; then
     echo "[sst3-check] STRICT: $ENGINE_MISSING_COUNT phase(s) missing engine — exit 2" >&2
+    exit 2
+fi
+
+# A phase that TIMED OUT or ERRORED is a could-not-look, exactly like
+# engine-missing, and until dotfiles#565 escalation-1 it drove nothing
+# (dotfiles#565). Only ENGINE_MISSING_COUNT and FINDINGS decided the exit code,
+# so `doc-lint:timeout` was recorded in the phases array and then ignored.
+#
+# MEASURED on this repo at 453ec43e: `--doc --strict` runs five phases, doc-lint
+# exceeds the 90s PHASE_TIMEOUT against the whole tree, and the command exited 1
+# — but ONLY because 506 pre-existing findings happened to exist in the other
+# four phases. On a tree with those cleaned up, the identical run exits 0 and
+# reports "clean" while one phase of five never executed. That is the invariant
+# this Issue is named for, living in the orchestrator that fronts the whole
+# wrapper lane and is called by Ralph tiers and pre-commit hooks.
+#
+# The doc lane is whole-tree by design — `--paths-from` is forwarded to the
+# SEC/DEP wrappers only (STANDARDS.md "Fail-loud contract"), so it cannot be
+# diff-scoped down to fit. Raise the budget for a big tree with
+# SST3_CHECK_PHASE_TIMEOUT=<seconds> rather than reading exit 0 as clean.
+#
+# Exit 2 is the same signal as engine-missing because it means the same thing:
+# this run did NOT establish that the target is clean. Deliberately NOT exit 1
+# — that means "ran, found things", which is a different and much weaker claim.
+# FOUR routes, not two. The first version of this block converted timeout and
+# error — the two statuses in front of it at the time — and left the two that
+# arrive through the early-return above and the 126 arm. A missing wrapper
+# exited 0 with an EMPTY stderr, indistinguishable from a clean run, in the
+# gate built to stop exactly that (#565 Ralph round 10 T3). engine-missing is
+# handled by its own counter below and is not repeated here.
+_could_not_look=()
+for _p in "${PHASES_DONE[@]}"; do
+    case "$_p" in
+        *:timeout|*:error|*:missing-script|*:not-executable) _could_not_look+=("$_p") ;;
+    esac
+done
+if [[ "$STRICT" -eq 1 ]] && [[ "${#_could_not_look[@]}" -gt 0 ]]; then
+    echo "[sst3-check] STRICT: ${#_could_not_look[@]} phase(s) could not complete — ${_could_not_look[*]} — exit 2" >&2
+    echo "[sst3-check] a phase that did not finish has NOT confirmed the target is clean; re-run with SST3_CHECK_PHASE_TIMEOUT=<seconds> (current: ${PHASE_TIMEOUT}s) or install the failing engine" >&2
     exit 2
 fi
 

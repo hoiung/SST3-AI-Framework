@@ -7,11 +7,11 @@ Automated 3-tier quality review for SST3 workflow.
 > - **DO**: Read files, verify evidence, check compliance, report findings
 > - **DO NOT**: Write code, edit files, make commits, fix issues
 >
-> If issues found, subagent reports findings → Main agent fixes → Restart review (up to 5 restarts, then escalate).
+> If issues found, subagent reports findings → Main agent fixes → Restart review (up to 3 restarts, then ONE escalation, then ONE final loop, then stop-and-report).
 
 ## What
 
-Main agent spawns 3 review subagents in sequence; the LOOP as a whole is bounded at 5 restarts, then escalates:
+Main agent spawns 3 review subagents in sequence; the LOOP as a whole is bounded at 3 restarts, then ONE escalation, then ONE final loop, then a terminal stop-and-report:
 - **Tier 1 (Haiku)**: Surface checks - files, checkboxes, commits
 - **Tier 2 (Sonnet)**: Logic checks - evidence, scope, fallbacks
 - **Tier 3 (Opus)**: Deep checks - architecture, standards, review
@@ -53,9 +53,9 @@ Task(model=opus): /ralph-loop "Review per SST3/standards/STANDARDS.md and SST3/r
 3. If HAIKU_PASS → Spawns Sonnet
 4. If SONNET_PASS → Spawns Opus
 5. If OPUS_PASS → Ready for user approval
-6. If ANY FAIL → Main agent fixes → Restart from Haiku (restarts 1-5; restart 6 escalates)
+6. If ANY FAIL → Main agent fixes → Restart from Haiku (restarts 1-3; restart 4 is NOT taken — escalate, then ONE further loop, then stop-and-report)
 
-**Max iterations**: the loop is bounded at 5 restarts, then escalates to a class-sweep and resumes. The bound counts RESTARTS, not rounds. **The counter cannot observe either boundary for itself** — signal it: `sst3-ralph-restart-counter.sh --restart` at each restart, `--escalate` at the escalation (the only reset). Unsignalled the count stays 0 at any event volume, so the bound is never reached. See standards/stage-4/ralph-review.md for the canonical rule.
+**Max iterations**: the loop is bounded at 3 restarts, then escalates to a class-sweep and resumes for exactly ONE further loop; if that loop does not PASS, it STOPS and reports the outstanding findings + classes to the operator (terminal state, #567). The bound counts RESTARTS, not rounds. **The counter cannot observe either boundary for itself** — signal it: `sst3-ralph-restart-counter.sh --restart` at each restart, `--escalate` at the escalation (the only reset). Unsignalled the count stays 0 at any event volume, so the bound is never reached. See standards/stage-4/ralph-review.md for the canonical rule.
 
 ## Learn
 

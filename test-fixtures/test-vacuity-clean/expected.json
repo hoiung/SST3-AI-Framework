@@ -1,0 +1,13 @@
+{
+  "fixture": "test-vacuity-clean",
+  "issue": 567,
+  "phase": 4,
+  "scope": "Negative control for the vacuity sweep: a file of genuine assertions produces 0 findings at exit 0 — proves the gate does not fail on everything (the mutation-table negative-control discipline applied to the sweep itself).",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["test_healthy.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 0,
+    "stdout_min_records": 0
+  }
+}

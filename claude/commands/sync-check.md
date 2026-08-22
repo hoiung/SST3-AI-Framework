@@ -43,7 +43,7 @@ Each invocation of `sst3-check.sh` emits, in addition to per-phase findings:
 
 - `{kind:"orchestrator-progress", phase, status:"started"}` per phase
 - `{kind:"orchestrator-progress", phase, status, findings, seconds, exit}` on phase completion
-  - `status`: `complete | timeout | engine-missing | skipped | error`
+  - `status`: `complete | timeout | engine-missing | error | missing-script | not-executable`. `skipped` was REMOVED in #565 — both producers were renamed so the could-not-look gate could escalate them; a status this enum still listed could no longer be emitted, and the two that replaced it were absent
 - One terminating `{kind:"orchestrator-complete", mode, phases:[...], findings:N}` via EXIT trap (fires on SIGTERM / `set -e` / clean exit)
 
 The orchestrator-complete sentinel is the canonical done marker — its absence = killed mid-stream. Per-phase 90s timeout via `$SST3_CHECK_PHASE_TIMEOUT`.

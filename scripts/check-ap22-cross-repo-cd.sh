@@ -8,8 +8,20 @@
 # Issue: hoiung/dotfiles#460 Phase 9 AC 9.7.
 set -uo pipefail
 
+# shellcheck source=./sst3-bash-utils.sh
+source "$(dirname "$(readlink -f "$0")")/sst3-bash-utils.sh"
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 DIRS=("$ROOT/SST3/scripts" "$ROOT/scripts")
+
+# #565 AC 5.2. Two could-not-look paths were reported as clean:
+#   * `[[ -d "$d" ]] || continue` — a MISSING scan directory was skipped in
+#     silence. Both entries are structural to this repo; their absence means
+#     ROOT resolved wrongly, so the scan covered nothing and still exited 0.
+#   * `grep -rnE ... 2>/dev/null || true` — grep exits 1 on zero matches (a
+#     legitimate empty result) but >1 on a real error, and the `|| true`
+#     collapsed both into "no violations".
+probe_failures=0
 
 # Pattern: line starts with optional whitespace, has `cd <non-amp>` followed by
 # `&& git ` — but NOT inside subshell parens. We can't detect parens with grep
@@ -17,7 +29,23 @@ DIRS=("$ROOT/SST3/scripts" "$ROOT/scripts")
 # containing `(cd `.
 violations=()
 for d in "${DIRS[@]}"; do
-    [[ -d "$d" ]] || continue
+    if [[ ! -d "$d" ]]; then
+        printf '%s: check-ap22-cross-repo-cd — could not look: expected scan directory %s is absent (ROOT=%s resolved wrongly?)\n' \
+            "$SST3_PROBE_FAILED_MARKER" "$d" "$ROOT" >&2
+        probe_failures=$((probe_failures + 1))
+        continue
+    fi
+    # grep: 0 = matches, 1 = zero matches (a real empty result), >1 = error.
+    # Only the last is a could-not-look, so this cannot use probe_or_fail as-is.
+    scan_out="$(grep -rnE 'cd [^&]+&& *git ' "$d" 2>&1)"
+    scan_rc=$?
+    if [[ "$scan_rc" -gt 1 ]]; then
+        printf '%s: check-ap22-cross-repo-cd — could not look: grep exited %s scanning %s: %s\n' \
+            "$SST3_PROBE_FAILED_MARKER" "$scan_rc" "$d" "$(printf '%s' "$scan_out" | tr '\n' ' ' | cut -c1-200)" >&2
+        probe_failures=$((probe_failures + 1))
+        continue
+    fi
+    [[ -z "$scan_out" ]] && continue
     while IFS= read -r line; do
         # Skip if subshell-protected (contains literal `(cd `).
         if echo "$line" | grep -q '(cd '; then
@@ -36,8 +64,15 @@ for d in "${DIRS[@]}"; do
             continue
         fi
         violations+=("$line")
-    done < <(grep -rnE 'cd [^&]+&& *git ' "$d" 2>/dev/null || true)
+    done <<< "$scan_out"
 done
+
+# A scan that could not run reports could-not-look, never clean — even when the
+# part of it that DID run found nothing.
+if [[ "$probe_failures" -gt 0 ]]; then
+    echo "[ap22-check] FAIL: $probe_failures scan probe(s) could not be completed — refusing to report clean on an unscanned tree." >&2
+    exit 2
+fi
 
 if [[ ${#violations[@]} -eq 0 ]]; then
     exit 0

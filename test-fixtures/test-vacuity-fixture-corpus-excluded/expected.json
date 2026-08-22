@@ -1,0 +1,14 @@
+{
+  "fixture": "test-vacuity-fixture-corpus-excluded",
+  "issue": 567,
+  "phase": 4,
+  "scope": "T3 E3 pin: bare discovery excludes paths under a test-fixtures/ directory (frozen known-answer corpora are intentionally vacuous positive controls), so the documented Leader.md step-6.5 bare invocation is green on a clean tree instead of red on the gate's own fixtures. The sentinel pins scanned 1 (only tests/test_ok.py) with 0 findings; pre-fix this input scanned 2 and exited 1. Explicit paths remain unfiltered — every other test-vacuity fixture drives the corpus by explicit path and proves that arm.",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": [],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 0,
+    "stdout_min_records": 0,
+    "stderr_must_contain": ["sst3-test-vacuity: scanned 1 file(s), 0 finding(s)"]
+  }
+}

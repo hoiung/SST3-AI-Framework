@@ -4,13 +4,19 @@
 # Sister of dotfiles/scripts/sst3_utils.py (Python helpers).
 # Dash-vs-underscore distinction prevents Python `from sst3_utils import` collision.
 #
-# Helpers:
+# Helpers (index re-derived from the definitions below on every edit — it had
+# drifted to 6 documented against 8 defined by dotfiles#565):
 #   assert_safe_identifier <val>             — reject shell metacharacters; exit 64 (Phase 1)
 #   normalise_lang <lang>                    — canonicalise language name; exit 64 if unsupported (Phase 3)
 #   require_engine_version <tool> <min>      — warn-only stderr if version below pin (Phase 3)
 #   read_paths_from <ndjson_file>            — emit unique file paths from {file:...} NDJSON (Phase 8 retrofit)
 #   wrapper_sentinel <name> <count> <kind>   — "I ran" stderr line; call from EXIT trap
 #   activate_paths_from_filter <ndjson>      — install transparent stdout NDJSON .file filter (Phase 8)
+#   sst3_solo_branch_alt <issue>             — canonical solo-branch ERE alternation (#509 AC6.5)
+#   ast_grep_check_rc <wrapper> <rc>         — discriminate broken engine from benign empty (#547 AC 6.1)
+#   probe_or_fail [--numeric] <label> -- <cmd...>
+#                                            — run a probe; echo its stdout, or return 1 loudly
+#                                              rather than substituting a clean-looking default (#565 AC 5.1)
 #
 # Source via:
 #   source "$(dirname "$0")/sst3-bash-utils.sh"
@@ -171,6 +177,78 @@ activate_paths_from_filter() {
     # Redirect stdout into a coprocess that filters NDJSON by .file membership.
     exec > >(jq -c --argjson allowed "$pattern" \
         'if (.file? // null) == null then . else select(.file as $f | $allowed | index($f) != null) end')
+}
+
+# --- could-not-look contract (#565 AC 5.1) --------------------------------
+#
+# The invariant this Issue exists to enforce: a check that cannot COMPLETE its
+# probe must never be indistinguishable from a check that probed and found
+# nothing. MEASURED across the 72 governance shell files, 64 carried a
+# failure-swallowing token, and live members included a security scanner
+# reporting `emitted 0 leak(s)` over a real on-disk leak and a completeness
+# check reading a network failure as "branch deleted".
+#
+# Generalises the fail-closed precedent at scripts/sec-staged-scan.sh:56-64
+# and :101-124: an unresolvable probe is an exit-coded loud failure, never a
+# substituted default.
+#
+# This marker is the single literal every could-not-look diagnostic carries, so
+# one grep finds every site at audit time. Callers MUST NOT re-spell it.
+SST3_PROBE_FAILED_MARKER="SST3_PROBE_FAILED"
+
+# probe_or_fail [--numeric] <label> -- <command...>
+#
+# Runs <command...>, echoing its stdout on success so the caller can use it in
+# a command substitution. Returns 1 WITHOUT echoing anything when the probe
+# could not be completed:
+#   * the command exited non-zero (including 127 not-found and 124 timeout)
+#   * --numeric was given and stdout is not a bare integer
+# In both cases a diagnostic carrying $SST3_PROBE_FAILED_MARKER goes to stderr.
+#
+# Usage — the `if` is load-bearing; a bare `$(probe_or_fail ...)` discards the
+# status and reintroduces the very defect this closes:
+#
+#     if out="$(probe_or_fail --numeric "D4 ahead-count" -- \
+#                 git -C "$root" rev-list --count "origin/$br..HEAD")"; then
+#         ...act on $out...
+#     else
+#         set_verdict D4 fail "could not look: ahead-count probe failed"
+#     fi
+#
+# stderr of the probed command is captured (not suppressed) and folded into the
+# diagnostic, because the error text is the diagnosis. It is NOT merged into
+# stdout — a warning on stderr must not become part of the answer.
+probe_or_fail() {
+    local numeric=0
+    if [[ "${1:-}" == "--numeric" ]]; then numeric=1; shift; fi
+    local label="${1:-<unlabelled>}"; shift || true
+    if [[ "${1:-}" == "--" ]]; then shift; fi
+    if [[ $# -eq 0 ]]; then
+        printf '%s: %s — could not look: probe_or_fail invoked with no command\n' \
+            "$SST3_PROBE_FAILED_MARKER" "$label" >&2
+        return 1
+    fi
+    local errfile out rc err
+    errfile="$(mktemp)" || {
+        printf '%s: %s — could not look: mktemp failed\n' "$SST3_PROBE_FAILED_MARKER" "$label" >&2
+        return 1
+    }
+    out="$("$@" 2>"$errfile")"
+    rc=$?
+    err="$(tr '\n' ' ' < "$errfile" | cut -c1-300)"
+    rm -f "$errfile"
+    if [[ "$rc" -ne 0 ]]; then
+        printf '%s: %s — could not look: `%s` exited %s: %s\n' \
+            "$SST3_PROBE_FAILED_MARKER" "$label" "$*" "$rc" "$err" >&2
+        return 1
+    fi
+    if [[ "$numeric" -eq 1 && ! "$out" =~ ^[0-9]+$ ]]; then
+        printf '%s: %s — could not look: `%s` exited 0 but returned non-numeric output %s\n' \
+            "$SST3_PROBE_FAILED_MARKER" "$label" "$*" "'$out'" >&2
+        return 1
+    fi
+    printf '%s' "$out"
+    return 0
 }
 
 # sst3_solo_branch_alt <issue> — canonical solo-branch grep alternation (#509 AC6.5).

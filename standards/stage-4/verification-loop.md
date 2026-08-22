@@ -10,6 +10,7 @@ The Verification Loop is the iteration block that runs AFTER all phase ACs land 
 - Layer 3 Checkbox-MCP coverage gate (AP #20 final check). All Tier-A boxes MCP-ticked with canonical evidence.
 - Overengineering / Reuse / Duplication / Fallback-policy / Wiring checks.
 - Three-Tier test gate (Unit / Workflow / E2E) per `three-tier-testing.md`.
+- **Mutation-verification gate (#567)**: any diff adding or modifying a gate carries the mutation table — defect re-injected → gate REDDENS, ≥1 negative control stays green — per `mutation-verification.md` (the single canonical; "every new guard is mutation-verified" is defined THERE, this line is a pointer). **Absent the table, the ACs that gate protects are recorded `unproven`, NOT `passed`** — an `unproven` AC blocks the loop exactly as a `fail` does. Closure of a defect class = an EMPTY SURVIVOR SET, never "the reported findings are fixed". Skip-clean (`M=n/a:no-gate-in-diff`) when the diff adds/modifies no gate.
 - AP #18 sample-invocation (Workflow Tier real-CLI invocation; the Workflow-Tier USE clause). CI-log fetch fallback (#555 Ralph r3): empty `gh run view --log`/`--log-failed` ⇒ don't retry view variants — `gh api repos/<owner>/<repo>/actions/runs/<id>/logs` (zip download) directly.
 - Skill-canonical verification (Double-Guardrail; runs invoked-skill's own hooks).
 - Mirror-lane Lane A + Lane B 3-command verification.

@@ -1,0 +1,13 @@
+{
+  "fixture": "test-vacuity-blindspots",
+  "issue": 567,
+  "phase": 4,
+  "scope": "Blindness assertion for the vacuity sweep (mutation-verification.md sweep gates 2+5): four vacuous forms OUTSIDE the scanner's ast.Assert model (unittest-Call assertions, pytest.raises no-op, constant-foldable non-identical compare) must produce 0 findings at exit 0. The gate is blind to them BY CONSTRUCTION and the script header discloses it; if a widening makes the scanner sensitive, this fixture drifts (exit 1 != 0) and forces the disclosure to be corrected in the same change. Found by #567 Ralph Tier-2 break-one-claim.",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["test_blindspots.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 0,
+    "stdout_min_records": 0
+  }
+}

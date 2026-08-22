@@ -3,6 +3,8 @@
 > **PLANNING MODE ONLY**: You are a REVIEWER. Do NOT write code, do NOT edit files, do NOT make commits. Your ONLY job is to verify and report findings. **Reviewer Isolation (#555 Phase 3):** any formatter/linter you invoke MUST run in its read-only check form (`cargo fmt -- --check`, `ruff format --check` — never the mutating form), and you must NEVER run a mutating git op (merge/checkout/stash/rebase/reset) — inspect the worktree read-only, so a review pass can never pollute the main agent's Gate-2 index.
 >
 > **STEP-0 tree-lock (MANDATORY first action):** subagents START in the main clone, which is a DIFFERENT, stale tree from the implementing agent's worktree — a review run there returns a false verdict against the wrong code. Before ANY check: run `git rev-parse --show-toplevel`, paste its output in your RESULT block, and confirm it matches the worktree path the dispatcher named; prefix every shell command with `cd <worktree> && `; verify the dispatcher-supplied tree FINGERPRINT (a file- or test-count true only in the worktree) and STOP with verdict FAIL "wrong tree" on any mismatch. A dispatch prompt that names no worktree path or fingerprint is itself a finding.
+>
+> **Class-ledger precondition (#567):** if `SST3-metrics/class-ledger/ledger-<repo>-<issue>.md` exists (the dispatcher names the path), RUN each ledger row's enumerator from the work-repo root and compare its recorded count — do NOT re-derive closed classes by reading. Count drift = FAIL (the enumerator is wrong or the class re-opened). A valid NEW finding is either a genuinely new class, or evidence a ledger enumerator is wrong; re-reporting a ledgered class's instances is not a finding. Canonical: `standards/stage-4/ralph-review.md` + `stage-4/mutation-verification.md`.
 
 Medium-depth logic validation.
 
@@ -111,6 +113,12 @@ Medium-depth logic validation.
 - [ ] **SEC scope gate**: does the diff touch code files (`.py`/`.rs`/`.js`/`.ts`) in a SEC-applicable repo? Resolve via `python3 -c "from SST3.scripts.sst3_utils import sec_dep_applicable as f; print(f('<repo>')['sec'])"`. If `False` (non-code shape / GAS / scaffold) OR the diff touches no code file → "N/A — shape-gated skip-clean" and the two FAIL conditions below do not apply. If `True` and code files changed → next two are mandatory.
 - [ ] **SEC ran-clean (FAIL condition a)**: run `bash scripts/sst3-check.sh --sec --strict --paths-from <in-diff-code-files.ndjson>`. **stderr sentinel absent OR `--strict` exit 2 = FAIL** — exit 2 is the could-not-look signal and covers EVERY route by which a phase failed to probe — engine-missing, phase-timeout, phase-error, a wrapper missing from disk, and a wrapper that is present but not executable (dotfiles#565). Treat that list as open, not closed: it said three until round 10 measured a fourth and fifth. Such a run did NOT confirm the diff is clean: re-run it with the engine installed (`<your-dotfiles-clone>/scripts/install.sh`) or with a larger `SST3_CHECK_PHASE_TIMEOUT` (default 90s/phase), never wave it through. Note a timed-out phase reports FEWER findings than a complete one, so a shrinking count is a symptom, not progress.
 - [ ] **SEC no-net-new-finding (FAIL condition b)**: **any SEC finding on an added/modified line in the diff = FAIL** (fix it; do not defer). Pre-existing findings on unchanged lines of a touched file are out of scope for this diff (they predate it). Record the wrapper exit + finding count in the RESULT block.
+
+### Break-one-claim — the job enumeration cannot do (#567 Phase 6)
+
+> A mutation sweep answers only for classes someone enumerated (`mutation-verification.md`). This angle is the complement: handed ONE claim, break it. Both classes the `Issue #3` sweep missed (transposition, sign flip) came from exactly this prompt shape — not from a general "review this diff" pass.
+
+- [ ] Pick ONE load-bearing claim in the diff (a figure, a gate's coverage statement, a sweep headline) and try to BREAK it: name a mutation class the gates/sweep do NOT generate (sign, order, unit, transposition, magnitude scale, vocabulary widening). Report either a class that survives with a concrete mutant, or the classes tried and the evidence each is covered. One claim per dispatch — this is not a general re-review.
 
 ## Pass Criteria
 

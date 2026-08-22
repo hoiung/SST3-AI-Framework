@@ -1,0 +1,14 @@
+{
+  "fixture": "test-vacuity-allowlist",
+  "issue": 567,
+  "phase": 4,
+  "scope": "AC 4.2 — allowlist over-reach: UNBOUND_LITERALS['4'] with reason 'ordinals and list numbering' covers 32 occurrences of the literal 4 in doc.md, 20 of them the structured Model=4 identifier the reason does not describe. The check must flag it (and must NOT flag '2026', which appears 0 times — the in-fixture negative control).",
+  "wrapper": "sst3-test-vacuity.sh",
+  "args": ["--count-in", "doc.md", "allowlist_module.py"],
+  "cwd": "input",
+  "expect": {
+    "exit_code": 1,
+    "stdout_min_records": 1,
+    "stdout_must_contain_files": ["allowlist_module.py"]
+  }
+}
