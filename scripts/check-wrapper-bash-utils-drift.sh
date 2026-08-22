@@ -7,7 +7,7 @@
 #   (a) does not source sst3-bash-utils.sh AND is not on .bash-utils-exempt-list
 #   (b) sources sst3-bash-utils.sh AFTER its first `command -v <engine>` check.
 #
-# Fast: scans only ~38 wrappers via Python regex; no fixture invocations.
+# Fast: scans only the sst3-*.sh wrappers via Python regex; no fixture invocations.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 exec python3 "$SCRIPT_DIR/_self_test_driver.py" --wrapper-drift-only

@@ -43,7 +43,7 @@ Do not re-dispatch reviewers to re-audit a class an enumeration already covers. 
 <!-- stages: 4 -->
 ## Cross-references
 
-- `three-tier-testing.md` — USE clause third requirement (gate-bearing diffs carry the mutation result within whichever tier holds the gate).
+- `three-tier-testing.md` — PROVE clause, the third requirement beside EXIST (BUILD) and RUN (USE) (gate-bearing diffs carry the mutation result within whichever tier holds the gate).
 - `verification-loop.md` — the `unproven` recording rule + loop checkbox.
 - `ralph-review.md` — fix-time class-ledger rule; escalation sweep contract (deterministic enumeration as a permitted, where-enumerable preferred, method).
 - `templates/class-ledger-template.md` + `SST3-metrics/class-ledger/` — where each closed class's enumerator + mutation proof is recorded.
