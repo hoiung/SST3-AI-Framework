@@ -667,14 +667,64 @@ Bare `cd <path>` without subshell-protection or trailing `cd -` is **prohibited*
 
 **Enforcement**: Leader.md Stage 3 sanity angle (producer-surface enumeration for any cross-boundary value change); sonnet-review.md "Cross-Boundary Contracts" producer-surface bullet; no programmatic gate (author / subagent-only — same as AP #25). Companion: AP #24 (literal markers), AP #14e (pattern-class), AP #29 (probe the live emitted value). Origin: dotfiles#528 AC 6.1.
 
-<!-- stages: 4 -->
+<!-- stages: 4, 5 -->
 ## Anti-Pattern #31: Cross-Repo Git-Hook Env Leak (unset GIT_DIR before `git -C`)
 
-**The pattern**: a pre-commit hook that shells `git -C <other-repo>` into a different repository silently operates on the CALLING repo's git internals instead — the pre-commit framework exports `GIT_DIR` / `GIT_WORK_TREE` / `GIT_INDEX_FILE` into the hook process, and those environment variables override `-C`. The hook "succeeds" while reading or mutating the wrong repository, and a standalone invocation of the same script passes cleanly because the leak exists only in the real hook-invocation environment.
+**The pattern**: a hook that shells `git -C <other-repo>` into a different repository silently operates on the CALLING repo's git internals instead, because an inherited `GIT_*` variable overrides `-C`. The hook "succeeds" while reading or mutating the wrong repository.
 
-**Prevention**: any hook (or hook-called script) running `git -C <other-repo>` MUST `unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE` (or `env -u` them) before the cross-repo call — the pattern already used by the wrapper-lane self-test fixtures (`../test-fixtures/*/run.sh`, e.g. `code-review-untested-error/run.sh:30`; 12 fixtures carry it). And the hook MUST be tested via a REAL `git commit` that fires it, never only a standalone script run — the leak does not reproduce outside the genuine hook environment.
+**Who actually exports them** (measured on git 2.43.0, dotfiles#569 Stage 5 — this paragraph replaces a claim that the pre-commit framework exports `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`, which it does not; pre-commit passes `os.environ` through untouched and git is the exporter):
 
-**Enforcement**: Stage-4 implementation rule for any new cross-repo hook + Ralph review checks it; test evidence = a real commit in a scratch repo exercising the hook end-to-end. Origin: Issue #23 (#555 Phase 3).
+| invocation path | exported into the hook |
+| --- | --- |
+| commit from a plain clone | `GIT_INDEX_FILE` only, and **relative** (`.git/index`) |
+| commit from a **linked worktree** | **`GIT_DIR` absolute** + `GIT_INDEX_FILE` absolute |
+| `git submodule foreach` | `GIT_DIR=.git` |
+| `git rebase -x`, `bisect run`, `post-checkout` | none |
+
+The worktree row is the one that matters for this framework: CLAUDE.md mandates worktree-per-agent as the Stage-4 model, so **every commit SST3 makes runs its hooks with an absolute `GIT_DIR` already set**. `GIT_WORK_TREE`, `GIT_COMMON_DIR` and `GIT_OBJECT_DIRECTORY` have no producer on any measured path; they stay in the unset list as defence-in-depth and because a caller may set them by hand.
+
+**Two distinct hook classes, and they need different evidence.** A `.git/hooks/*` script is invoked BY git and only reproduces the leak under a real commit. A Claude Code tool-invocation hook (`PreToolUse` / `SessionStart` / `Stop` / `SubagentStop`) inherits whatever the parent process carried, so its leak reproduces under an explicit hostile-env invocation and a real commit would not even fire it. Demand the evidence that matches the class.
+
+**`gh` is a git-derived command.** It resolves its target repository from the git environment exactly as `git` does, so `gh issue view` leaks identically and any detector that greps for `git` alone will miss it. dotfiles#569 shipped two hooks this way — both read the right issue NUMBER from the wrong REPOSITORY.
+
+**A scrub inside `$( )` protects nothing outside it.** `unset` in a command substitution runs in a subshell. "This hook sources a lib that scrubs" is therefore not coverage; the hook must call the scrub at TOP LEVEL, before its own first git-derived command. Both #569 leaks were authorised by exactly that mistaken inference.
+
+**Prevention**: any hook (or hook-called script) running `git -C <other-repo>` MUST `unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY` (or `env -u` them) before the cross-repo call. **Five variables, not three** (dotfiles#568): the three-variable form documented here until 2026-08-26 misses `GIT_COMMON_DIR`, which overrides `rev-parse --git-common-dir` specifically — the call any repo-identity derivation is built on. #568 shipped the 3-var scrub, had it defeated by `GIT_COMMON_DIR` in the next Ralph round, and only then found that 7 of the 8 hooks probing git identity scrubbed nothing at all. When the probe DERIVES identity (rather than reading a known target), prefer `sst3_scrub_git_env` from `claude/hooks/_lib-repo-identity.sh` over an inline `unset`, so the variable list has one home instead of one per call site — the pattern already used by the wrapper-lane self-test fixtures (`../test-fixtures/*/run.sh`, e.g. `code-review-untested-error/run.sh:30`; 12 fixtures carry it). Test evidence must match the hook class above: a `.git/hooks/*` script is proven by a REAL commit in a scratch repo, a Claude Code hook by an explicit five-variable hostile-env invocation. Either way the proof is by REINTRODUCTION — remove the scrub and confirm the same probe answers about the other repo; a gate that stays green with the defect present is vacuous.
+
+**Enforcement**: Stage-4 implementation rule for any new cross-repo hook; `claude/hooks/tests/test_hook_git_env_scrub.sh` is the class gate, and it DERIVES its family by scanning the hooks directory for files that source `_lib-repo-identity.sh`, so a hook joins the moment it opts in. That gate is the enforcement — this line previously also claimed "Ralph review checks it", which was untrue: no `ralph/*.md` checklist mentions this anti-pattern (verified by grep at dotfiles#569 Stage 5). Origin: Issue #23 (#555 Phase 3); corrected and extended by dotfiles#569.
+
+---
+
+<!-- stages: always -->
+## Anti-Pattern #32: Measuring the Wrong Instrument, Then Overriding the Operator With It
+
+**The pattern**: the agent reads a number that is in front of it, assumes it means what it
+wants it to mean, computes a percentage, and uses the result to contradict a direct
+instruction. The live instance: `<total_tokens>N tokens left</total_tokens>` is a per-turn
+token allowance that RESETS on every user message, but agents read it as the context
+window and reported "Context is not low — 14.27M of 15M remaining, ~95%" when told to
+`/handover`. Three sessions in unrelated repos produced the identical sentence, because
+identical inputs produce identical wrong arithmetic — and then one wrote it into the shared
+resume pointer, so the injector broadcast it, along with a standing order not to accept the
+operator's premise. Two independent failures compounded: a wrong reading, and a wrong
+reading given authority over the person who can actually see the session.
+
+**Why it is not merely a wrong number**: the counter never claimed to be the context gauge.
+Nothing in the harness said 15M — every documented threshold reads `~500K of 1M`, and the
+correct gauge already existed in `claude/statusline.js`. The agent substituted an
+unlabelled number for a documented one, then treated the substitution as strong enough
+evidence to refuse an instruction.
+
+**Prevention**: before quoting any measurement, name the instrument and confirm it measures
+the quantity being claimed — a counter that RESETS cannot measure a quantity that only
+accumulates. Cross-check against the documented gauge for that quantity (context → the
+statusline / `/context`; never an ambient counter). And treat an operator instruction as an
+instruction: if a real measurement disagrees, state the reading in one line and comply.
+Disagreeing with a premise is not a reason to withhold the action.
+
+**Enforcement**: STANDARDS.md "Keep Going Until Done" → "Measuring it — `<total_tokens>` is
+NOT the context gauge". Origin: dotfiles#568, operator-reported across project-a
+#1652, consumer-private-I #2, and dotfiles.
 
 ---
 

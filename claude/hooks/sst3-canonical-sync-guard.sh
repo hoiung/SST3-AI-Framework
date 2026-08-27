@@ -24,6 +24,16 @@
 # REVERSIBLE  Remove the PreToolUse Bash matcher entry from claude/settings.json.
 set -uo pipefail
 
+# GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / GIT_COMMON_DIR / GIT_OBJECT_DIRECTORY each
+# OVERRIDE an explicit repo selection, and git hooks plus the pre-commit framework export
+# them into child processes routinely. Unscrubbed, the canonical-root resolution below picks
+# whatever repo the PARENT was in, so this guard reports another repo's staleness — or stays
+# silent because THAT repo happens to be aligned — while the build really does run against
+# stale source (dotfiles#569; doctrine AP #31). Scrubbed before ANY git call.
+# shellcheck source=_lib-repo-identity.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib-repo-identity.sh"
+sst3_scrub_git_env
+
 if ! command -v jq >/dev/null 2>&1; then
   printf 'F-9 canonical-sync-guard: jq missing.\n' >&2
   exit 1

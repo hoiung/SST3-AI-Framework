@@ -29,6 +29,18 @@ fi
 # — AP #9 single-source).
 # shellcheck source=_lib-branch-issue.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib-branch-issue.sh"
+# shellcheck source=_lib-repo-identity.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib-repo-identity.sh"
+
+# Scrubbed HERE, at top level, and not relied on transitively. `derive_issue_num_from_branch`
+# does scrub, but every call site of it is a command substitution — and `unset` inside `$( )`
+# runs in a subshell, so it never reaches this shell. `gh` resolves its repository from the
+# git environment exactly as `git` does, so an inherited GIT_DIR sends the `gh issue view`
+# below to the PARENT process's repository: the right issue NUMBER read from the wrong REPO.
+# Measured (#569 Stage 5): with GIT_DIR pointing at repo A and cwd in repo B, this hook read
+# A's issue body and warned about A's unticked ACs while claiming to act for B.
+sst3_scrub_git_env
+
 ISSUE_NUM="$(derive_issue_num_from_branch)"
 [[ -z "$ISSUE_NUM" ]] && exit 0   # Not on an issue branch.
 

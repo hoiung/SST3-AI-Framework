@@ -1,5 +1,5 @@
 ---
-description: Pre-compact AI-to-AI handover. Write ONE structured handover to ~/handover/ and point current-task.txt at it, so the post-compact context resumes with no loss. Invoke right before compacting a long session.
+description: Pre-compact AI-to-AI handover. Write ONE structured handover to ~/handover/ and point the repo-scoped current-task-<repo>.txt at it, so the post-compact context resumes with no loss. Invoke right before compacting a long session.
 ---
 
 # /handover — pre-compact AI-to-AI handover
@@ -12,7 +12,7 @@ Optional argument: `/handover <one-line note>` — a free-text hint folded into 
 
 Compaction keeps only a summary; this command writes **state + next-steps + learnings** + the operator goal **verbatim** (paraphrase = drift), plus evidence anchors, to a file the post-compact context is commanded to re-read.
 
-**Handovers live in `~/handover`, NOT auto-memory** — a session-scoped resume aid, not durable. `~/handover` (WSL `$HOME`, outside every git repo) survives compaction AND a WSL VM restart — unlike `/tmp`, which a VM teardown wipes. The `SessionStart` compact hook re-injects `~/handover/current-task.txt`, pointing the post-compact context at the handover file.
+**Handovers live in `~/handover`, NOT auto-memory** — a session-scoped resume aid, not durable. `~/handover` (WSL `$HOME`, outside every git repo) survives compaction AND a WSL VM restart — unlike `/tmp`, which a VM teardown wipes. The `SessionStart` compact hook re-injects `~/handover/current-task-<repo>.txt`, pointing the post-compact context at the handover file.
 
 **Do NOT write the handover to auto-memory or add a `MEMORY.md` index bullet** — it bloats the auto-loaded index for no resume value. Auto-memory is for *durable* facts (user/feedback/project/reference); a per-session resume snapshot belongs in `~/handover`. A durable lesson from this session → a separate `feedback_*` / `project_*` memory, not a handover.
 
@@ -35,16 +35,29 @@ The body uses these **8 field labels VERBATIM** (this is the authoring contract 
 8. `LEARNINGS` — gotchas discovered this session (e.g. "endpoint is side-effecting — use --head", "test harness needs RTH ticks"). Cheap to record, expensive to rediscover.
 
 **Step 2 — Update the compact-hook task file (deterministic re-surface).**
-Write to `~/handover/current-task.txt` (the file the `SessionStart` compact hook reads and re-injects after a compact) the verbatim current task PLUS an explicit imperative — NOT a bare path — so the post-compact context is commanded to open the handover:
+Write to the REPO-SCOPED pointer file the `SessionStart` compact hook reads.
+**Do NOT hand-derive that filename.** The key is `<repo>-<digest>`, the digest
+computed from the repo root — any formula written here drifts from the hook the
+moment the hook changes, and a pointer written to a path the hook does not read
+is a silent total failure (dotfiles#568 Ralph round 2 F-B: that exact drift
+shipped once). Ask the hook where it reads:
+
+```bash
+bash ~/.claude/hooks/sst3-session-context-injector.sh --test </dev/null \
+  | jq -r '.additionalContext.post_compact_directive' \
+  | grep -oE '/[^ ]*/handover/current-task-[^ ]*\.txt' | head -1
+```
+
+Write to that exact path the verbatim current task PLUS an explicit imperative — NOT a bare path — so the post-compact context is commanded to open the handover:
 
 ```text
 <verbatim operator goal>
 Post-compact: READ ~/handover/handover_<slug>_<date>.md IN FULL before resuming — it holds the goal/state/next-action.
 ```
 
-The hook re-surfaces this text and a fixed re-read directive — "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue", PLUS (since dotfiles#528) "read the named handover file in full" and "re-read the active /Leader stage line-by-line" — but it does NOT itself read the handover body, so the imperative above is what closes the loop. (The hook resolves `~/handover/current-task.txt` by default; `/handover` always writes the pointer there, so the hook never needs to read anywhere else.)
+The hook re-surfaces this text and a fixed re-read directive — "re-read CLAUDE.md/STANDARDS/ANTI-PATTERNS/WORKFLOW/Issue", PLUS (since dotfiles#528) "read the named handover file in full" and "re-read the active /Leader stage line-by-line" — but it does NOT itself read the handover body, so the imperative above is what closes the loop. (The hook is the single authority on the pointer path — it resolves the repo key itself, so `/handover` should always ask it rather than reconstruct one. There is deliberately no fallback to a global path.)
 
-(If another live session may also be compacting, note that `~/handover/current-task.txt` is a single shared file — overwriting it points the hook at THIS session's handover. That is correct for the session being compacted now; just be aware it is not per-session.)
+(Concurrent sessions in DIFFERENT repos no longer collide: each writes its own `current-task-<repo>.txt` (dotfiles#568). Until then this was one global file, so whichever session compacted last overwrote it and SessionStart injected that text into every other repo's session. Two sessions in the SAME repo still share one pointer — the last to compact wins, which is the intended behaviour for a single repo's resume state.)
 
 **Step 3 — Report and confirm.**
 Tell the operator: the `~/handover` handover file path, the task-file line you wrote, and a one-line "safe to compact now". Then stop — let the operator trigger the compact.

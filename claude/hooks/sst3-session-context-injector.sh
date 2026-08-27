@@ -4,7 +4,8 @@
 # WHAT  Claude Code SessionStart hook (matchers: startup / resume / compact).
 #       Emits a JSON envelope whose `additionalContext` carries 4 deterministic
 #       fields the agent needs at session entry but historically forgot:
-#         (a) verbatim operator task from ~/handover/current-task.txt if present
+#         (a) verbatim operator task from the REPO-SCOPED resume pointer
+#             ~/handover/current-task-<repo>.txt, if present
 #         (b) active Issue + AC status (gh issue view --json title,body,labels)
 #         (c) Reading Confirmation Checklist literal text
 #         (d) post-compact mandatory re-read directive
@@ -30,23 +31,67 @@
 #
 # CONTRACT  jq must be available (install via <your-dotfiles-clone>/scripts/install.sh). gh may be
 #       absent — graceful-degrade to a placeholder string for field (b).
-#       ~/handover/current-task.txt may be absent — graceful-degrade likewise.
+#       The resume pointer may be absent — graceful-degrade likewise.
 #
 # REVERSIBLE  Remove the SessionStart hook block from claude/settings.json or
 #       set `"disableAllHooks": true`. Zero residual state.
 set -uo pipefail
 
-# Resume pointer (dotfiles#510): default is ~/handover/current-task.txt — written to
-# $HOME (NOT a literal `~`, which bash does not expand inside a ${VAR:-…} default) so
-# it survives a WSL VM idle-reap / reboot, unlike the legacy /tmp location.
-TASK_FILE="${SST3_CURRENT_TASK_FILE:-$HOME/handover/current-task.txt}"
 MODE="${1:-live}"
 
+# jq is a hard contract dependency (see CONTRACT above). Check it FIRST so the `.cwd`
+# parse below can use it — a grep/sed parse of raw JSON mis-reads escaped quotes and
+# nested keys, and there is no reason to hand-roll a parser when jq is already required.
 if ! command -v jq >/dev/null 2>&1; then
   # Degraded path — emit empty envelope so SessionStart does not stall.
   printf '{}\n'
   exit 0
 fi
+
+# Resume pointer (dotfiles#510): lives under $HOME (NOT a literal `~`, which bash does
+# not expand inside a ${VAR:-…} default) so it survives a WSL VM idle-reap / reboot,
+# unlike the legacy /tmp location.
+#
+# REPO-SCOPED since dotfiles#568. It was ONE global file (`current-task.txt`) shared by
+# every concurrent session in every repo: /handover overwrote it from whichever session
+# compacted last, and SessionStart then injected that text into unrelated repos' sessions.
+# Agents papered over it with `=== SESSION: <repo> ===` block headers inside the shared
+# file; that fails the moment an agent reads past its own block, which is exactly what
+# happened (a wrong context reading written by one session was echoed by three others).
+# Keying by repo makes the isolation structural instead of a convention.
+# Repo identity (root + per-repo key) lives in a SHARED helper, not inline here.
+# dotfiles#568 Ralph found four separate routes to the same cross-repo collision by
+# patching this derivation in place round after round (basename collisions, the submodule
+# "modules" bucket, GIT_DIR/GIT_WORK_TREE override, then GIT_COMMON_DIR override). A class
+# sweep showed 8 hooks run git identity probes and 7 scrubbed no GIT_* env at all — each
+# fix's lesson had stayed local to the file it landed in. One definition, one place.
+# shellcheck source=_lib-repo-identity.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib-repo-identity.sh"
+
+# Scrubbed HERE, at top level. `sst3_repo_key` and `derive_issue_num_from_branch` both scrub,
+# but they are only ever called through `$( )`, and `unset` inside a command substitution runs
+# in a subshell that cannot reach this shell. The `gh issue view` below therefore still saw an
+# inherited GIT_DIR, and `gh` derives its repository from the git environment — so the issue
+# TITLE and LABELS injected into the session came from the parent process's repository while
+# the issue NUMBER came from this one (#569 Stage 5; measured with a recording `gh` shim).
+sst3_scrub_git_env
+
+# SessionStart delivers a JSON event on stdin whose `.cwd` is the session's directory.
+# Prefer it; the hook's own $PWD is the documented fallback. Guarded on `! -t 0` so a
+# terminal invocation (tests, manual probe) never blocks waiting for EOF.
+HOOK_RAW=""
+if [[ ! -t 0 ]]; then HOOK_RAW="$(cat 2>/dev/null || true)"; fi
+EVENT_CWD="$(printf '%s' "$HOOK_RAW" | jq -r 'if type=="object" then (.cwd // empty) else empty end' 2>/dev/null || printf '')"
+WORK_CWD="${EVENT_CWD:-$PWD}"
+[[ -d "$WORK_CWD" ]] || WORK_CWD="$PWD"
+
+# `_norepo` is a RESERVED key, not an accidental shared bucket: a session outside any git
+# repo gets its own pointer. There is deliberately NO fallback to the legacy global path —
+# that would re-open the exact bleed this issue closes.
+REPO_KEY="$(sst3_repo_key "$WORK_CWD")"
+[[ -n "$REPO_KEY" ]] || REPO_KEY="_norepo"
+
+TASK_FILE="${SST3_CURRENT_TASK_FILE:-$HOME/handover/current-task-$REPO_KEY.txt}"
 
 # (a) Verbatim operator task — preserved exactly as written; never paraphrased.
 if [[ -r "$TASK_FILE" ]]; then
@@ -73,13 +118,13 @@ fi
 # 7 items (dotfiles#528 AC 1.2): the post-compact full-re-read mandate (handover + active
 # /Leader stage line-by-line) is the operator's #1-emphasis fix — it must appear in the
 # checklist the agent re-enters with, not only in the prose directive (d).
-READ_CHECKLIST_JSON="$(jq -nc '[
+READ_CHECKLIST_JSON="$(jq -nc --arg taskfile "$TASK_FILE" '[
   "Read STANDARDS.md",
   "Read ANTI-PATTERNS.md",
   "Read WORKFLOW.md",
   "Read project CLAUDE.md",
   "Read active Issue body line-by-line",
-  "Read the handover file IN FULL (if ~/handover/current-task.txt present) — the whole file, not a skim",
+  ("Read the handover file IN FULL (if " + $taskfile + " present) — the whole file, not a skim"),
   "Re-read the active /Leader stage section of .claude/commands/Leader.md LINE-BY-LINE — a pre-compact read does not count"
 ]')"
 
@@ -88,7 +133,7 @@ READ_CHECKLIST_JSON="$(jq -nc '[
 # line-by-line) — the operator's #1-emphasis fix. Multi-line so each clause is its own line:
 # clause (a) matches `handover.*full`, clause (b) matches `line-by-line` (AC-1.1 verify >=2).
 POST_COMPACT_DIRECTIVE="Post-compact recovery: re-read CLAUDE.md + STANDARDS.md + ANTI-PATTERNS.md + WORKFLOW.md + active Issue. Do NOT resume from memory — a pre-compact read does NOT survive a compact; memory is diluted and files change.
-If ~/handover/current-task.txt is present, read the named handover file in full (the whole handover, line-by-line) before the first action — do not skim, do not assume it is already read.
+If $TASK_FILE is present, read the named handover file in full (the whole handover, line-by-line) before the first action — do not skim, do not assume it is already read.
 Re-read the active /Leader stage section of .claude/commands/Leader.md line-by-line; only then resume, having re-read it."
 
 # Build the additionalContext object.

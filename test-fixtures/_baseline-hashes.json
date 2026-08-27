@@ -180,6 +180,8 @@
     "test-vacuity-fixture-corpus-excluded/expected.json": "200826271027f444f5692427256b6d8b1f670888af7cbd8ae2b650d929279a04",
     "test-vacuity-fixture-corpus-excluded/input/test-fixtures/nested/input/test_vacuous.py": "166f8f5889261c5de01bd064e5a1d49b97995cd3c838d0bf3f211a87c4d0ca11",
     "test-vacuity-fixture-corpus-excluded/input/tests/test_ok.py": "1b6253ee4e42253d53334fe99545e103824a832df783c16fbe6c5df29aa8fe14",
+    "test-vacuity-folds-local/expected.json": "87e6bacc69bb0945b8f569c08e69a0299cab31f934da669101f696ef1fe216fd",
+    "test-vacuity-folds-local/input/test_folds.py": "89449ebd177b43f64433a8a58ffbd44e9bf41e025dd511de65459ad84648f344",
     "test-vacuity-forms/expected.json": "a3c3955c288c95379be35d11e3ac58de7562a681874a5a2ac38608b2711f0337",
     "test-vacuity-forms/input/test_vacuous.py": "0ab34c3a51c44e4113f2c6c2b25ae5cc46f6614b0d56f271e4bba008d5ec0522",
     "test-vacuity-nothing-scanned/expected.json": "8bb4890dfbc64b72b96c66e25dfd7d70593746683c0fc2fc9c738b8680454699",

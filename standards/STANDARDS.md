@@ -1572,6 +1572,29 @@ Phase checkpoints post a comment to the Issue. They do NOT pause work. Post the 
 
 **Threshold update (2026-06-27):** the prior rule — compact only at ~80% used, on the logic that the full 1M window should be burned before compacting — was 200K-era thinking over-applied to 1M. At 200K, 50% remaining was a tight ~100K of 200K, so spending it made sense; at 1M, 50% remaining is a roomy ~500K of 1M, so dropping below it needlessly degrades quality on exactly the long iterative work where quality matters most. New rule: stay above 50% remaining; when remaining nears ~50%, `/handover` + compact, then CONTINUE. This also supersedes the interim 2026-04-15 "70% warn / 80% stop" recalibration (itself a 200K-era note) — that pairing is history, not the live threshold.
 
+**Measuring it — `<total_tokens>` is NOT the context gauge (#568).** The harness injects
+`<total_tokens>N tokens left</total_tokens>` after the system prompt and after every tool
+result. That is a **per-turn token allowance**, not context occupancy, and it **resets to
+its full value on every user message** — measured 2026-08-26: a turn opened at 15,000,000,
+fell to 14,984,717 across five tool calls, and the next turn opened at 15,000,000 again.
+Context occupancy only grows within a session and never refills, so a counter that refills
+cannot be occupancy. It is the same budget the Workflow tool exposes as `budget.total` /
+`budget.remaining()` ("the turn's token target… output tokens spent this turn").
+
+Never compute `N / <the injected total>` and report it as context remaining. The 50%
+threshold above is measured against the **model window**, and the gauge for it is the
+statusline — `claude/statusline.js` sums `BASELINE_OVERHEAD + input_tokens +
+cache_creation_input_tokens + cache_read_input_tokens` over the 1M/200K limit with a 5%
+lag buffer and renders `📊 Xk (N% left)` — or the `/context` command. If neither is
+available, say the context cannot be measured rather than substituting the injected
+counter.
+
+**And never dispute the operator's "context is low" from it.** `/handover` is an
+instruction, not a premise to audit. Three sessions in unrelated repos each told operator
+"Context is not low — 14.27M of 15M remaining, ~95%" and pushed back on a direct
+instruction; the figure was arithmetic on the wrong quantity every time. If a real
+measurement disagrees with the operator, state the reading and do what he asked anyway.
+
 <!-- stages: 4 -->
 ## Related Documentation
 

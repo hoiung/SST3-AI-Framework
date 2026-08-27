@@ -14,10 +14,20 @@
 #                                 branch doesn't match the convention.
 #
 # Sourced by: sst3-session-context-injector.sh, sst3-tier-a-ac-binding-gate.sh,
-#             sst3-stage-order-gate.sh, sst3-stash-guard.sh (#528 Stage-5 dedup).
+#             sst3-stage-order-gate.sh, sst3-stash-guard.sh (#528 Stage-5 dedup),
+#             sst3-ralph-restart-counter.sh (#568). Five, not the four this line
+#             claimed until #569 counted them for the AC 1.3 caller analysis.
 # Mirrors the canonical solo-branch convention (sst3_utils.SOLO_BRANCH_RE /
 # sst3-bash-utils.sh::sst3_solo_branch_alt, #509 AC6.5) — keep the anchored
 # pattern below in sync with that canonical if the convention changes.
+
+# The git-environment scrub has ONE home: _lib-repo-identity.sh. install.sh copies every
+# `_lib-*.sh` into ~/.claude/hooks/ alongside the hooks in the same loop, so the sibling
+# resolves at runtime wherever this file was installed. Sourcing it rather than repeating
+# an `unset` list here is the #568 lesson: a per-site variable list drifts, and the
+# three-variable copy that shipped there was defeated by a fourth variable one round later.
+# shellcheck source=_lib-repo-identity.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib-repo-identity.sh"
 
 derive_issue_num_from_branch() {
   local branch issue_num
@@ -29,6 +39,21 @@ derive_issue_num_from_branch() {
   if [[ $# -ge 1 ]]; then
     branch="$1"
   else
+    # An inherited GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / GIT_COMMON_DIR /
+    # GIT_OBJECT_DIRECTORY OVERRIDES the repository this resolves against, so the branch —
+    # and therefore the issue number — comes from whatever repo the PARENT process was in.
+    # Every hook sourcing this file then acts on the wrong issue while looking healthy
+    # (dotfiles#569; doctrine AP #31).
+    # Scrubbed HERE rather than at function entry because the explicit-branch path above
+    # runs no git, so there is nothing to protect on it.
+    #
+    # Do NOT read this scrub as covering the CALLER. Every production call site of this
+    # function is `X="$(derive_issue_num_from_branch ...)"` (verified #569 Stage 5: all six),
+    # and a command substitution is a subshell — the unset dies with it. A hook that runs its
+    # own git- or gh-derived command must call sst3_scrub_git_env at TOP LEVEL itself. Two
+    # hooks were found relying on this transitively and reading the wrong repository; see the
+    # SUBSHELL RULE in _lib-repo-identity.sh.
+    sst3_scrub_git_env
     branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')"
   fi
   # Anchored to the solo / worktree-solo convention ONLY (the `^...solo[/+-]issue-`

@@ -18,7 +18,7 @@ Then invoke every SST3 script as `bash $SST3/<script>.sh ...`. A bare `scripts/.
 
 
 - **Context budget**: Research phase <30% of context. On long work, when remaining nears ~50% (~500K of 1M) the agent AUTO-runs `/handover` + compact + continue; never operate below 50% remaining.
-- **Post-compact recovery**: If context was compacted mid-stage, re-read this skill file's active `/Leader` stage section line-by-line + the handover file in full (if `~/handover/current-task.txt` is present) + CLAUDE.md + STANDARDS.md + STANDARDS.md §Per-Stage Feedback Capture (in-flight workflow telemetry) + the active Issue before continuing. Do NOT resume from memory — a pre-compact read does not survive a compact (memory is diluted; re-read, do not assume).
+- **Post-compact recovery**: If context was compacted mid-stage, re-read this skill file's active `/Leader` stage section line-by-line + the handover file in full (if `~/handover/current-task-<repo>.txt` is present) + CLAUDE.md + STANDARDS.md + STANDARDS.md §Per-Stage Feedback Capture (in-flight workflow telemetry) + the active Issue before continuing. Do NOT resume from memory — a pre-compact read does not survive a compact (memory is diluted; re-read, do not assume).
 - **Branch safety**: NEVER switch branches. Commit and push to the CURRENT branch. Ask the user if you need something from main.
 - **Commit discipline**: Commit per file. NEVER `git add -A` or `git add .`.
 - **AP #16 Monitor**: Every command, script, test, commit, push — verify end-to-end. Check exit codes, tail logs, confirm side effects. "Started" is not "done".

@@ -20,6 +20,24 @@
 #                       string after `assert`).
 #   assert-or-true      assert whose test contains `... or True` (a truthy
 #                       constant operand in an `or`).
+#   assert-folds-local-literal
+#                       an assert whose operands are LOCALS bound exactly once
+#                       to a literal earlier in the SAME function, so the test
+#                       folds to a truthy constant. `bad = []` ... `assert not
+#                       bad`, and `num = "x"` ... `assert num == "x"`, are both
+#                       unfalsifiable but neither is a constant AT the assert
+#                       node, so the syntactic detectors above cannot see them.
+#                       A name is only treated as constant when nothing can
+#                       change it: never rebound, never a parameter, never a
+#                       loop/walrus/comprehension/with target, and NEVER the
+#                       receiver of a method call — `offenders = []` followed
+#                       by `offenders.append(x)` is the accumulator idiom every
+#                       enumerator gate uses, and folding it would report all
+#                       of them. Measured on a 45-file two-repo corpus: 0
+#                       findings with the receiver rule, 21 (~all accumulators)
+#                       without it. Nothing is executed; only literals,
+#                       substituted locals and a closed set of pure operators
+#                       are folded.
 #   assert-self-compare an assertion whose expected value is computed by the
 #                       SAME expression it checks, under an UNFALSIFIABLE
 #                       operator only (`==`, `<=`, `>=`, `is`). An
@@ -104,6 +122,115 @@ ALLOWLIST_NAME = re.compile(r"ALLOW|EXEMPT|UNBOUND|REASON|WAIV|SKIP", re.I)
 
 def is_truthy_const(node):
     return isinstance(node, ast.Constant) and bool(node.value) and node.value is not False
+
+LITERAL_NODES = (ast.Constant, ast.List, ast.Dict, ast.Set, ast.Tuple)
+
+class _NoValue:
+    def __repr__(self): return "<no-value>"
+    def __eq__(self, other): return other is self
+    def __hash__(self): return id(self)
+
+NO_VALUE = _NoValue()
+
+def const_value(node, env):
+    """The value of `node`, or NO_VALUE when it is not statically known.
+
+    Nothing is executed: literals, substituted locals, and a closed operator
+    set only. Anything else returns NO_VALUE and the assert is not claimed.
+    """
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        return const_value(env[node.id], env) if node.id in env else NO_VALUE
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        vals = [const_value(e, env) for e in node.elts]
+        if any(v is NO_VALUE for v in vals):
+            return NO_VALUE
+        if isinstance(node, ast.List):
+            return list(vals)
+        return tuple(vals) if isinstance(node, ast.Tuple) else set(vals)
+    if isinstance(node, ast.Dict):
+        return {} if not node.keys else NO_VALUE
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        v = const_value(node.operand, env)
+        return NO_VALUE if v is NO_VALUE else (not v)
+    if isinstance(node, ast.BoolOp):
+        vals = [const_value(v, env) for v in node.values]
+        if any(v is NO_VALUE for v in vals):
+            return NO_VALUE
+        return all(vals) if isinstance(node.op, ast.And) else any(vals)
+    if isinstance(node, ast.Compare) and len(node.ops) == 1:
+        left = const_value(node.left, env)
+        right = const_value(node.comparators[0], env)
+        if left is NO_VALUE or right is NO_VALUE:
+            return NO_VALUE
+        op = node.ops[0]
+        try:
+            if isinstance(op, ast.Eq):    return left == right
+            if isinstance(op, ast.NotEq): return left != right
+            if isinstance(op, ast.Is):    return left is right
+            if isinstance(op, ast.IsNot): return left is not right
+            if isinstance(op, ast.In):    return left in right
+            if isinstance(op, ast.NotIn): return left not in right
+        except TypeError:
+            return NO_VALUE
+    return NO_VALUE
+
+def literal_env(fn):
+    """Names in `fn` bound exactly once to a literal and unchangeable after."""
+    assigned, env = {}, {}
+    args = fn.args
+    for a in (args.args + args.kwonlyargs + getattr(args, "posonlyargs", [])):
+        assigned[a.arg] = assigned.get(a.arg, 0) + 2      # a parameter varies
+    for node in ast.walk(fn):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign, ast.For,
+                               ast.NamedExpr, ast.comprehension)):
+            targets = [node.target]
+        elif isinstance(node, ast.withitem) and node.optional_vars:
+            targets = [node.optional_vars]
+        for t in targets:
+            for nm in ast.walk(t):
+                if isinstance(nm, ast.Name):
+                    assigned[nm.id] = assigned.get(nm.id, 0) + 1
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, LITERAL_NODES)):
+            env[node.targets[0].id] = node.value
+    # `x.append(...)` never rebinds `x` but does change it. Without this the
+    # accumulator idiom every enumerator gate uses reads as a constant.
+    mutated = {n.func.value.id for n in ast.walk(fn)
+               if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+               and isinstance(n.func.value, ast.Name)}
+    return {k: v for k, v in env.items()
+            if assigned.get(k, 0) == 1 and k not in mutated}
+
+def scan_folded_asserts(path, tree):
+    n = 0
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        env = literal_env(fn)
+        if not env:
+            continue
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.Assert):
+                continue
+            names = {x.id for x in ast.walk(node.test) if isinstance(x, ast.Name)}
+            # Only claim it when a SUBSTITUTED name is what makes it fold;
+            # otherwise this restates assert-literal on the same line.
+            if not (names & set(env)):
+                continue
+            value = const_value(node.test, env)
+            if value is not NO_VALUE and bool(value):
+                via = ", ".join(sorted(names & set(env)))
+                emit(path, node.lineno, "assert-folds-local-literal",
+                     f"operand(s) {via} are local literals, so this assertion "
+                     f"folds to a constant and cannot fail")
+                n += 1
+    return n
 
 def scan_asserts(path, tree):
     n = 0
@@ -237,6 +364,7 @@ for path in files:
         sys.exit(2)
     scanned += 1
     findings += scan_asserts(path, tree)
+    findings += scan_folded_asserts(path, tree)
     if doc_text is not None:
         findings += scan_allowlist(path, tree, count_in, doc_text, threshold)
 

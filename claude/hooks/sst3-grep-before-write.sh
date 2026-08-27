@@ -26,6 +26,16 @@ set -uo pipefail
 OVERRIDE="${SST3_GREP_BEFORE_WRITE_OVERRIDE:-0}"
 [[ "$OVERRIDE" == "1" ]] && exit 0
 
+# GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / GIT_COMMON_DIR / GIT_OBJECT_DIRECTORY each
+# OVERRIDE an explicit repo selection, and git hooks plus the pre-commit framework export
+# them into child processes routinely. Unscrubbed, the repo-root resolution below returns
+# whatever repo the PARENT was in, so the AP #10 gate lists sibling files from the WRONG
+# repository — and reports a clean "no similar files" for a repo it never looked at
+# (dotfiles#569; doctrine AP #31). Scrubbed before ANY git call.
+# shellcheck source=_lib-repo-identity.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_lib-repo-identity.sh"
+sst3_scrub_git_env
+
 if ! command -v jq >/dev/null 2>&1; then
   printf 'F-11 grep-before-write: jq missing; pre-write grep skipped.\n' >&2
   exit 1

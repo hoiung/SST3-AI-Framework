@@ -292,3 +292,49 @@ ast_grep_check_rc() {
     fi
     return 1
 }
+
+# sst3_commit_is_metrics_only <repo_dir> <sha> — bash twin of
+# check-devprojects-clean.py `_is_local_only_commit` (`_LOCAL_ONLY_PREFIXES`).
+# KEEP IN SYNC with that constant: the two implement ONE documented carve-out
+# ("commits touching only SST3-metrics/ are unpushed on purpose", STANDARDS.md
+# "DevProjects Cleanliness Enforcement"), and until dotfiles#569's close-out
+# only the Python side had it. D4/C11 therefore went red on any concurrent
+# session's in-flight feedback commits — which every /Leader stage writes, so
+# the failure was near-permanent rather than occasional.
+#
+# Returns 0 (metrics-only, excludable) ONLY when every path the commit touches
+# is under SST3-metrics/. A probe failure returns 1 (NOT excludable) — the
+# exclusion must never be the reason something goes unseen.
+sst3_commit_is_metrics_only() {
+    local repo="$1" sha="$2" shown p any=0
+    # --no-renames is load-bearing, not tidiness (same reasoning as the Python
+    # twin): rename detection is ON by default and reports only the DESTINATION
+    # path, so a commit that MOVES real source into SST3-metrics/ would present
+    # as touching only SST3-metrics/ and satisfy this exclusion in full.
+    shown="$(git -C "$repo" show --no-renames --name-only --format= "$sha" 2>/dev/null)" || return 1
+    while IFS= read -r p; do
+        [[ -z "$p" ]] && continue
+        any=1
+        [[ "$p" == SST3-metrics/* ]] || return 1
+    done <<< "$shown"
+    # An empty path list is NOT metrics-only. An empty commit carries no
+    # evidence that it is the local-only convention, and reading "no paths" as
+    # "every path matched" is the vacuous-clean shape this carve-out must avoid.
+    [[ "$any" -eq 1 ]]
+}
+
+# sst3_count_commits_excluding_metrics <repo_dir> <rev-list-arg>... — count the
+# commits the given rev-list selects, MINUS the metrics-only ones.
+# Echoes the count and returns 0; returns 1 echoing NOTHING when the rev-list
+# itself could not run, so a caller can report could-not-look instead of reading
+# a probe failure as a clean zero.
+sst3_count_commits_excluding_metrics() {
+    local repo="$1"; shift
+    local shas sha n=0
+    shas="$(git -C "$repo" rev-list "$@" 2>/dev/null)" || return 1
+    while IFS= read -r sha; do
+        [[ -z "$sha" ]] && continue
+        sst3_commit_is_metrics_only "$repo" "$sha" || n=$(( n + 1 ))
+    done <<< "$shas"
+    printf '%s' "$n"
+}
