@@ -29,22 +29,31 @@ If you report a context figure at all, quote the `SST3 CONTEXT GAUGE:` line the
 already there and you just repeat it. To read it on demand:
 
 ```bash
-node ~/.claude/hooks/_lib-context-gauge.js "$(ls -1t ~/.claude/projects/*/*.jsonl | head -1)"
+node ~/.claude/hooks/_lib-context-gauge.js \
+  "$(find ~/.claude/projects -name "$CLAUDE_CODE_SESSION_ID.jsonl" -print -quit)"
 ```
 
-Never hand-build that transcript path — Claude Code re-homes the transcript when the
-session's cwd changes (entering a worktree moves it). The CLI prints
-`[measured from: <path>]` after the reading: **check it names your own session**. `ls -1t`
-picks the newest transcript on the machine, and with concurrent sessions running that is
-routinely a different one. Writing another session's context figure into a handover is the
-precise failure this Issue started from.
+Never hand-build that transcript path — Claude Code re-homes the transcript
+when the session's cwd changes (entering a worktree moves it).
+`$CLAUDE_CODE_SESSION_ID` names YOUR session, so `find` locates it wherever it
+was re-homed to, and an empty result yields `cannot measure` rather than someone
+else's number. The CLI still prints `[measured from: <path>]`: check it names
+your own session.
+
+Do NOT substitute `ls -1t ~/.claude/projects/*/*.jsonl | head -1`. That selects
+the newest transcript on the MACHINE, which with concurrent sessions is routinely
+someone else's, and a caller that does not know its own path cannot check the
+suffix either. Writing another session's context figure into a handover is the
+precise failure this Issue started from, so the command that reads the gauge must
+not be able to produce one.
 
 Do **not** compute a percentage from `<total_tokens>`. That tag is a per-turn allowance
 which refills on every message and is not context occupancy (AP #32). Sessions that did so
-reported "15.0M of 15.0M, 100% left", argued with the operator about compacting, then wrote
-the wrong figure into the resume pointer for the next session to inherit. If the gauge says
-`cannot measure`, or no line is present (subagents never get one), say the context cannot
-be measured — never substitute another number.
+reported `Context: 15.0M of 15.0M tokens remain (100%) — not low`, argued with
+the operator about compacting, then wrote the wrong figure into the resume
+pointer for the next session to inherit. If the gauge says `cannot measure`, or
+no line is present (subagents never get one), say the context cannot be measured
+— never substitute another number.
 
 **Step 1 — Write the handover file to `~/handover`.**
 Write a new file `~/handover/handover_<repo-or-topic-slug>_<YYYY-MM-DD>.md`. For Issue-tied work, put the issue number in the slug (e.g. `handover_<repo>-<issue>-<topic>_<date>.md`). Optional light frontmatter (`name` / `description`) is fine for readability, but this is a `~/handover` working file, NOT a memory file — do not give it `metadata.node_type: memory`. (`~/handover` is created by the per-machine install; if it is somehow absent, the Write tool creates the parent directory anyway.)

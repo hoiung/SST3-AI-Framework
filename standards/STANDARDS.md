@@ -1606,23 +1606,31 @@ the newest file under the project dir:
 
 ```bash
 node ~/.claude/hooks/_lib-context-gauge.js \
-  "$(ls -1t ~/.claude/projects/*/*.jsonl | head -1)"
+  "$(find ~/.claude/projects -name "$CLAUDE_CODE_SESSION_ID.jsonl" -print -quit)"
 ```
 
-The CLI prints `[measured from: <path>]` after the reading, so CHECK it names your own
-transcript. `ls -1t` picks the newest on the machine, which with concurrent sessions —
-the normal case here — is routinely someone else's. Quoting another session's context
-figure into a handover is the exact failure this section exists to prevent, so the
-reading identifies its source rather than relying on you to remember this paragraph.
+`$CLAUDE_CODE_SESSION_ID` names YOUR session, so `find` locates its transcript
+wherever Claude Code re-homed it, and an empty result degrades to `cannot
+measure` rather than to someone else's number. The CLI still prints
+`[measured from: <path>]`; check it.
+
+Do NOT substitute `ls -1t ~/.claude/projects/*/*.jsonl | head -1` for it. That
+selects the newest transcript on the MACHINE, and it fails two ways: with
+concurrent sessions the newest is routinely someone else's, and the depth-2 glob
+cannot reach a subagent transcript AT ALL (those live under
+`<session>/subagents/`), so a subagent gets an unrelated session's reading stated
+with full confidence. "Check the suffix" does not rescue a caller that does not
+know its own path. Quoting another session's context figure is the exact failure
+this section exists to prevent, so the command must not be able to produce one.
 
 The gauge REFUSES rather than guesses where a guess could be badly wrong: a usage
 field present but not a number, a window assumption the measured tokens disprove,
 or a newest usage that predates a compact boundary (and so describes a discarded
 context) yields `cannot measure (<reason>)`, never a number.
 
-Two things it does NOT refuse, stated because an earlier version of this paragraph
-claimed it did. A **sentinel** turn (`<synthetic>`, the rate-limit stand-in) is
-SKIPPED — the scan continues to the last turn that really describes the window —
+Two things it does NOT refuse, listed because both look refusable and are not.
+A **sentinel** turn (`<synthetic>`, the rate-limit stand-in) is SKIPPED — the scan
+continues to the last turn that really describes the window —
 and only a transcript with nothing else in it degrades to `no-assistant-usage`. An
 **unrecognised model** is measured against an assumed 200K and the line says the
 window was assumed; refusing every unlisted id is what once silently removed the

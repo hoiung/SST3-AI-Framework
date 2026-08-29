@@ -718,10 +718,9 @@ evidence to refuse an instruction.
 **Prevention**: before quoting any measurement, name the instrument and confirm it measures
 the quantity being claimed — a counter that RESETS cannot measure a quantity that only
 accumulates. Cross-check against the documented gauge for that quantity — for context that
-is the injected `SST3 CONTEXT GAUGE:` line, or `/context`; never an ambient counter. (This
-sentence named the statusline until #568 Phase 3. An agent cannot read the terminal, so
-that instruction was unfollowable by its own audience, which is part of why the rule kept
-losing.) And treat an operator instruction as an
+is the injected `SST3 CONTEXT GAUGE:` line, or `/context`; never an ambient counter. Do
+not point this at the statusline: an agent cannot read a terminal, so an instruction to
+consult one is unfollowable by its own audience. And treat an operator instruction as an
 instruction: if a real measurement disagrees, state the reading in one line and comply.
 Disagreeing with a premise is not a reason to withhold the action.
 
@@ -734,9 +733,9 @@ that context is fine. The gauge refuses rather than guesses where a guess could 
 wrong — a non-numeric usage field, a disproved window assumption, or a usage that predates
 a compact boundary yields `cannot measure (<reason>)`, because a confidently wrong reading
 is the defect, not a mere inaccuracy. An unrecognised model is NOT one of those cases: it
-is measured against an assumed 200K and the line says the window was assumed. (This
-sentence said the opposite until #568's final round; refusing every unlisted id was tried
-and it silently removed the statusline segment for every pre-1M model.) Doctrine:
+is measured against an assumed 200K and the line says the window was assumed. Do not
+change that to a refusal: refusing every unlisted id silently removes the statusline
+segment for every pre-1M model. Doctrine:
 STANDARDS.md "Keep Going Until Done" → "Measuring it — `<total_tokens>` is NOT the context
 gauge". Origin: dotfiles#568, operator-reported across project-a #1652,
 consumer-private-I #2, and dotfiles.
