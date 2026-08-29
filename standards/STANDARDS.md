@@ -1582,14 +1582,75 @@ cannot be occupancy. It is the same budget the Workflow tool exposes as `budget.
 `budget.remaining()` ("the turn's token target… output tokens spent this turn").
 
 Never compute `N / <the injected total>` and report it as context remaining. The 50%
-threshold above is measured against the **model window**, and the gauge for it is the
-statusline — `claude/statusline.js` sums `BASELINE_OVERHEAD + input_tokens +
-cache_creation_input_tokens + cache_read_input_tokens` over the 1M/200K limit with a 5%
-lag buffer and renders `📊 Xk (N% left)` — or the `/context` command. If neither is
-available, say the context cannot be measured rather than substituting the injected
-counter.
+threshold above is measured against the **model window**, and the reading is supplied to
+you: the `UserPromptSubmit` hook `claude/hooks/sst3-context-gauge-injector.sh` injects a
+`SST3 CONTEXT GAUGE:` line into your context on every user message **of an interactive
+session**. Quote that.
 
-**And never dispute the operator's "context is low" from it.** `/handover` is an
+**If you are a SUBAGENT, that line is not there and its absence means nothing.**
+`UserPromptSubmit` does not fire for `Agent`-tool dispatches (measured: subagent
+transcripts carry zero `hookName` entries while the parent was being injected in the same
+minutes), and a session that started before the hook was wired never receives it either.
+So do not read a missing gauge line as "context is fine" — you have NO reading, which is a
+different thing. Run the CLI below, or say you cannot measure. The one answer that is
+always wrong is the `<total_tokens>` arithmetic.
+
+The reading is computed by `claude/hooks/_lib-context-gauge.js` — `BASELINE_OVERHEAD +
+input_tokens + cache_creation_input_tokens + cache_read_input_tokens` over the 1M/200K
+limit with a 5% lag buffer — the same module `claude/statusline.js` renders as
+`📊 Xk (N% left)`. `/context` is the operator-side equivalent.
+
+To read it on demand, the transcript path is the awkward part: it must NOT be constructed,
+because Claude Code re-homes the transcript when the session's cwd changes. Get it from
+the newest file under the project dir:
+
+```bash
+node ~/.claude/hooks/_lib-context-gauge.js \
+  "$(ls -1t ~/.claude/projects/*/*.jsonl | head -1)"
+```
+
+The CLI prints `[measured from: <path>]` after the reading, so CHECK it names your own
+transcript. `ls -1t` picks the newest on the machine, which with concurrent sessions —
+the normal case here — is routinely someone else's. Quoting another session's context
+figure into a handover is the exact failure this section exists to prevent, so the
+reading identifies its source rather than relying on you to remember this paragraph.
+
+The gauge REFUSES rather than guesses where a guess could be badly wrong: a usage
+field present but not a number, a window assumption the measured tokens disprove,
+or a newest usage that predates a compact boundary (and so describes a discarded
+context) yields `cannot measure (<reason>)`, never a number.
+
+Two things it does NOT refuse, stated because an earlier version of this paragraph
+claimed it did. A **sentinel** turn (`<synthetic>`, the rate-limit stand-in) is
+SKIPPED — the scan continues to the last turn that really describes the window —
+and only a transcript with nothing else in it degrades to `no-assistant-usage`. An
+**unrecognised model** is measured against an assumed 200K and the line says the
+window was assumed; refusing every unlisted id is what once silently removed the
+statusline segment for every pre-1M model.
+
+**The token count is measured; the percentage rests on the window, and the window is
+inferred.** No model id in any transcript carries the `[1m]` marker and no other window
+field is recorded, so a 1M-family id on a 200K plan is indistinguishable from the same id
+on 1M until usage passes 200K. Two of the four window sources are guesses, and
+BOTH say so in the line, with the alternative reading spelled out:
+
+- `1M inferred from model id — unconfirmed below 200k; if this session is 200K you
+  are at N% used` — a 1M-family id with no marker. Overstates headroom up to 5x.
+- `200K assumed — this model id is in no known 1M family; if this session is 1M you
+  are at N% used` — a model the list has not been taught yet, the ordinary state
+  for weeks after any new model ships. Understates headroom up to 5x.
+
+A line with NO caveat came from an authoritative source (an explicit marker, or
+Haiku, which has no 1M variant). Treat the tokens as fact and the percentage as the
+better of two hypotheses. If you get `cannot measure`, or no line at all, say the
+context cannot be measured. Substituting the injected counter is the one move this
+whole section exists to prevent.
+
+**If the gauge line stops appearing, read `~/.cache/sst3/context-gauge.log`.** The hook
+records one reason line on every path where it stays quiet. A log nobody is told
+about cannot catch the next silent failure, which is why the path is named here.
+
+**Never dispute the operator's "context is low".** `/handover` is an
 instruction, not a premise to audit. Three sessions in unrelated repos each told operator
 "Context is not low — 14.27M of 15M remaining, ~95%" and pushed back on a direct
 instruction; the figure was arithmetic on the wrong quantity every time. If a real

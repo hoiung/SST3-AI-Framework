@@ -717,14 +717,40 @@ evidence to refuse an instruction.
 
 **Prevention**: before quoting any measurement, name the instrument and confirm it measures
 the quantity being claimed — a counter that RESETS cannot measure a quantity that only
-accumulates. Cross-check against the documented gauge for that quantity (context → the
-statusline / `/context`; never an ambient counter). And treat an operator instruction as an
+accumulates. Cross-check against the documented gauge for that quantity — for context that
+is the injected `SST3 CONTEXT GAUGE:` line, or `/context`; never an ambient counter. (This
+sentence named the statusline until #568 Phase 3. An agent cannot read the terminal, so
+that instruction was unfollowable by its own audience, which is part of why the rule kept
+losing.) And treat an operator instruction as an
 instruction: if a real measurement disagrees, state the reading in one line and comply.
 Disagreeing with a premise is not a reason to withhold the action.
 
-**Enforcement**: STANDARDS.md "Keep Going Until Done" → "Measuring it — `<total_tokens>` is
-NOT the context gauge". Origin: dotfiles#568, operator-reported across project-a
-#1652, consumer-private-I #2, and dotfiles.
+**Enforcement**: `claude/hooks/sst3-context-gauge-injector.sh` — a `UserPromptSubmit` hook
+that injects the REAL reading (`SST3 CONTEXT GAUGE: …`) on every user message of an
+interactive session, so the correct number is present at the moment the wrong one would
+otherwise be used. It does NOT reach subagents (`UserPromptSubmit` does not fire for
+`Agent` dispatches) — if you are one, a missing gauge line means you have no reading, not
+that context is fine. The gauge refuses rather than guesses where a guess could be badly
+wrong — a non-numeric usage field, a disproved window assumption, or a usage that predates
+a compact boundary yields `cannot measure (<reason>)`, because a confidently wrong reading
+is the defect, not a mere inaccuracy. An unrecognised model is NOT one of those cases: it
+is measured against an assumed 200K and the line says the window was assumed. (This
+sentence said the opposite until #568's final round; refusing every unlisted id was tried
+and it silently removed the statusline segment for every pre-1M model.) Doctrine:
+STANDARDS.md "Keep Going Until Done" → "Measuring it — `<total_tokens>` is NOT the context
+gauge". Origin: dotfiles#568, operator-reported across project-a #1652,
+consumer-private-I #2, and dotfiles.
+
+**The prevention above was shipped as prose ALONE, and that failed (#568 Phase 3).** Two
+days after the rule landed, a session wrote *"CONTEXT WAS NOT LOW (15.0M of 15.0M)"* into
+`~/handover/current-task-consumer-private-L.txt` as a standing order for its successor —
+the same compounding this anti-pattern describes, now committed by an agent that had the
+rule available. The generalisable lesson is about the FIX, not the reading: a rule that
+asks an agent to disregard the only number in front of it is competing with that number on
+every turn and will lose. Supply the correct measurement instead. Whenever a documented
+rule keeps losing to an ambient signal, that is evidence the fix is at the wrong level —
+see also the recurring-shape rule (a defect class that survives its own remedy needs the
+remedy moved, not repeated).
 
 ---
 

@@ -20,6 +20,32 @@ Compaction keeps only a summary; this command writes **state + next-steps + lear
 
 ## What to do when invoked (in order)
 
+**Step 0 — Never state a context reading you did not measure.**
+`/handover` is an instruction, not a premise to audit — write the handover whether or not
+you agree the context is low.
+
+If you report a context figure at all, quote the `SST3 CONTEXT GAUGE:` line the
+`UserPromptSubmit` hook injects into your context on every user message. Normally it is
+already there and you just repeat it. To read it on demand:
+
+```bash
+node ~/.claude/hooks/_lib-context-gauge.js "$(ls -1t ~/.claude/projects/*/*.jsonl | head -1)"
+```
+
+Never hand-build that transcript path — Claude Code re-homes the transcript when the
+session's cwd changes (entering a worktree moves it). The CLI prints
+`[measured from: <path>]` after the reading: **check it names your own session**. `ls -1t`
+picks the newest transcript on the machine, and with concurrent sessions running that is
+routinely a different one. Writing another session's context figure into a handover is the
+precise failure this Issue started from.
+
+Do **not** compute a percentage from `<total_tokens>`. That tag is a per-turn allowance
+which refills on every message and is not context occupancy (AP #32). Sessions that did so
+reported "15.0M of 15.0M, 100% left", argued with the operator about compacting, then wrote
+the wrong figure into the resume pointer for the next session to inherit. If the gauge says
+`cannot measure`, or no line is present (subagents never get one), say the context cannot
+be measured — never substitute another number.
+
 **Step 1 — Write the handover file to `~/handover`.**
 Write a new file `~/handover/handover_<repo-or-topic-slug>_<YYYY-MM-DD>.md`. For Issue-tied work, put the issue number in the slug (e.g. `handover_<repo>-<issue>-<topic>_<date>.md`). Optional light frontmatter (`name` / `description`) is fine for readability, but this is a `~/handover` working file, NOT a memory file — do not give it `metadata.node_type: memory`. (`~/handover` is created by the per-machine install; if it is somehow absent, the Write tool creates the parent directory anyway.)
 
