@@ -53,9 +53,9 @@ EXIT_CONFIG = 2
 # `SST3/<subdir>` with no trailing slash is not rewritten); measuring it showed
 # widening would corrupt more than it fixes.
 #
-# Measured across every canonical file carrying `path_scrub` (177 mirror entries
+# Measured across every canonical file carrying `path_scrub` (199 mirror entries
 # on SST3-AI-Harness + 2 on sst3-skills -- note path_scrub runs on TWO lanes, not
-# on all 21 mirror targets):
+# on all 26 mirror targets):
 #
 #   _SST3_SELF_RE   68 bare matches, of which 49 are `$SST3/...` -- the SHELL
 #                   VARIABLE form of the resolver, which every skill and command

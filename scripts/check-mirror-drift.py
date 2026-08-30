@@ -38,7 +38,7 @@ from pathlib import Path
 
 # Import the CANONICAL scrubber that carries the real private-term table (#507
 # Stage-5 gap-fix for the #501 mechanism). `_private_term_table.py` is
-# canonical-only by design (#501 — the 48 private-term pairs never ship inside a
+# canonical-only by design (#501 — the 62 private-term pairs never ship inside a
 # public mirror), so the vendored `sst3_mirror_utils.py` in a mirror clone loads
 # an EMPTY table and its `transform()` silently SKIPS `private_term_scrub`. That
 # made `transform(canonical)` here diverge from what propagate-mirrors actually
