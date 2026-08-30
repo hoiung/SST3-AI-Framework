@@ -42,10 +42,10 @@ For any change that touches pipeline / backtest / SL1 / SL2 / orchestration / CL
 > Tagged `stages: 1,2` (#555 AC 2.4): the whole-fleet table is an ISSUE-AUTHORING
 > reference; at Stage-4 execution the ACTIVE repo's recipe is already in that
 > repo's CLAUDE.md per-repo sample-invocation table (the AP #9 narrative twin,
-> loaded every session), so re-emitting all ten shapes into the Stage-4 canon
+> loaded every session), so re-emitting every shape row into the Stage-4 canon
 > load duplicated what the session already carries.
 
-**Per-shape recipe table** (#447 Phase 7 seeded the first 6 repo shapes; the table has since grown to 12 as new consumer shapes onboarded; auto_pb is shape "Service" canonical above):
+**Per-shape recipe table** (#447 Phase 7 seeded the first 6 repo shapes; the table has since grown as new consumer shapes onboarded; auto_pb is shape "Service" canonical above). The row count is deliberately NOT written here. Two hand-maintained tallies in this file had both rotted to wrong by dotfiles#571 — the same class as the docstring tallies that issue removed rather than bumped, and a bump would just have rotted again on the next onboard. Derive it instead: `awk '/^\| \*\*/ {n++} END{print n}' standards/stage-4/ap18-workflow-tier.md`.
 
 | Shape | Sample artefact | Real-downstream | "8-ticker basket" analogue | Scope triggers | Safety constraints | Tier coverage (Unit / Workflow / E2E) |
 |---|---|---|---|---|---|---|
